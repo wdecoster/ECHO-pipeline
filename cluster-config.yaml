@@ -1,0 +1,40 @@
+__default__:
+  time: "24:00:00"
+  mem: "32G"
+  cpus: 8
+
+basecalling:
+  partition: "gpu"
+  mem: "64G"
+  cpus: 8
+
+alignment:
+  partition: "research"
+  mem: "128G"
+  cpus: 64
+
+variant_calling_snps_indels:
+  time: "24:00:00"
+  partition: "research"
+  mem: "64G"
+  cpus: 32
+
+variant_calling_sv:
+  partition: "research"
+  mem: "64G"
+  cpus: 16
+
+phasing:
+  partition: "research"
+  mem: "64G"
+  cpus: 16
+
+methylation_calling:
+  partition: "research"
+  mem: "64G"
+  cpus: 16
+
+TE_calling:
+  partition: "research"
+  mem: "64G"
+  cpus: 32
