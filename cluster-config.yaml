@@ -38,3 +38,8 @@ TE_calling:
   partition: "research"
   mem: "64G"
   cpus: 32
+
+TR_calling:
+  partition: "research"
+  mem: "64G"
+  cpus: 32

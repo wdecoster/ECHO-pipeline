@@ -16,6 +16,7 @@ rule all:
 	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed", sample=SAMPLES), 
 	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed", sample=SAMPLES), 
 	expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}", sample=SAMPLES), 
+	expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf", sample=SAMPLES), 
 	REFERENCE
 
 
@@ -62,7 +63,7 @@ rule variant_calling_snps_indels:
 	reference=REFERENCE,
 	mode_path="/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500"
     params:
-        out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels"    
+        out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"    
     output:
         snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
         snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
@@ -169,8 +170,7 @@ rule methylation_calling:
         phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
         reference=REFERENCE
     params:
-        out_dir=f"{OUTPUT_DIR}/04_methylation_calling/",
-	sample_name="{{sample}}"	
+        out_dir=f"{OUTPUT_DIR}/04_methylation_calling/"
     output:
         hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_1.bed",
         hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed",
@@ -184,7 +184,7 @@ rule methylation_calling:
         --combine-strands \
         --cpg \
         --partition-tag HP \
-        --prefix {params.sample_name}_haplotype
+        --prefix {wildcards.sample}_haplotype
 	"""
 
 
@@ -193,7 +193,7 @@ rule TE_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-        te_library="/ifs/data/research/unique/leena/references/teref.ont.human.fa",
+        te_library="/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa",
 	reference=REFERENCE
     output:
         out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}")
@@ -212,3 +212,32 @@ rule TE_calling:
         --max_cluster_size 500 \
         --extend_consensus 200
 	"""
+
+
+
+# Tandem Repeats calling
+rule TR_calling:
+    input:
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        STR_catalog="/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/genome-wide/repeat_catalog_v1.hg38_liftOver_T2T.adjusted.1_to_1000bp_motifs.longTR.bed",
+	reference=REFERENCE
+    output:
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf"
+    conda:
+        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/longtr.yaml"
+    shell:
+        """
+        /ifs/software/research/unique/leena/longTR/LongTR \
+        --bams {input.phased_bam} \
+        --regions {input.STR_catalog} \
+        --fasta {input.reference} \
+        --tr-vcf  {output.TR_vcf}\
+        --bam-samps {wildcards.sample} \
+        --bam-libs {wildcards.sample} \
+        --haploid chrX,chrY \
+        --phased-bam
+        """
+
+
+
