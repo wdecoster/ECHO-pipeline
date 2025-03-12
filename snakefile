@@ -1,7 +1,6 @@
-SAMPLES = ["HG001_subset"]
+SAMPLES = ["HG001_subset", "HG002_subset"]
 OUTPUT_DIR = "/ifs/data/research/unique/projects/snakemake_test"
 REFERENCE = "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2-renamed.fasta"
-
 
 
 rule all:
@@ -16,14 +15,14 @@ rule all:
 	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed", sample=SAMPLES), 
 	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed", sample=SAMPLES), 
 	expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf", sample=SAMPLES), 
+	expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES), 
 	REFERENCE
 
 
 # Basecalling runs on GPU
 rule basecalling:
     input:
-        pod5_dir=f"{OUTPUT_DIR}/00_raw_data/pod5/",
+        pod5_dir=f"{OUTPUT_DIR}/00_raw_data/pod5/{{sample}}",
 	model_dir="/ifs/software/research/unique/brando/dorado_models/"
     output:
         unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/bam/{{sample}}_unaligned.bam",
@@ -214,7 +213,6 @@ rule TE_calling:
 	"""
 
 
-
 # Tandem Repeats calling
 rule TR_calling:
     input:
@@ -223,12 +221,12 @@ rule TR_calling:
         STR_catalog="/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/genome-wide/repeat_catalog_v1.hg38_liftOver_T2T.adjusted.1_to_1000bp_motifs.longTR.bed",
 	reference=REFERENCE
     output:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf"
-    conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/longtr.yaml"
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz"
+    container:
+        "/ifs/software/research/unique/brando/pipeline/containers/longtr_2025_11_03.sif"
     shell:
         """
-        /ifs/software/research/unique/leena/longTR/LongTR \
+        /bin/LongTR \
         --bams {input.phased_bam} \
         --regions {input.STR_catalog} \
         --fasta {input.reference} \

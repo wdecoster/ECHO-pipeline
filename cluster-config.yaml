@@ -1,10 +1,12 @@
 __default__:
+  partition: "research"
   time: "24:00:00"
   mem: "32G"
   cpus: 8
 
 basecalling:
   partition: "gpu"
+  gpu: 1
   mem: "64G"
   cpus: 8
 
