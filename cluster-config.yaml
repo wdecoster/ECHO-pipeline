@@ -7,6 +7,7 @@ __default__:
 basecalling:
   partition: "gpu"
   gpu: 1
+  time: "4-00:00:00"
   mem: "64G"
   cpus: 8
 
@@ -45,3 +46,13 @@ TR_calling:
   partition: "research"
   mem: "64G"
   cpus: 32
+
+TR_methylation_calling:
+  partition: "research"
+  mem: "32G"
+  cpus: 16
+
+
+
+
+

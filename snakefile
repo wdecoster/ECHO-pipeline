@@ -1,4 +1,4 @@
-SAMPLES = ["HG001_subset", "HG002_subset"]
+SAMPLES = ["HG001_subset"]
 OUTPUT_DIR = "/ifs/data/research/unique/projects/snakemake_test"
 REFERENCE = "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2-renamed.fasta"
 
@@ -16,13 +16,14 @@ rule all:
 	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed", sample=SAMPLES), 
 	expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}", sample=SAMPLES), 
 	expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES), 
+	expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES),
 	REFERENCE
 
 
 # Basecalling runs on GPU
 rule basecalling:
     input:
-        pod5_dir=f"{OUTPUT_DIR}/00_raw_data/pod5/{{sample}}",
+        pod5_dir=f"{OUTPUT_DIR}/00_raw_data/pod5/{{sample}}/",
 	model_dir="/ifs/software/research/unique/brando/dorado_models/"
     output:
         unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/bam/{{sample}}_unaligned.bam",
@@ -218,7 +219,7 @@ rule TR_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-        STR_catalog="/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/genome-wide/repeat_catalog_v1.hg38_liftOver_T2T.adjusted.1_to_1000bp_motifs.longTR.bed",
+        STR_catalog="/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/pathogenic/STRchive-disease-loci.v2.2.1.T2T-CHM13.longTR_cpg.bed",
 	reference=REFERENCE
     output:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz"
@@ -238,4 +239,29 @@ rule TR_calling:
         """
 
 
+# Tandem Repeats methylation calling
+rule TR_methylation_calling:
+    input:
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz",
+        vcf_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        reference=REFERENCE
+    output:
+        out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}")
+    params:
+        length_flanking="300"	
+    conda:
+        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/TR_longTR_methylation.yaml"
+    shell:
+        """
+        bash /ifs/software/research/unique/brando/pipeline/tools/TR-longTR-methylation_v3.sh \
+	-v {input.TR_vcf} \
+	-r {input.reference} \
+	-i {input.phased_bam} \
+	-o {output.out_dir} \
+	-s {wildcards.sample} \
+	-f {params.length_flanking} \
+	-h chrX,chrY
+        """
 
