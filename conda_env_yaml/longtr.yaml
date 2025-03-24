@@ -1,0 +1,15 @@
+name: longTR_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.8  # Adjust if needed
+  - spoa  # Required for alignment
+  - htslib  # Needed for BAM/VCF file handling
+  - bzip2
+  - samtools  # For BAM processing
+  - bedtools  # For genomic region handling
+  - numpy  # If needed by LongTR
+  - pandas  # Useful for handling metadata
+
