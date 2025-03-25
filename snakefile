@@ -224,7 +224,7 @@ rule TR_calling:
     output:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz"
     container:
-        "containers/longtr_2025_11_03.sif"
+        "/ifs/software/research/unique/containers/longtr_2025_11_03.sif"
     shell:
         """
         /bin/LongTR \
