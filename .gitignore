@@ -1,0 +1,4 @@
+.snakemake/
+containers/
+snakefile_leena
+slurm-*
