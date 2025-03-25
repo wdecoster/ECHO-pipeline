@@ -46,7 +46,7 @@ rule alignment:
 	aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
 	bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/minimap2.yaml"
+        "conda_env_yaml/minimap2.yaml"
     shell:
         """
 	samtools fastq -T 'MM,ML' {input.unaligned_bam} > {output.fastq}
@@ -70,7 +70,7 @@ rule variant_calling_snps_indels:
     resources:
         cpus=32
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/clair3.yaml"
+        "conda_env_yaml/clair3.yaml"
     shell:
         """
 	export OMP_NUM_THREADS={resources.cpus}
@@ -98,7 +98,7 @@ rule variant_calling_sv:
     resources:
         cpus=8
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/sniffles2.yaml"
+        "conda_env_yaml/sniffles2.yaml"
     shell:
         """
         sniffles \
@@ -132,16 +132,16 @@ rule phasing:
     resources:
         cpus=16
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/longphase.yaml"
+        "conda_env_yaml/longphase.yaml"
     shell:
         """
-	/ifs/software/research/unique/brando/pipeline/tools/longphase/longphase modcall \
+	tools/longphase/longphase modcall \
 	-b {input.aligned_bam} \
 	-r {input.reference} \
 	-o {params.out_prefix}_modcall \
 	-t {resources.cpus}
 
-	/ifs/software/research/unique/brando/pipeline/tools/longphase/longphase phase \
+	tools/longphase/longphase phase \
 	--snp-file {input.snp_vcf_gz} \
 	--mod-file {params.out_prefix}_modcall.vcf \
 	--sv-file {input.sv_vcf_gz} \
@@ -151,7 +151,7 @@ rule phasing:
 	-t {resources.cpus} \
 	--ont
 
-	/ifs/software/research/unique/brando/pipeline/tools/longphase/longphase haplotag \
+	tools/longphase/longphase haplotag \
 	-b {input.aligned_bam} \
 	-r {input.reference} \
 	-s {params.out_prefix}_phased.vcf \
@@ -176,7 +176,7 @@ rule methylation_calling:
         hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed",
         ungrouped_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed"
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/modkit.yaml"
+        "conda_env_yaml/modkit.yaml"
     shell:
         """
         modkit pileup {input.phased_bam} {params.out_dir}/ \
@@ -198,10 +198,10 @@ rule TE_calling:
     output:
         out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}")
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/tldr.yaml"
+        "conda_env_yaml/tldr.yaml"
     shell:
         """
-        /ifs/software/research/unique/brando/pipeline/tools/tldr/tldr \
+        tools/tldr/tldr \
 	-b {input.phased_bam} \
         -e {input.te_library} \
         -r {input.reference} \
@@ -224,7 +224,7 @@ rule TR_calling:
     output:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz"
     container:
-        "/ifs/software/research/unique/brando/pipeline/containers/longtr_2025_11_03.sif"
+        "containers/longtr_2025_11_03.sif"
     shell:
         """
         /bin/LongTR \
@@ -252,10 +252,10 @@ rule TR_methylation_calling:
     params:
         length_flanking="300"	
     conda:
-        "/ifs/software/research/unique/brando/pipeline/conda_env_yaml/TR_longTR_methylation.yaml"
+        "conda_env_yaml/TR_longTR_methylation.yaml"
     shell:
         """
-        bash /ifs/software/research/unique/brando/pipeline/tools/TR-longTR-methylation_v3.sh \
+        bash tools/TR-longTR-methylation_v3.sh \
 	-v {input.TR_vcf} \
 	-r {input.reference} \
 	-i {input.phased_bam} \
