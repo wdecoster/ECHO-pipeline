@@ -1,4 +1,5 @@
 .snakemake/
 containers/
+tools/
 snakefile_leena
 slurm-*

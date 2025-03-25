@@ -135,13 +135,13 @@ rule phasing:
         "conda_env_yaml/longphase.yaml"
     shell:
         """
-	tools/longphase/longphase modcall \
+	/ifs/software/research/unique/pipeline_tools/longphase/longphase modcall \
 	-b {input.aligned_bam} \
 	-r {input.reference} \
 	-o {params.out_prefix}_modcall \
 	-t {resources.cpus}
 
-	tools/longphase/longphase phase \
+	/ifs/software/research/unique/pipeline_tools/longphase/longphase phase \
 	--snp-file {input.snp_vcf_gz} \
 	--mod-file {params.out_prefix}_modcall.vcf \
 	--sv-file {input.sv_vcf_gz} \
@@ -151,7 +151,7 @@ rule phasing:
 	-t {resources.cpus} \
 	--ont
 
-	tools/longphase/longphase haplotag \
+	/ifs/software/research/unique/pipeline_tools/longphase/longphase haplotag \
 	-b {input.aligned_bam} \
 	-r {input.reference} \
 	-s {params.out_prefix}_phased.vcf \
@@ -201,7 +201,7 @@ rule TE_calling:
         "conda_env_yaml/tldr.yaml"
     shell:
         """
-        tools/tldr/tldr \
+        /ifs/software/research/unique/pipeline_tools/tldr/tldr \
 	-b {input.phased_bam} \
         -e {input.te_library} \
         -r {input.reference} \
@@ -255,7 +255,7 @@ rule TR_methylation_calling:
         "conda_env_yaml/TR_longTR_methylation.yaml"
     shell:
         """
-        bash tools/TR-longTR-methylation_v3.sh \
+        bash scripts/TR-longTR-methylation_v3.sh \
 	-v {input.TR_vcf} \
 	-r {input.reference} \
 	-i {input.phased_bam} \
