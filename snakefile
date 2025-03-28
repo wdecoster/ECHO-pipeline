@@ -4,7 +4,7 @@ configfile: "config.yaml"
 SAMPLES = config["samples"]
 START_FROM = config.get("start_from", "pod5")  # default to "pod5"
 OUTPUT_DIR = config["output_dir"]
-INPUT_POD5_DIR = config["input_pod5_dir"]
+INPUT_DIR = config["input_dir"]
 REFERENCE = config["reference"]
 TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
