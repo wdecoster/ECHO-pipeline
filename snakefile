@@ -53,7 +53,7 @@ rule all:
 if START_FROM == "pod5":
     rule basecalling:
         input:
-            pod5_dir=f"{INPUT_POD5_DIR}/00_raw_data/pod5/{{sample}}/",
+            pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
 	    model_dir="/ifs/software/research/unique/brando/dorado_models/"
         output:
             unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",

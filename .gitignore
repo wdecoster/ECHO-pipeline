@@ -1,5 +1,17 @@
-.snakemake/
-containers/
-tools/
-snakefile_leena
-slurm-*
+# Ignore everything
+*
+
+# But NOT these files
+!.gitignore
+!README.md
+!cluster-config.yaml
+!config.yaml
+!snakemake
+
+# And NOT these directories
+!scripts/
+!conda_env_yaml/
+
+# Ensure contents of those directories are also not ignored
+scripts/*
+conda_env_yaml/*
