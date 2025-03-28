@@ -1,3 +1,20 @@
+# Manual to Launch Snakemake Pipeline
+
+## 🧪 Environment Setup
+
+To run the Snakemake pipeline, first load the required Conda and Singularity environments:
+
+```bash
+module load bioinf/conda
+. /cm/shared/apps/bioinf/conda/23.10.0/etc/profile.d/conda.sh
+conda activate /ifs/software/research/unique/leena/conda-envs/snakemake-env
+module load bioinf/singularity
+```
+
+---
+
+## 📥 Input File Requirements
+
 To run the pipeline, input files must be in one of the following formats:
 
 - `.pod5`
@@ -65,4 +82,5 @@ If the pipeline is interrupted, you can resume from where it left off using the 
 ```bash
 snakemake --use-conda --use-singularity --jobs 4 --configfile config.yaml --cluster-config cluster-config.yaml --cluster "sbatch --partition={cluster.partition} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique" --rerun-incomplete
 ```
+
 
