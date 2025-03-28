@@ -1,117 +1,150 @@
-SAMPLES = ["HG001_subset"]
-OUTPUT_DIR = "/ifs/data/research/unique/projects/snakemake_test"
-REFERENCE = "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2-renamed.fasta"
+configfile: "config.yaml"
 
+
+SAMPLES = config["samples"]
+START_FROM = config.get("start_from", "pod5")  # default to "pod5"
+OUTPUT_DIR = config["output_dir"]
+INPUT_POD5_DIR = config["input_pod5_dir"]
+REFERENCE = config["reference"]
+TR_CATALOG = config["tr_catalog"]
+TE_CATALOG = config["te_catalog"]
+FLANKING_LENGTH_BP = config["flanking_length_bp"]
+HAPLOID_CHRS= config["haploid_chrs"]
+
+
+all_inputs = []
+
+if START_FROM == "pod5":
+    all_inputs.extend([
+        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
+    ])
+elif START_FROM == "ubam":
+    all_inputs.extend([
+        expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
+    ])
+elif START_FROM == "bam":
+    # no basecalling or alignment outputs expected
+    pass
+else:
+    print(f"ERROR: Invalid 'start_from' value in config.yaml: {START_FROM}")
+    exit(1)
+
+
+all_inputs.extend([
+    expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_1.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES),
+    REFERENCE
+])
 
 rule all:
-    input:
-        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/bam/{{sample}}_unaligned.bam", sample=SAMPLES),
-	expand(f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv", sample=SAMPLES),
-	expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_1.bed", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES), 
-	expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES),
-	REFERENCE
+    input: all_inputs
 
 
-# Basecalling runs on GPU
-rule basecalling:
-    input:
-        pod5_dir=f"{OUTPUT_DIR}/00_raw_data/pod5/{{sample}}/",
-	model_dir="/ifs/software/research/unique/brando/dorado_models/"
-    output:
-        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/bam/{{sample}}_unaligned.bam",
-	summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
-    shell:
-        """
-	module load bioinf/dorado
-	dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
-	dorado summary {output.unaligned_bam} > {output.summary_file}
-	"""
+#Basecalling
+if START_FROM == "pod5":
+    rule basecalling:
+        input:
+            pod5_dir=f"{INPUT_POD5_DIR}/00_raw_data/pod5/{{sample}}/",
+	    model_dir="/ifs/software/research/unique/brando/dorado_models/"
+        output:
+            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
+	    summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
+        shell:
+            """
+	    module load bioinf/dorado
+	    dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
+	    dorado summary {output.unaligned_bam} > {output.summary_file}
+	    """
 
 
-# Alignment runs on CPU
-rule alignment:
-    input:
-        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/bam/{{sample}}_unaligned.bam",
-	reference=REFERENCE
-    output:
-        fastq=f"{OUTPUT_DIR}/00_raw_data/fastq/{{sample}}.fastq",
-	aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-	bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
-    conda:
-        "conda_env_yaml/minimap2.yaml"
-    shell:
-        """
-	samtools fastq -T 'MM,ML' {input.unaligned_bam} > {output.fastq}
-	minimap2 -y -t 64 -ax map-ont {input.reference} {output.fastq} | samtools sort -o {output.aligned_bam} -
-	samtools index -o {output.bam_index} {output.aligned_bam}
-	"""
+# Alignment
+if START_FROM in ["pod5", "ubam"]:
+    rule alignment:
+        input:
+            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
+    	    reference=REFERENCE
+        output:
+            fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq",
+    	    aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+    	    bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
+        conda:
+            "conda_env_yaml/minimap2.yaml"
+        shell:
+            """
+    	    samtools fastq -T 'MM,ML' {input.unaligned_bam} > {output.fastq}
+    	    minimap2 -y -t 64 -ax map-ont {input.reference} {output.fastq} | samtools sort -o {output.aligned_bam} -
+    	    samtools index -o {output.bam_index} {output.aligned_bam}
+    	    """
 
 
 # Variant calling: SNPs and Indels
-rule variant_calling_snps_indels:
-    input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-	reference=REFERENCE,
-	mode_path="/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500"
-    params:
-        out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"    
-    output:
-        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
-        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
-    resources:
-        cpus=32
-    conda:
-        "conda_env_yaml/clair3.yaml"
-    shell:
-        """
-	export OMP_NUM_THREADS={resources.cpus}
-	run_clair3.sh \
-        --bam_fn {input.aligned_bam} \
-        --ref_fn {input.reference} \
-        --output {params.out_dir} \
-        --threads {resources.cpus} \
-        --platform="ont" \
-        --model_path {input.mode_path} \
-        --enable_phasing \
-        --longphase_for_phasing
-	"""
+if START_FROM in ["pod5", "ubam", "bam"]:
+    rule variant_calling_snps_indels:
+        input:
+            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+            bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+    	    reference=REFERENCE,
+    	    mode_path="/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500"
+        params:
+            out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"    
+        output:
+            snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
+            snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
+        resources:
+            cpus=32
+        conda:
+            "conda_env_yaml/clair3.yaml"
+        shell:
+            """
+    	    export OMP_NUM_THREADS={resources.cpus}
+    	    run_clair3.sh \
+                --bam_fn {input.aligned_bam} \
+                --ref_fn {input.reference} \
+                --output {params.out_dir} \
+                --threads {resources.cpus} \
+                --platform="ont" \
+                --model_path {input.mode_path} \
+                --enable_phasing \
+                --longphase_for_phasing
+    	    """
 
 
 # Variant calling: STRUCTURAL VARIANTS
-rule variant_calling_sv:
-    input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-        reference=REFERENCE
-    output:
-        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
-        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi"
-    resources:
-        cpus=8
-    conda:
-        "conda_env_yaml/sniffles2.yaml"
-    shell:
-        """
-        sniffles \
-        --input {input.aligned_bam} \
-        --reference {input.reference} \
-        --vcf {output.sv_vcf_gz}.tmp \
-        --threads {resources.cpus} \
-        --output-rnames
-
-        bgzip -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz} 
-        tabix -f -p vcf {output.sv_vcf_gz} 
-        rm -f {output.sv_vcf_gz}.tmp
-        """
+if START_FROM in ["pod5", "ubam", "bam"]:
+    rule variant_calling_sv:
+        input:
+            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+            bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+            reference=REFERENCE
+        output:
+            sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
+            sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi"
+        resources:
+            cpus=8
+        conda:
+            "conda_env_yaml/sniffles2.yaml"
+        shell:
+            """
+            sniffles \
+            --input {input.aligned_bam} \
+            --reference {input.reference} \
+            --vcf {output.sv_vcf_gz}.tmp \
+            --threads {resources.cpus} \
+            --output-rnames
+    
+            bgzip -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz} 
+            tabix -f -p vcf {output.sv_vcf_gz} 
+            rm -f {output.sv_vcf_gz}.tmp
+            """
 
 
 # Phasing
@@ -193,24 +226,26 @@ rule TE_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-        te_library="/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa",
+        TE_catalog=TE_CATALOG,
 	reference=REFERENCE
     output:
         out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}")
+    params:
+        flanking_length_bp=FLANKING_LENGTH_BP
     conda:
         "conda_env_yaml/tldr.yaml"
     shell:
         """
         /ifs/software/research/unique/pipeline_tools/tldr/tldr \
 	-b {input.phased_bam} \
-        -e {input.te_library} \
+        -e {input.TE_catalog} \
         -r {input.reference} \
 	-p 32 \
         --outbase {output.out_dir} \
         --detail_output \
         --methylartist \
         --max_cluster_size 500 \
-        --extend_consensus 200
+        --extend_consensus {params.flanking_length_bp}
 	"""
 
 
@@ -219,22 +254,24 @@ rule TR_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-        STR_catalog="/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/pathogenic/STRchive-disease-loci.v2.2.1.T2T-CHM13.longTR_cpg.bed",
+        TR_catalog=TR_CATALOG,
 	reference=REFERENCE
     output:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz"
+    params:
+        haploid_chrs=HAPLOID_CHRS
     container:
         "/ifs/software/research/unique/containers/longtr_2025_11_03.sif"
     shell:
         """
         /bin/LongTR \
         --bams {input.phased_bam} \
-        --regions {input.STR_catalog} \
+        --regions {input.TR_catalog} \
         --fasta {input.reference} \
         --tr-vcf  {output.TR_vcf}\
         --bam-samps {wildcards.sample} \
         --bam-libs {wildcards.sample} \
-        --haploid chrX,chrY \
+        --haploid {params.haploid_chrs} \
         --phased-bam
         """
 
@@ -250,7 +287,8 @@ rule TR_methylation_calling:
     output:
         out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}")
     params:
-        length_flanking="300"	
+        flanking_length_bp=FLANKING_LENGTH_BP,
+	haploid_chrs=HAPLOID_CHRS
     conda:
         "conda_env_yaml/TR_longTR_methylation.yaml"
     shell:
@@ -261,7 +299,7 @@ rule TR_methylation_calling:
 	-i {input.phased_bam} \
 	-o {output.out_dir} \
 	-s {wildcards.sample} \
-	-f {params.length_flanking} \
-	-h chrX,chrY
+	-f {params.flanking_length_bp} \
+	-h {params.haploid_chrs}
         """
 

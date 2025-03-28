@@ -10,3 +10,5 @@ dependencies:
   - zlib              # Compression library often required
   - htslib            # For handling VCF/VCF.gz, if needed
   - boost             # C++ libraries required by many bioinformatics toolsname: longphase_env
+  - samtools=1.21
+
