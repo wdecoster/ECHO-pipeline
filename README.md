@@ -31,13 +31,13 @@ If you start the pipeline from `pod5`, ensure that the `pod5` files follow this 
 /ifs/data/research/unique/projects/{project_name}/00_raw_data/pod5/{sample_name}
 ```
 
-If you start the pipeline from `ubam`, the `ubam` file should be in this one:
+If you start the pipeline from `ubam`, the `ubam` file should be in this directory:
 
 ```
 /ifs/data/research/unique/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}
 ```
 
-If you start the pipeline from `bam`, the `bam` and the index `bai` files should be in this one:
+If you start the pipeline from `bam`, the `bam` and the index `bai` files should be in this directory:
 
 ```
 /ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}
@@ -56,6 +56,7 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 - Sample ID
 - Input format (`.pod5`, `.ubam`, or `.bam`)
 - Input directory
+- Output directory (preferably the same of input directory)
 - Reference genome path
 - TE catalog path
 - TR catalog path
