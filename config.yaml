@@ -1,10 +1,10 @@
 samples:
   - HG001_subset
-#  - HG002_subset
+  - HG002_subset
 
-start_from: "bam" # options: "pod5", "ubam", "bam".
-input_dir: "/ifs/data/research/unique/projects/test_inputs"
-output_dir: "/ifs/data/research/unique/projects/test_inputs"
+start_from: "pod5" # options: "pod5", "ubam", "bam".
+input_dir: "/ifs/data/research/unique/projects/snakemake_test"
+output_dir: "/ifs/data/research/unique/projects/snakemake_test"
 reference: "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2-renamed.fasta"
 
 te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"

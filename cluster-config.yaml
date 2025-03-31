@@ -6,7 +6,7 @@ __default__:
 
 basecalling:
   partition: "gpu"
-  gpu: 1
+  gres: gpu:1
   time: "4-00:00:00"
   mem: "64G"
   cpus: 8
