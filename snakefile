@@ -57,7 +57,7 @@ if START_FROM == "pod5":
 	    model_dir="/ifs/software/research/unique/brando/dorado_models/"
         output:
             unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
-	    summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
+	    summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv" 
         shell:
             """
 	    module load bioinf/dorado

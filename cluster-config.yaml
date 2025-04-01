@@ -1,12 +1,13 @@
 __default__:
   partition: "research"
-  time: "24:00:00"
+  gres: ""
+  time: "4-00:00:00"
   mem: "32G"
   cpus: 8
 
 basecalling:
   partition: "gpu"
-  gres: gpu:1
+  gres: "--gres=gpu:1"
   time: "4-00:00:00"
   mem: "64G"
   cpus: 8

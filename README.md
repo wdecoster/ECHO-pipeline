@@ -71,7 +71,7 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 To run the pipeline, use the following command:
 
 ```bash
-snakemake --use-conda --use-singularity --jobs 4 --configfile config.yaml --cluster-config cluster-config.yaml --cluster "sbatch --partition={cluster.partition} --gres={cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique"
+snakemake --use-conda --use-singularity --jobs 4 --configfile config.yaml --cluster-config cluster-config.yaml --cluster "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique"
 ```
 
 ---
@@ -81,7 +81,7 @@ snakemake --use-conda --use-singularity --jobs 4 --configfile config.yaml --clus
 If the pipeline is interrupted, you can resume from where it left off using the `--rerun-incomplete` flag:
 
 ```bash
-snakemake --use-conda --use-singularity --jobs 4 --configfile config.yaml --cluster-config cluster-config.yaml --cluster "sbatch --partition={cluster.partition} --gres={cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique" --rerun-incomplete
+snakemake --use-conda --use-singularity --jobs 4 --configfile config.yaml --cluster-config cluster-config.yaml --cluster "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique" --rerun-incomplete
 ```
 
 
