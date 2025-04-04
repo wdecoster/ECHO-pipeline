@@ -236,11 +236,17 @@ rule TE_calling:
         "conda_env_yaml/tldr.yaml"
     shell:
         """
+        # Generate chromosome list file
+        for chr in {1..22} M X Y; do
+            echo "chr${chr}" >> {output.out_dir}/chr.txt
+        done
+
         /ifs/software/research/unique/pipeline_tools/tldr/tldr \
 	-b {input.phased_bam} \
         -e {input.TE_catalog} \
         -r {input.reference} \
 	-p 32 \
+        -c {output.out_dir}/chr.txt \
         --outbase {output.out_dir} \
         --detail_output \
         --methylartist \
