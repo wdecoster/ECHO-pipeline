@@ -39,9 +39,10 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_1.bed", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_2.bed", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}_haplotype_ungrouped.bed", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES),
+    directory(expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES)),
+    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     REFERENCE
 ])
 
@@ -229,16 +230,18 @@ rule TE_calling:
         TE_catalog=TE_CATALOG,
 	reference=REFERENCE
     output:
-        out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}")
+        chr_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/chr.txt",
+	out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
     params:
+        out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}"),
         flanking_length_bp=FLANKING_LENGTH_BP
     conda:
         "conda_env_yaml/tldr.yaml"
     shell:
         """
         # Generate chromosome list file
-        for chr in {1..22} M X Y; do
-            echo "chr${chr}" >> {output.out_dir}/chr.txt
+        for chr in {{1..22}} M X Y; do
+            echo "chr${{chr}}" >> {output.chr_file}
         done
 
         /ifs/software/research/unique/pipeline_tools/tldr/tldr \
@@ -246,12 +249,13 @@ rule TE_calling:
         -e {input.TE_catalog} \
         -r {input.reference} \
 	-p 32 \
-        -c {output.out_dir}/chr.txt \
-        --outbase {output.out_dir} \
+        -c {output.chr_file} \
+        --outbase {params.out_dir} \
         --detail_output \
         --methylartist \
         --max_cluster_size 500 \
         --extend_consensus {params.flanking_length_bp}
+	
 	"""
 
 
@@ -286,7 +290,6 @@ rule TR_calling:
 rule TR_methylation_calling:
     input:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz",
-        vcf_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
         reference=REFERENCE
@@ -307,5 +310,26 @@ rule TR_methylation_calling:
 	-s {wildcards.sample} \
 	-f {params.flanking_length_bp} \
 	-h {params.haploid_chrs}
+        """
+
+
+# Non reference TE methylation calling
+rule non_ref_TE_methylation_calling:
+    input:
+        TLDR_txt_output=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
+    output:
+        output_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt"
+    params:
+        out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}",
+        flanking_length_bp=FLANKING_LENGTH_BP
+    conda:
+        "conda_env_yaml/TR_longTR_methylation.yaml"
+    shell:
+        """
+        bash scripts/TLDR-methylation_v1.sh \
+        -i {input.TLDR_txt_output} \
+        -o {params.out_dir} \
+        -s {wildcards.sample} \
+        -f {params.flanking_length_bp} \
         """
 

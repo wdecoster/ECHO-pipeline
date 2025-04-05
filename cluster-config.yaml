@@ -53,6 +53,10 @@ TR_methylation_calling:
   mem: "32G"
   cpus: 16
 
+non_ref_TE_methylation_calling:
+  partition: "research"
+  mem: "32G"
+  cpus: 16
 
 
 
