@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+#set -e
 if [[ "$1" == "--help" ]]; then usage; fi
 
 # ==============================
@@ -11,7 +11,7 @@ if [[ "$1" == "--help" ]]; then usage; fi
 # ------------ Usage ------------
 usage() {
     echo "Usage: $0 -p <phased_dir> -u <unphased_dir> -v <phased_variation_dir> \\
-                -t <TE_type> -s <sample_id> -o <output_dir> [-f <flank_bp>]"
+                -t <TE_type> -c <TE_catalog> -s <sample_id> -o <output_dir> [-f <flank_bp>]"
     exit 1
 }
 
@@ -52,11 +52,11 @@ mkdir -p "$OUTDIR/mod_phased" "$OUTDIR/mod_unphased" "$OUTDIR/variants"
 # -------- Define inputs ------------
 
 #Set up input files
-phased_pileup_1="${PHASED_PILEUP}/${SAMPLE_ID}_modkit_1.bed.gz"
-phased_pileup_2="${PHASED_PILEUP}/${SAMPLE_ID}_modkit_2.bed.gz"
-unphased_pileup="${UNPHASED_PILEUP}/${SAMPLE_ID}_modkit_unphased.bed.gz"
-SNP_data="${VARIATION}/${SAMPLE_ID}_phased.vcf"
-SV_data="${VARIATION}/${SAMPLE_ID}_phased_SV.vcf"
+phased_pileup_1="${PHASED_PILEUP}/${SAMPLE_ID}_haplotype_1.bed.gz"
+phased_pileup_2="${PHASED_PILEUP}/${SAMPLE_ID}_haplotype_2.bed.gz"
+unphased_pileup="${UNPHASED_PILEUP}/${SAMPLE_ID}_unphased.bed.gz"
+SNP_data="${VARIATION}/${SAMPLE_ID}_phased.vcf.gz"
+SV_data="${VARIATION}/${SAMPLE_ID}_phased_SV.vcf.gz"
 SNP_filt="${VARIATION}_SNP_filt.vcf"
 SV_filt="${VARIATION}_SV_filt.vcf"
 
@@ -67,10 +67,6 @@ awk -v flank="$FLANK" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print
 # ------------ Filter VCF ------------
 # Now filtering for at least 5 covered reads used for variant calling
 
-bgzip "$SNP_data"
-bgzip "$SV_data"
-tabix "$SNP_data.gz"
-tabix "$SV_data.gz"
 bcftools view "$SNP_data" -i 'FILTER="PASS" & FORMAT/DP>5' --threads 16 --output "$SNP_filt"
 bcftools view "$SV_data" -i 'FILTER="PASS" & INFO/SUPPORT>5' --threads 16 --output "$SV_filt"
 bgzip "$SNP_filt"
@@ -88,8 +84,8 @@ zcat "$phased_pileup_2" | bedtools intersect -a - -b "${UPSTREAM_TE_CATALOG}" -w
 zcat "$unphased_pileup" | bedtools intersect -a - -b "${UPSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_pileup_unphased.bed"
 
 # ------------ Run modkit stats across specified TE regions ------------ 
-modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "$phased_pileup_1" 2>/dev/null
-modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv" "$phased_pileup_2" 2>/dev/null
+modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "$phased_pileup_1" 
+modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv" "$phased_pileup_2" 
 modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_stats_unphased.tsv" "$unphased_pileup" 2>/dev/null
 modkit stats -t 32 --regions "$UPSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "$phased_pileup_1" 2>/dev/null
 modkit stats -t 32 --regions "$UPSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" "$phased_pileup_2" 2>/dev/null
