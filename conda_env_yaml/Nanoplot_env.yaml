@@ -1,0 +1,6 @@
+name: /ifs/software/research/unique/leonard/conda_envs/Nanoplot
+channels:
+  - defaults
+dependencies:
+  - nanoplot
+prefix: /ifs/software/research/unique/leonard/conda_envs/Nanoplot

@@ -1,0 +1,6 @@
+name: /ifs/software/research/unique/leonard/conda_envs/FastQC
+channels:
+  - defaults
+dependencies:
+  - fastqc
+prefix: /ifs/software/research/unique/leonard/conda_envs/FastQC
