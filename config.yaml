@@ -1,14 +1,13 @@
 samples:
-  - HG001_subset
-  - HG002_subset
+  - 25038
 
-start_from: "pod5" # options: "pod5", "ubam", "bam".
-input_dir: "/ifs/data/research/unique/projects/snakemake_test"
-output_dir: "/ifs/data/research/unique/projects/snakemake_test"
-reference: "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2-renamed.fasta"
+start_from: "bam" # options: "pod5", "ubam", "bam".
+input_dir: "/ifs/data/research/unique/projects/semen_controls"
+output_dir: "/ifs/data/research/unique/projects/semen_controls"
+reference: "/ifs/data/research/unique/leena/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta"
 
 te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
-tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/pathogenic/STRchive-disease-loci.v2.2.1.T2T-CHM13.longTR_cpg.bed"
-flanking_length_bp: "300"
+tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed"
+flanking_length_bp: "1000"
 
 haploid_chrs: "chrM,chrX,chrY"

@@ -699,7 +699,7 @@ echo "STEP4: RUNNING uTR AND SUMMARY OF TR SEQUENCE FEATURES"
 echo ""
 
 # Define uTR tool path
-UTR_TOOL_DIR="/ifs/software/research/unique/brando/pipeline/tools/uTR/uTR"
+UTR_TOOL_DIR="/ifs/software/research/unique/pipeline_tools/uTR/uTR"
 
 # Function to extract uTR features
 extract_uTR_features() {
