@@ -7,8 +7,8 @@ __default__:
 
 basecalling:
   partition: "gpu"
-  gres: "--gres=gpu:1"
-  time: "4-00:00:00"
+  gres: "--gres=gpu:3"
+  time: "8-00:00:00"
   mem: "64G"
   cpus: 8
 
@@ -53,6 +53,15 @@ TR_methylation_calling:
   mem: "32G"
   cpus: 16
 
+non_ref_TE_methylation_calling:
+  partition: "research"
+  mem: "32G"
+  cpus: 16
+
+ref_TE_methylation_calling:
+  partition: "research"
+  mem: "32G"
+  cpus: 16
 
 
 
