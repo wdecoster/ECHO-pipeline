@@ -2,13 +2,16 @@ samples:
   - HG001_subset
 #  - HG002_subset
 
-start_from: "pod5" # options: "pod5", "ubam", "bam".
+start_from: "pod5" #Options: "pod5", "ubam", "bam".
 input_dir: "/ifs/data/research/unique/projects/test_config"
 output_dir: "/ifs/data/research/unique/projects/test_config"
 reference: "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2.fasta"
+reference_TE: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
 
-te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
 tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/pathogenic/STRchive-disease-loci.v2.2.1.T2T-CHM13.longTR_cpg.bed"
+te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/T2T-CHM13/T2T-CHM13_TEs_all_cpg.bed"
+type_of_te: "LTR_cpg" #Options: all, all_cpg, DNA, DNA_cpg, LINE, LINE_cpg, helitron, helitron_cpg, SINE, SINE_cpg, LTR, LTR_cpg, retroposon, retroposon_cpg
+
 flanking_length_bp: "300"
 
 haploid_chrs: "chrM,chrX,chrY"
