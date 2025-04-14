@@ -2,7 +2,7 @@
 
 # Script to analyse non-ref TEs called by TLDR, adding allele-specific methylation information
 
-set -e 
+#set -e 
 
 # Print usage instructions 
 usage() {
@@ -50,18 +50,24 @@ TLDR_PASS="${OUTPUT_DIR}/${SAMPLE_ID}.table.pass.txt"
 TLDR_SUMMARY="${OUTPUT_DIR}/${SAMPLE_ID}.table.pass.summary.txt"
 METH_SUMMARY_PHASED="${OUTPUT_DIR}/${SAMPLE_ID}.table.pass.summary.meth.phased.txt"
 METH_SUMMARY_UNPHASED="${OUTPUT_DIR}/${SAMPLE_ID}.table.pass.summary.meth.unphased.txt"
-detailed_dir="${OUTDIR}/${SAMPLE_ID}"
+detailed_dir="${OUTPUT_DIR}/${SAMPLE_ID}"
 outbase="${OUTPUT_DIR}/modkit"
 
 
 echo ""
 echo "STEP 1: Filter TLDR output: PASS only"
-echo ""
+echo " "
 
-# Filter for PASSSED insertions in TLDR output file
+# Filter for PASS insertions in TLDR output file
 head -n 1 "$TLDR_IN" > "$TLDR_PASS"
 grep "PASS" "$TLDR_IN" >> "$TLDR_PASS"
 
+#Check if file does not contain any pass, if this is the case exit the script 
+if [ "$(wc -l < "$TLDR_PASS")" -eq 1 ]; then
+    echo "File has only one line — exiting gracefully."
+    touch "$METH_SUMMARY_PHASED"
+    exit 0
+fi
 # Generate a summary file based on passed output
 awk '{OFS="\t"} {print $1, $2, $3, $4, $5, $6":"$7, $10, $22, $23}' "$TLDR_PASS" > "$TLDR_SUMMARY"
 
