@@ -9,7 +9,8 @@ REFERENCE = config["reference"]
 TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
-HAPLOID_CHRS= config["haploid_chrs"]
+HAPLOID_CHRS = config["haploid_chrs"]
+QC_RESULTS = config["QC_results"]
 
 
 all_inputs = []
@@ -57,13 +58,30 @@ if START_FROM == "pod5":
 	    model_dir="/ifs/software/research/unique/brando/dorado_models/"
         output:
             unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
-	    summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv" 
+	    summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
         shell:
             """
 	    module load bioinf/dorado
 	    dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
 	    dorado summary {output.unaligned_bam} > {output.summary_file}
 	    """
+
+    # QC for unaligned bam
+    # change naming of output file to exclude date/time stamp
+    rule QC_unaligned:
+        input:
+            unaligned_bam=f'{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam'
+        output:
+            QC_unaligned_dir=directory(f"{QC_RESULTS}/unaligned"),
+            QC_unaligned_flag=touch(unaligned_res.done)
+        conda:
+            "conda_env_yaml/FastQC.yaml"
+        shell:
+            """
+            mkdir -p {output.result_dir}
+            fastqc --input unaligned_bam
+            touch {output.done_flag}
+            """
 
 
 # Alignment
@@ -85,6 +103,24 @@ if START_FROM in ["pod5", "ubam"]:
     	    samtools index -o {output.bam_index} {output.aligned_bam}
     	    """
 
+    # QC for aligned bam with longQC
+    rule aligned_QC:
+        input:
+            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+        output:
+            QC_aligned_dir=dictionary(f"{QC_RESULTS}/aligned"),
+            QC_aligned_flag=touch(aligned_res.done)
+            #QC_html_report=f"{QC_RESULTS}/aligned/web_summary_LongQC.html"
+        conda:
+            "conda_env_yaml/LongQC_env.yaml"
+        shell:
+            """
+            cd /ifs/software/research/unqiue/leonard
+            cd LongQC/minimap2-coverage && make # only first execution
+            python longQC.py sampleqc -x ont-rapid -o out_dir input_reads.fq
+            """
+
+
 
 # Variant calling: SNPs and Indels
 if START_FROM in ["pod5", "ubam", "bam"]:
@@ -95,7 +131,7 @@ if START_FROM in ["pod5", "ubam", "bam"]:
     	    reference=REFERENCE,
     	    mode_path="/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500"
         params:
-            out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"    
+            out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"
         output:
             snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
             snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
@@ -140,9 +176,9 @@ if START_FROM in ["pod5", "ubam", "bam"]:
             --vcf {output.sv_vcf_gz}.tmp \
             --threads {resources.cpus} \
             --output-rnames
-    
-            bgzip -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz} 
-            tabix -f -p vcf {output.sv_vcf_gz} 
+
+            bgzip -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz}
+            tabix -f -p vcf {output.sv_vcf_gz}
             rm -f {output.sv_vcf_gz}.tmp
             """
 
@@ -152,13 +188,13 @@ rule phasing:
     input:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
         bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-	snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
-	snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi",
-	sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
+	    snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
+	    snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi",
+	    sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
         sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi",
-	reference=REFERENCE
+	    reference=REFERENCE
     params:
-        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}"    
+        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}"
     output:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}_phased_alignment.bam.bai",
@@ -190,9 +226,9 @@ rule phasing:
 	-s {params.out_prefix}_phased.vcf \
 	--sv-file {params.out_prefix}_phased_SV.vcf \
 	--mod-file {params.out_prefix}_phased_mod.vcf \
-	-o {params.out_prefix}_phased_alignment 
-        
-	samtools index -o {output.phased_bam_index} {output.phased_bam} 
+	-o {params.out_prefix}_phased_alignment
+
+	samtools index -o {output.phased_bam_index} {output.phased_bam}
 	"""
 
 
@@ -302,4 +338,5 @@ rule TR_methylation_calling:
 	-f {params.flanking_length_bp} \
 	-h {params.haploid_chrs}
         """
+
 
