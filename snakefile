@@ -44,7 +44,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES),
     directory(expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES)),
-    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE/{{sample}}_summary_per_ref_{TYPE_OF_TE}.txt", sample=SAMPLES),
     REFERENCE
 ])
@@ -347,9 +347,9 @@ rule non_ref_TE_methylation_calling:
     input:
         TLDR_txt_output=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
     output:
-        output_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/{{sample}}.table.pass.summary.meth.phased.txt"
+        output_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt"
     params:
-        out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}",
+        out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE",
         flanking_length_bp=FLANKING_LENGTH_BP
     conda:
         "conda_env_yaml/modkit.yaml"
@@ -362,7 +362,7 @@ rule non_ref_TE_methylation_calling:
         -f {params.flanking_length_bp} \
         """
 
-# Non reference TE methylation calling
+# Reference TE methylation calling
 rule ref_TE_methylation_calling:
     input:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",

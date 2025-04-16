@@ -113,8 +113,12 @@ echo "STEP 2: Executing modkit for passed samples in $detailed_dir..."
 echo ""
 
 find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d '' file; do
+    set +e
+    echo "Processing file: $file"
+
     # Ensure the file is not inside failed UUIDs
-    if [[ "$file" == "$faileddir"* ]]; then
+    if [[ "$file" == "$faileddir"* ]]; then 
+        echo "Skipping. Detected in failed directory: $file"
         continue
     fi
 
@@ -137,6 +141,17 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
 
     mkdir -p "$outbase"
 
+    # Check for missing BED entry that can cause script to break
+    if [[ ! -f "$te_bed" ]]; then
+        echo "WARNING: Missing te_bed for UUID $uuid. Skipping modkit and adding NA values to summary."
+        missing_values=".\t.\t.\t."
+        for summary in "$METH_SUMMARY_PHASED" "$METH_SUMMARY_UNPHASED"; do
+            grep -q "^$uuid" "$summary" && \
+            awk -v uuid="$uuid" -v values="$missing_values" 'BEGIN{OFS="\t"} {gsub(/^ +| +$/, "", $1)} $1 == uuid {print $0, values; next} {print $0}' "$summary" > "${summary}.tmp" && mv "${summary}.tmp" "$summary"
+        done
+        continue
+    fi
+
     # Create a new BED file without the strand column
     modified_te_bed="${outbase}/${uuid}_te_modified.bed"
     awk '{OFS="\t"} {print $1, $2, $3}' "$te_bed" > "$modified_te_bed"
@@ -145,26 +160,28 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
     te_bed_upstream="${outbase}/${uuid}_upstream.bed"
     awk -v flank="$FLANKING_BASES" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2}' "$modified_te_bed" > "$te_bed_upstream"
 
+
+    echo "=====processing UUID: $uuid ======="
+    echo "cons_ref: $cons_ref"
+    echo "cons_ref_fai: $cons_ref_fai"
+    echo "te_bed: $te_bed"
+    echo "te_bam: $te_bam"
+    echo "te_bam_bai: $te_bam_bai"
+
     # Ensure all necessary files exist
     if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
 
+        echo 
+ 
         # Modkit analysis
         modkit pileup --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" 2>/dev/null
         modkit pileup --ref "$cons_ref" --cpg "$te_bam" --combine-strands --ignore h --mod-threshold m:0.8 "${outbase}/pileup_${uuid}_unphased.bed" 2>/dev/null
 
-        if [[ -f "$outbase/pileup_${uuid}_1.bed" && -s "$outbase/pileup_${uuid}_1.bed" ]]; then
-            bgzip "$outbase/pileup_${uuid}_1.bed" 
-            tabix "$outbase/pileup_${uuid}_1.bed.gz"
-        else
-            continue
-        fi
-
-        if [[ -f "$outbase/pileup_${uuid}_2.bed" && -s "$outbase/pileup_${uuid}_2.bed" ]]; then
-            bgzip "$outbase/pileup_${uuid}_2.bed"
-            tabix "$outbase/pileup_${uuid}_2.bed.gz"
-        else
-            continue
-        fi
+        for bed in 1 2; do
+            bedfile="$outbase/pileup_${uuid}_${bed}.bed" 
+            [[ -f "$bedfile" && -s "$bedfile" ]] || continue
+            bgzip "$bedfile" && tabix "$bedfile.gz"
+        done 
 
         bgzip "$outbase/pileup_${uuid}_unphased.bed"
         tabix "$outbase/pileup_${uuid}_unphased.bed.gz"
@@ -204,7 +221,7 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
         # Determine whether each haplotype exists
         hp1_exists=false
         hp2_exists=false
-
+ 
         if echo "$phasing_info" | grep -qE ":1:"; then
             hp1_exists=true
         fi
@@ -215,44 +232,33 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
 
         # Extract values from HP1 stats only (for TE insertion only if HP1 exists)
         if [[ "$hp1_exists" == true && -f "$stats_TE_1" && -s "$stats_TE_1" ]]; then
-
             hp1_TE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_TE_1")
             hp1_TE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_TE_1")
-
-
         fi
 
         if [[ -f "$stats_upTE_1" && -s "$stats_upTE_1" ]]; then
             hp1_upTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_upTE_1")
             hp1_upTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_upTE_1")
-
         fi
 
         # Extract values from HP2 stats (for TE insertion only if HP2 exists)
         if [[ "$hp2_exists" == true && -f "$stats_TE_2" && -s "$stats_TE_2" ]]; then
-
             hp2_TE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_TE_2")
             hp2_TE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_TE_2")
-
         fi
 
         if [[ -f "$stats_upTE_2" && -s "$stats_upTE_2" ]]; then
-
             hp2_upTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_upTE_2")
             hp2_upTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_upTE_2")
-
         fi
 
         # Extract values from unphased stats 
         if [[ -f "$stats_TE_unphased" && -s "$stats_TE_unphased" ]]; then
-
             unphased_TE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_TE_unphased")
             unphased_TE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_TE_unphased")
-
         fi
 
         if [[ -f "$stats_upTE_unphased" && -s "$stats_upTE_unphased" ]]; then
-
             unphased_upTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_upTE_unphased")
             unphased_upTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_upTE_unphased")
         fi
@@ -273,43 +279,41 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
         meth_TE_counts="${hp1_TE_count_valid_m},${hp2_TE_count_valid_m}"
         meth_upTE_values="${hp1_upTE_percent_m},${hp2_upTE_percent_m}"
         meth_upTE_counts="${hp1_upTE_count_valid_m},${hp2_upTE_count_valid_m}"
-
         meth_values_phased="${meth_TE_values}${TAB}${meth_TE_counts}${TAB}${meth_upTE_values}${TAB}${meth_upTE_counts}"
         meth_values_unphased="${unphased_TE_percent_m}${TAB}${unphased_TE_count_valid_m}${TAB}${unphased_upTE_percent_m}${TAB}${unphased_upTE_count_valid_m}"
 
-    else
-        echo "Warning: missing files required for UUID: $uuid"
-    fi
+        # Append values to the corresponding line in METH_SUMMARY files
 
+        if [[ -n "$meth_values_phased" ]]; then
+            if grep -q "^$uuid" "$METH_SUMMARY_PHASED"; then
+                awk -v uuid="$uuid" -v values="$meth_values_phased" 'BEGIN{OFS="\t"}
+                {gsub(/^ +| +$/, "", $1)}  # Trim spaces from UUID
+                $1 == uuid {print $0, values; next} # If UUID matches, append values
+                {print $0}' "$METH_SUMMARY_PHASED" > "${METH_SUMMARY_PHASED}.tmp" && mv "${METH_SUMMARY_PHASED}.tmp" "$METH_SUMMARY_PHASED"
+            else 
+                echo "Warning: UUID $uuid not found in $METH_SUMMARY_PHASED. Skipping." 
+            fi
+        else
+            echo "Skipping update for UUID: $uuid (no valid methylation data found)"
+        fi
 
-    # Append values to the corresponding line in METH_SUMMARY files
-
-    if [[ -n "$meth_values_phased" ]]; then
-        if grep -q "^$uuid" "$METH_SUMMARY_PHASED"; then
-            awk -v uuid="$uuid" -v values="$meth_values_phased" 'BEGIN{OFS="\t"}
-            {gsub(/^ +| +$/, "", $1)}  # Trim spaces from UUID
-            $1 == uuid {print $0, values; next} # If UUID matches, append values
-            {print $0}' "$METH_SUMMARY_PHASED" > "${METH_SUMMARY_PHASED}.tmp" && mv "${METH_SUMMARY_PHASED}.tmp" "$METH_SUMMARY_PHASED"
-        else 
-            echo "Warning: UUID $uuid not found in $METH_SUMMARY_PHASED. Skipping." 
+        if [[ -n "$meth_values_unphased" ]]; then
+            if grep -q "^$uuid" "$METH_SUMMARY_UNPHASED"; then
+                awk -v uuid="$uuid" -v values="$meth_values_unphased" 'BEGIN{OFS="\t"}
+                {gsub(/^ +| +$/, "", $1)}  # Trim spaces from UUID
+                $1 == uuid {print $0, values; next} # If UUID matches, append values
+                {print $0}' "$METH_SUMMARY_UNPHASED" > "${METH_SUMMARY_UNPHASED}.tmp" && mv "${METH_SUMMARY_UNPHASED}.tmp" "$METH_SUMMARY_UNPHASED"
+            else 
+                echo "Warning: UUID $uuid not found in $METH_SUMMARY_UNPHASED. Skipping." 
+            fi
+        else
+            echo "Skipping update for UUID: $uuid (no valid methylation data found)"
         fi
     else
-       echo "Skipping update for UUID: $uuid (no valid methylation data found)"
+        echo "WARNING: missing files required for UUID: $uuid. Skipping."
+        continue
     fi
-
-    if [[ -n "$meth_values_unphased" ]]; then
-        if grep -q "^$uuid" "$METH_SUMMARY_UNPHASED"; then
-            awk -v uuid="$uuid" -v values="$meth_values_unphased" 'BEGIN{OFS="\t"}
-            {gsub(/^ +| +$/, "", $1)}  # Trim spaces from UUID
-            $1 == uuid {print $0, values; next} # If UUID matches, append values
-            {print $0}' "$METH_SUMMARY_UNPHASED" > "${METH_SUMMARY_UNPHASED}.tmp" && mv "${METH_SUMMARY_UNPHASED}.tmp" "$METH_SUMMARY_UNPHASED"
-        else 
-            echo "Warning: UUID $uuid not found in $METH_SUMMARY_UNPHASED. Skipping." 
-        fi
-    else
-       echo "Skipping update for UUID: $uuid (no valid methylation data found)"
-    fi
-
+    set -e
 done
 
 rm "$uuid_file"

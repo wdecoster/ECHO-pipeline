@@ -204,17 +204,17 @@ while read -r LINE; do
         case "$GENOTYPE" in
             "0|.")
                 REF_SEQ="${UPSTREAM_SEQ}$(echo "${REF}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-                HEADER="${CHROM}_${POS}_${TR_ID}_REF"
+                HEADER="${CHROM}_${POS}_${TR_ID}_HP1_REF"
                 TR_START_REL=$((FLANKING_BASES + 1))
                 TR_END_REL=$((FLANKING_BASES + ${#REF}))
                 echo ">$HEADER" >> "$MULTIFASTA"
                 echo "$REF_SEQ" >> "$MULTIFASTA"
-                echo -e ">$HEADER\n$SEQ" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
+                echo -e ">$HEADER\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
                 echo -e "$HEADER\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
                 ;;
             "1|.")
                ALT_SEQ="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               HEADER="${CHROM}_${POS}_${TR_ID}_ALT"
+               HEADER="${CHROM}_${POS}_${TR_ID}_HP1_ALT"
                TR_START_ALT=$((FLANKING_BASES + 1))
                TR_END_ALT=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
                echo ">$HEADER" >> "$MULTIFASTA"
