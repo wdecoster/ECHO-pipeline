@@ -83,7 +83,7 @@ awk 'NR>1 {print $1}' "$TLDR_SUMMARY" > "$uuid_file"
 
 # Initialize the methylation summary files as a copy of TLDR_SUMMARY, adding new headers (if it doesn’t exist)
 if [[ ! -f "$METH_SUMMARY_PHASED" ]]; then
-    echo -e "$(head -n 1 "$TLDR_SUMMARY")\tTEAverageMeth\tTE_Nvalid\tUpstream_AverageMeth\tUpstream_Nvalid" > "$METH_SUMMARY_PHASED"
+    echo -e "$(head -n 1 "$TLDR_SUMMARY")\tTEAverageMeth\tTE_Nvalid\tUpstream_AverageMeth\tUpstream_Nvalid\tDownstream_AverageMeth\tDownstream_Nvalid" > "$METH_SUMMARY_PHASED"
     tail -n +2 "$TLDR_SUMMARY" >> "$METH_SUMMARY_PHASED"
     cp "$METH_SUMMARY_PHASED" "$METH_SUMMARY_UNPHASED"
 fi
@@ -144,7 +144,7 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
     # Check for missing BED entry that can cause script to break
     if [[ ! -f "$te_bed" ]]; then
         echo "WARNING: Missing te_bed for UUID $uuid. Skipping modkit and adding NA values to summary."
-        missing_values=".\t.\t.\t."
+        missing_values=".\t.\t.\t.\t.\t."
         for summary in "$METH_SUMMARY_PHASED" "$METH_SUMMARY_UNPHASED"; do
             grep -q "^$uuid" "$summary" && \
             awk -v uuid="$uuid" -v values="$missing_values" 'BEGIN{OFS="\t"} {gsub(/^ +| +$/, "", $1)} $1 == uuid {print $0, values; next} {print $0}' "$summary" > "${summary}.tmp" && mv "${summary}.tmp" "$summary"
@@ -160,6 +160,9 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
     te_bed_upstream="${outbase}/${uuid}_upstream.bed"
     awk -v flank="$FLANKING_BASES" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2}' "$modified_te_bed" > "$te_bed_upstream"
 
+    # Create an upstream-shifted BED file (#FLANKING_BASES bp from startm 250 bp default)
+    te_bed_downstream="${outbase}/${uuid}_downstream.bed"
+    awk -v flank="$FLANKING_BASES" '{OFS="\t"} {print $1, $3, $3+flank}' "$modified_te_bed" > "$te_bed_downstream"
 
     echo "=====processing UUID: $uuid ======="
     echo "cons_ref: $cons_ref"
@@ -169,7 +172,7 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
     echo "te_bam_bai: $te_bam_bai"
 
     # Ensure all necessary files exist
-    if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
+    if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bed_downstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
 
         echo 
  
@@ -193,6 +196,9 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
         modkit stats --regions "$te_bed_upstream" -c m -o "${outbase}/${uuid}_upstreamTE_stats_1.tsv" "${outbase}/pileup_${uuid}_1.bed.gz" 2>/dev/null
         modkit stats --regions "$te_bed_upstream" -c m -o "${outbase}/${uuid}_upstreamTE_stats_2.tsv" "${outbase}/pileup_${uuid}_2.bed.gz" 2>/dev/null
         modkit stats --regions "$te_bed_upstream" -c m -o "${outbase}/${uuid}_upstreamTE_stats_unphased.tsv" "${outbase}/pileup_${uuid}_unphased.bed.gz" 2>/dev/null
+        modkit stats --regions "$te_bed_downstream" -c m -o "${outbase}/${uuid}_downstreamTE_stats_1.tsv" "${outbase}/pileup_${uuid}_1.bed.gz" 2>/dev/null
+        modkit stats --regions "$te_bed_downstream" -c m -o "${outbase}/${uuid}_downstreamTE_stats_2.tsv" "${outbase}/pileup_${uuid}_2.bed.gz" 2>/dev/null
+        modkit stats --regions "$te_bed_downstream" -c m -o "${outbase}/${uuid}_downstreamTE_stats_unphased.tsv" "${outbase}/pileup_${uuid}_unphased.bed.gz" 2>/dev/null
 
         stats_TE_1="${outbase}/${uuid}_TE_stats_1.tsv"
         stats_TE_2="${outbase}/${uuid}_TE_stats_2.tsv"
@@ -200,20 +206,29 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
         stats_upTE_1="${outbase}/${uuid}_upstreamTE_stats_1.tsv"
         stats_upTE_2="${outbase}/${uuid}_upstreamTE_stats_2.tsv"
         stats_upTE_unphased="${outbase}/${uuid}_upstreamTE_stats_unphased.tsv"
+        stats_downTE_1="${outbase}/${uuid}_downstreamTE_stats_1.tsv"
+        stats_downTE_2="${outbase}/${uuid}_downstreamTE_stats_2.tsv"
+        stats_downTE_unphased="${outbase}/${uuid}_downstreamTE_stats_unphased.tsv"
 
         # Initialize values as missing
         hp1_TE_percent_m="."
         hp1_TE_count_valid_m="."
         hp1_upTE_percent_m="."
         hp1_upTE_count_valid_m="."
+        hp1_downTE_percent_m="."
+        hp1_downTE_count_valid_m="."
         hp2_TE_percent_m="."
         hp2_TE_count_valid_m="."
         hp2_upTE_percent_m="."
         hp2_upTE_count_valid_m="."
+        hp2_downTE_percent_m="."
+        hp2_downTE_count_valid_m="."
         unphased_TE_percent_m="."
         unphased_TE_count_valid_m="."
         unphased_upTE_percent_m="."
         unphased_upTE_count_valid_m="."
+        unphased_downTE_percent_m="."
+        unphased_downTE_count_valid_m="."
 
         # Extract the Phasing column
         phasing_info=$(awk -v uuid="$uuid" '$1 == uuid {print $9}' "$METH_SUMMARY_PHASED")
@@ -241,6 +256,12 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
             hp1_upTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_upTE_1")
         fi
 
+        if [[ -f "$stats_downTE_1" && -s "$stats_downTE_1" ]]; then
+            hp1_downTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_downTE_1")
+            hp1_downTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_downTE_1")
+        fi
+
+
         # Extract values from HP2 stats (for TE insertion only if HP2 exists)
         if [[ "$hp2_exists" == true && -f "$stats_TE_2" && -s "$stats_TE_2" ]]; then
             hp2_TE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_TE_2")
@@ -252,6 +273,11 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
             hp2_upTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_upTE_2")
         fi
 
+        if [[ -f "$stats_downTE_2" && -s "$stats_downTE_2" ]]; then
+            hp2_downTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_downTE_2")
+            hp2_downTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_downTE_2")
+        fi
+
         # Extract values from unphased stats 
         if [[ -f "$stats_TE_unphased" && -s "$stats_TE_unphased" ]]; then
             unphased_TE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_TE_unphased")
@@ -261,6 +287,11 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
         if [[ -f "$stats_upTE_unphased" && -s "$stats_upTE_unphased" ]]; then
             unphased_upTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_upTE_unphased")
             unphased_upTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_upTE_unphased")
+        fi
+
+        if [[ -f "$stats_downTE_unphased" && -s "$stats_downTE_unphased" ]]; then
+            unphased_downTE_percent_m=$(awk 'NR==2 {print ($8 == "" ? "." : $8)}' "$stats_downTE_unphased")
+            unphased_downTE_count_valid_m=$(awk 'NR==2 {print ($7 == "" ? "." : $7)}' "$stats_downTE_unphased")
         fi
 
         # Force missing values to "."
@@ -279,8 +310,10 @@ find "$detailed_dir" -type f -name "*.te.bam" -print0 | while IFS= read -r -d ''
         meth_TE_counts="${hp1_TE_count_valid_m},${hp2_TE_count_valid_m}"
         meth_upTE_values="${hp1_upTE_percent_m},${hp2_upTE_percent_m}"
         meth_upTE_counts="${hp1_upTE_count_valid_m},${hp2_upTE_count_valid_m}"
-        meth_values_phased="${meth_TE_values}${TAB}${meth_TE_counts}${TAB}${meth_upTE_values}${TAB}${meth_upTE_counts}"
-        meth_values_unphased="${unphased_TE_percent_m}${TAB}${unphased_TE_count_valid_m}${TAB}${unphased_upTE_percent_m}${TAB}${unphased_upTE_count_valid_m}"
+        meth_downTE_values="${hp1_downTE_percent_m},${hp2_downTE_percent_m}"
+        meth_downTE_counts="${hp1_downTE_count_valid_m},${hp2_downTE_count_valid_m}"
+        meth_values_phased="${meth_TE_values}${TAB}${meth_TE_counts}${TAB}${meth_upTE_values}${TAB}${meth_upTE_counts}${TAB}${meth_downTE_values}${TAB}${meth_downTE_counts}"
+        meth_values_unphased="${unphased_TE_percent_m}${TAB}${unphased_TE_count_valid_m}${TAB}${unphased_upTE_percent_m}${TAB}${unphased_upTE_count_valid_m}${TAB}${unphased_downTE_percent_m}${TAB}${unphased_downTE_count_valid_m}"
 
         # Append values to the corresponding line in METH_SUMMARY files
 
