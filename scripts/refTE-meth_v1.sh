@@ -62,13 +62,16 @@ SV_filt="${VARIATION}_SV_filt.vcf"
 
 # Generate shifted bed file for upstream TE regions (default -250 bp, or number of bases specified by flank variable)
 UPSTREAM_TE_CATALOG="${OUTDIR}/${TE}_upstream.bed"
+DOWNSTREAM_TE_CATALOG="${OUTDIR}/${TE}_downstream.bed"
 awk -v flank="$FLANK" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2, $4}' "$TE_CATALOG" > "$UPSTREAM_TE_CATALOG"
+awk -v flank="$FLANK" '{OFS="\t"} {print $1, $3, $3+flank, $4}' "$TE_CATALOG" > "$DOWNSTREAM_TE_CATALOG"
+
 
 # ------------ Filter VCF ------------
 # Now filtering for at least 5 covered reads used for variant calling
 
-bcftools view "$SNP_data" -i 'FILTER="PASS" & FORMAT/DP>5' --threads 16 --output "$SNP_filt"
-bcftools view "$SV_data" -i 'FILTER="PASS" & INFO/SUPPORT>5' --threads 16 --output "$SV_filt"
+bcftools view "$SNP_data" -i 'FILTER="PASS" & FORMAT/DP>5' --threads 32 --output "$SNP_filt"
+bcftools view "$SV_data" -i 'FILTER="PASS" & INFO/SUPPORT>5' --threads 32 --output "$SV_filt"
 bgzip "$SNP_filt"
 bgzip "$SV_filt"
 tabix "$SNP_filt.gz"
@@ -82,6 +85,10 @@ zcat "$unphased_pileup" | bedtools intersect -a - -b "${TE_CATALOG}" -wa -wb > "
 zcat "$phased_pileup_1" | bedtools intersect -a - -b "${UPSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_pileup_1.bed"
 zcat "$phased_pileup_2" | bedtools intersect -a - -b "${UPSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_pileup_2.bed"
 zcat "$unphased_pileup" | bedtools intersect -a - -b "${UPSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_pileup_unphased.bed"
+zcat "$phased_pileup_1" | bedtools intersect -a - -b "${DOWNSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_pileup_1.bed"
+zcat "$phased_pileup_2" | bedtools intersect -a - -b "${DOWNSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_pileup_2.bed"
+zcat "$unphased_pileup" | bedtools intersect -a - -b "${DOWNSTREAM_TE_CATALOG}" -wa -wb > "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_pileup_unphased.bed"
+
 
 # ------------ Run modkit stats across specified TE regions ------------ 
 modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "$phased_pileup_1" 
@@ -90,6 +97,11 @@ modkit stats -t 32 --regions "$TE_CATALOG" -c m -o "${OUTDIR}/mod_unphased/${SAM
 modkit stats -t 32 --regions "$UPSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "$phased_pileup_1" 2>/dev/null
 modkit stats -t 32 --regions "$UPSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" "$phased_pileup_2" 2>/dev/null
 modkit stats -t 32 --regions "$UPSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_stats_unphased.tsv" "$unphased_pileup" 2>/dev/null
+modkit stats -t 32 --regions "$DOWNSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv" "$phased_pileup_1" 2>/dev/null
+modkit stats -t 32 --regions "$DOWNSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv" "$phased_pileup_2" 2>/dev/null
+modkit stats -t 32 --regions "$DOWNSTREAM_TE_CATALOG" -c m -o "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv" "$unphased_pileup" 2>/dev/null
+
+
 
 # ------------ Intersect variation ------------
 # Report and SNPs and SVs that intersect with TE elements of interest
@@ -108,7 +120,7 @@ bedtools intersect -a "${TE_CATALOG}" -b "${SV_filt}.gz" -wa -wb -C > "$SV_INTER
 OUTPUT="${OUTDIR}/${SAMPLE_ID}_summary_per_ref_${TE}.txt"
 
 echo "making the final summary file.."
-echo -e "chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\ttotal_SNP\tSNP_count\tINDEL_count\tSV_count\tSV_types\tSV_IDs" > "$OUTPUT"
+echo -e "chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tdownstream_avgMeth_phased\tdownstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\tdownstream_avgMeth_unphased\tdownstream_Nvalid_unphased\ttotal_SNP\tSNP_count\tINDEL_count\tSV_count\tSV_types\tSV_IDs" > "$OUTPUT"
 
 # Define methylation stats files
 stats_1="${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv"
@@ -117,6 +129,9 @@ stats_unph="${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_stats_unphased.tsv"
 up_1="${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv"
 up_2="${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv"
 up_unph="${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_stats_unphased.tsv"
+down_1="${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv"
+down_2="${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv"
+down_unph="${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv"
 
 # Function to get methylation percent,Nvalid by coordinates
 read_meth_stats() {
@@ -150,9 +165,16 @@ while IFS=$'\t' read -r chr start end family dot strand id; do
     up_start=$(( start - FLANK )); [[ $up_start -lt 0 ]] && up_start=0
     up_end=$start
 
+    down_start=$end
+    down_end=$(( end + FLANK ))
+
     UP_hp1=$(read_meth_stats "$up_1" "$chr" "$up_start" "$up_end")
     UP_hp2=$(read_meth_stats "$up_2" "$chr" "$up_start" "$up_end")
     UP_unph=$(read_meth_stats "$up_unph" "$chr" "$up_start" "$up_end")
+
+    DOWN_hp1=$(read_meth_stats "$down_1" "$chr" "$down_start" "$down_end")
+    DOWN_hp2=$(read_meth_stats "$down_2" "$chr" "$down_start" "$down_end")
+    DOWN_unph=$(read_meth_stats "$down_unph" "$chr" "$down_start" "$down_end")
 
     # Fallbacks if missing 
     [ -z "$TE_hp1" ] && TE_hp1="NA,NA"
@@ -161,16 +183,23 @@ while IFS=$'\t' read -r chr start end family dot strand id; do
     [ -z "$UP_hp1" ] && UP_hp1="NA,NA"
     [ -z "$UP_hp2" ] && UP_hp2="NA,NA"
     [ -z "$UP_unph" ] && UP_unph="NA,NA"
+    [ -z "$DOWN_hp1" ] && DOWN_hp1="NA,NA"
+    [ -z "$DOWN_hp2" ] && DOWN_hp2="NA,NA"
+    [ -z "$DOWN_unph" ] && DOWN_unph="NA,NA"
 
     # Format outputs
     TE_avgMeth="$(echo "$TE_hp1" | cut -d',' -f1),$(echo "$TE_hp2" | cut -d',' -f1)"
     TE_Nvalid="$(echo "$TE_hp1" | cut -d',' -f2),$(echo "$TE_hp2" | cut -d',' -f2)"
     UP_avgMeth="$(echo "$UP_hp1" | cut -d',' -f1),$(echo "$UP_hp2" | cut -d',' -f1)"
     UP_Nvalid="$(echo "$UP_hp1" | cut -d',' -f2),$(echo "$UP_hp2" | cut -d',' -f2)"
+    DOWN_avgMeth="$(echo "$DOWN_hp1" | cut -d',' -f1),$(echo "$DOWN_hp2" | cut -d',' -f1)"
+    DOWN_Nvalid="$(echo "$DOWN_hp1" | cut -d',' -f2),$(echo "$DOWN_hp2" | cut -d',' -f2)"
     TE_avgMeth_unphased="$(echo "$TE_unph" | cut -d',' -f1)"
     TE_Nvalid_unphased="$(echo "$TE_unph" | cut -d',' -f2)"
     UP_avgMeth_unphased="$(echo "$UP_unph" | cut -d',' -f1)"
     UP_Nvalid_unphased="$(echo "$UP_unph" | cut -d',' -f2)"
+    DOWN_avgMeth_unphased="$(echo "$DOWN_unph" | cut -d',' -f1)"
+    DOWN_Nvalid_unphased="$(echo "$DOWN_unph" | cut -d',' -f2)"
 
     # Get overlapping SVs for this TE region from SV_INTERSECT
     sv_matches=$(awk -v chr="$chr" -v start="$start" -v end="$end" \
@@ -195,7 +224,7 @@ while IFS=$'\t' read -r chr start end family dot strand id; do
     fi
 
     # Output line
-    echo -e "${chr}\t${start}\t${end}\t${family}\t${dot}\t${strand}\t${id}\t${length}\t${TE_avgMeth}\t${TE_Nvalid}\t${UP_avgMeth}\t${UP_Nvalid}\t${TE_avgMeth_unphased}\t${TE_Nvalid_unphased}\t${UP_avgMeth_unphased}\t${UP_Nvalid_unphased}\t${total_snp}\t${snp_count}\t${indel_count}\t${sv_count}\t${svtypes}\t${sv_ids}" >> "$OUTPUT"
+    echo -e "${chr}\t${start}\t${end}\t${family}\t${dot}\t${strand}\t${id}\t${length}\t${TE_avgMeth}\t${TE_Nvalid}\t${UP_avgMeth}\t${UP_Nvalid}\t${DOWN_avgMeth}\t${DOWN_Nvalid}\t${TE_avgMeth_unphased}\t${TE_Nvalid_unphased}\t${UP_avgMeth_unphased}\t${UP_Nvalid_unphased}\t${DOWN_avgMeth_unphased}\t${DOWN_Nvalid_unphased}\${total_snp}\t${snp_count}\t${indel_count}\t${sv_count}\t${svtypes}\t${sv_ids}" >> "$OUTPUT"
 
 done < "$TE_CATALOG"
 

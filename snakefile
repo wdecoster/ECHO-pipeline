@@ -10,6 +10,7 @@ REFRENCE_TE = config["reference_TE"]
 TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
+CONSENSUS_EXTENSION = config["extension_repeat_consensus"]
 HAPLOID_CHRS = config["haploid_chrs"]
 TYPE_OF_TE = config["type_of_te"]
 
@@ -44,7 +45,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES),
     directory(expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES)),
-    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE/{{sample}}_summary_per_ref_{TYPE_OF_TE}.txt", sample=SAMPLES),
     REFERENCE
 ])
@@ -263,7 +264,7 @@ rule TE_calling:
 	out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
     params:
         out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}"),
-        flanking_length_bp=FLANKING_LENGTH_BP
+        consensus_extension=CONSENSUS_EXTENSION
     conda:
         "conda_env_yaml/tldr.yaml"
     shell:
@@ -283,7 +284,7 @@ rule TE_calling:
         --detail_output \
         --methylartist \
         --max_cluster_size 500 \
-        --extend_consensus {params.flanking_length_bp}
+        --extend_consensus {params.consensus_extension}
 	
 	"""
 
@@ -326,7 +327,8 @@ rule TR_methylation_calling:
         out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}")
     params:
         flanking_length_bp=FLANKING_LENGTH_BP,
-	haploid_chrs=HAPLOID_CHRS
+	haploid_chrs=HAPLOID_CHRS,
+        extension=CONSENSUS_EXTENSION
     conda:
         "conda_env_yaml/TR_longTR_methylation.yaml"
     shell:
@@ -337,6 +339,7 @@ rule TR_methylation_calling:
 	-i {input.phased_bam} \
 	-o {output.out_dir} \
 	-s {wildcards.sample} \
+        -e {params.extension} \
 	-f {params.flanking_length_bp} \
 	-h {params.haploid_chrs}
         """
@@ -347,9 +350,9 @@ rule non_ref_TE_methylation_calling:
     input:
         TLDR_txt_output=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
     output:
-        output_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/{{sample}}.table.pass.summary.meth.phased.txt"
+        output_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt"
     params:
-        out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}",
+        out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE",
         flanking_length_bp=FLANKING_LENGTH_BP
     conda:
         "conda_env_yaml/modkit.yaml"
@@ -362,7 +365,7 @@ rule non_ref_TE_methylation_calling:
         -f {params.flanking_length_bp} \
         """
 
-# Non reference TE methylation calling
+# Reference TE methylation calling
 rule ref_TE_methylation_calling:
     input:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
