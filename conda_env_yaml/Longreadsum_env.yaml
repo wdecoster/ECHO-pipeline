@@ -1,0 +1,11 @@
+name: /ifs/software/research/unique/leonard/conda_envs/Longreadsum
+channels:
+  - wglab
+  - conda-forge
+  - jannessp
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.9
+  - longreadsum=1.5.0
+prefix: /ifs/software/research/unique/leonard/conda_envs/Longreadsum

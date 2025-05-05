@@ -1,5 +1,6 @@
 name: /ifs/software/research/unique/leonard/conda_envs/LongQC
 channels:
+  - bioconda
   - defaults
 dependencies:
   - numpy==1.21.5

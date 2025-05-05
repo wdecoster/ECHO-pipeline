@@ -1,0 +1,4 @@
+name: /ifs/software/research/unique/leonard/conda_envs/PanDepth
+channels:
+  - defaults
+prefix: /ifs/software/research/unique/leonard/conda_envs/PanDepth

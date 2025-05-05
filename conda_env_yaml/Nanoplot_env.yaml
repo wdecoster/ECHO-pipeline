@@ -1,6 +1,8 @@
 name: /ifs/software/research/unique/leonard/conda_envs/Nanoplot
 channels:
+  - bioconda
   - defaults
 dependencies:
   - nanoplot
+  - seaborn==0.10.1
 prefix: /ifs/software/research/unique/leonard/conda_envs/Nanoplot

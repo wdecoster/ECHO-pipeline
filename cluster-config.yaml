@@ -3,7 +3,9 @@ __default__:
   gres: ""
   time: "4-00:00:00"
   mem: "32G"
-  cpus: 8
+  cpus: 24 # default 8
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 basecalling:
   partition: "gpu"
