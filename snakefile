@@ -10,7 +10,7 @@ TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
 HAPLOID_CHRS = config["haploid_chrs"]
-# QC_RESULTS = config["QC_results"]
+
 # debugging in case --config is not parsed correctly
 print(f"START_FROM = {START_FROM}")
 
@@ -438,5 +438,3 @@ rule TR_methylation_calling:
             -f {params.flanking_length_bp} \
             -h {params.haploid_chrs}
         """
-
-

@@ -2,11 +2,10 @@ samples:
   - HG001_subset
   - HG002_subset
 
-start_from: "ubam" # options: "pod5", "ubam", "bam".
+start_from: "pod5" # options: "pod5", "ubam", "bam".
 input_dir: "/ifs/data/research/unique/projects/snakemake_test"
 output_dir: "/ifs/data/research/unique/projects/snakemake_test"
 reference: "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2.fasta"
-QC_results: "/ifs/data/research/unique/projects/snakemake_test/QC_reports"
 
 te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
 tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/T2T-CHM13/pathogenic/STRchive-disease-loci.v2.2.1.T2T-CHM13.longTR_cpg.bed"
