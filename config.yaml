@@ -1,6 +1,7 @@
 samples:
   - HG002
 
+
 start_from: "bam" #Options: "pod5", "ubam", "bam".
 input_dir: "/ifs/data/research/unique/projects/leena"
 output_dir: "/ifs/data/research/unique/projects/leena"
