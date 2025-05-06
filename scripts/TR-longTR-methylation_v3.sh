@@ -3,19 +3,20 @@
 # A script to analyse TRs genotyped using LongTR, adding allele-specific methylation information.
 
 # Usage:
-# ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> -o <output_dir> -s <sample_id> -f <flanking_bases> -h <haploid_chromosomes>
+# ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> -o <output_dir> -s <sample_id> -e <extend> -f <flanking_bases> -h <haploid_chromosomes>
 
 set -e
 
 # Print usage instructions
 usage() {
-    echo "Usage: $0 -v <vcf_file> -r <reference_fasta> -i <phased_bam> -o <output_dir> -s <sample_id> -f <flanking_bases>"
+    echo "Usage: $0 -v <vcf_file> -r <reference_fasta> -i <phased_bam> -o <output_dir> -s <sample_id> -e <extend_consensus> -f <flanking_bases> -h <haploid_chromosomes>"
     echo "  -v <vcf_file>         Input VCF file with variant data"
     echo "  -r <reference_fasta>  Reference genome in FASTA format"
     echo "  -i <phased_bam>       Input phased BAM file"
     echo "  -o <output_dir>       Output directory for generated files"
     echo "  -s <sample_id>        SampleID to be used in file names"
-    echo "  -f <flanking_bases>   Number of flanking bases to include (default: 200)"
+    echo "  -e <extend>           Number of flanking bases to include for remapping reads (default: 1000)"
+    echo "  -f <flanking_bases>   Number of flanking bases to include for up- and downstream methylation analysis (default: 250)"
     echo "  -h <haploid_chromosomes> Comma-separated list of haploid chromosomes (e.g. chrX,chrY)"
     exit 1
 }
@@ -23,15 +24,17 @@ usage() {
 # Defaults
 FLANKING_BASES=200
 HAPLOID_CHROMOSOMES=""
+EXTEND=1000
 
 # Parse command-line arguments
-while getopts "v:r:i:o:s:f:h:" opt; do
+while getopts "v:r:i:o:s:e:f:h:" opt; do
     case $opt in
         v) VCF_FILE="$OPTARG" ;;
         r) REFERENCE_FASTA="$OPTARG" ;;
         i) PHASED_BAM="$OPTARG" ;;
         o) OUTPUT_DIR="$OPTARG" ;;
         s) SAMPLE_ID="$OPTARG" ;;
+        e) EXTEND="$OPTARG" ;;
         f) FLANKING_BASES="$OPTARG" ;;
         h) HAPLOID_CHROMOSOMES="$OPTARG" ;;
         *) usage ;;
@@ -72,6 +75,7 @@ INPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_input_sorted.vcf"
 MULTIFASTA="${OUTPUT_DIR}/${SAMPLE_ID}_alleles.fasta"
 OUTPUT_BED="${OUTPUT_DIR}/${SAMPLE_ID}_alleles.bed"
 OUTPUT_UPSTREAM_BED="${OUTPUT_DIR}/${SAMPLE_ID}_upstream_alleles.bed"
+OUTPUT_DOWNSTREAM_BED="${OUTPUT_DIR}/${SAMPLE_ID}_downstream_alleles.bed"
 OUTPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_methylated.vcf"
 TMP_DIR="${OUTPUT_DIR}/temp"
 ALIGNMENTS="${OUTPUT_DIR}/alignments"
@@ -98,13 +102,15 @@ grep "^##" "$VCF_FILE" > "$OUTPUT_VCF"
 # Add header information to VCF output file
 echo "##METHYLATION: TR_AM - Description=\"Average methylation percentage for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
 echo "##METHYLATION: TR_N_METH_VALID - Description=\"Count of valid sites used for AM calculation for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##METHYLATION: UPSTREAM_TR_AM - Description=\"Average methylation percentage for upstream sequence (-250 bp) of TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
+echo "##METHYLATION: UPSTREAM_TR_AM - Description=\"Average methylation percentage for upstream sequence (region specified by flanking bp) of TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
 echo "##METHYLATION: UPSTREAM_TR_N_METH_VALID - Description=\"Count of valid sites used for UPSTREAM AM calculation for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
+echo "##METHYLATION: DOWNSTREAM_TR_AM - Description=\"Average methylation percentage for downstream sequence (region specified by flanking bp) of TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
+echo "##METHYLATION: DOWNSTREAM_TR_N_METH_VALID - Description=\"Count of valid sites used for downstream AM calculation for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
 echo "##TR SEQUENCE COMPOSITION: LENGTH OF TR ALLELE (HP1|HP2)\">" >> "$OUTPUT_VCF"
 echo "##TR SEQUENCE COMPOSITION: uTR info output per allele (HP1;HP2). Format: (A,B,C), where A shows the length of the DNA string, B means the number of types detected, and C is the dissimilarity ratio between the tandem repeat pattern and the string\">" >> "$OUTPUT_VCF"
 echo "##TR SEQUENCE COMPOSITION: TR pattern as defined by uTR (HP1,HP2)\">" >> "$OUTPUT_VCF"
 echo "##TR SEQUENCE COMPOSITION: TR motif decomposition as defined by uTR (HP1,HP2)\">" >> "$OUTPUT_VCF"
-echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$SAMPLE_ID\t$TR_ID\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tTR_LEN\tTR_INFO_VALUE\tTR_PAT\tTR_DECOMP" >> "$OUTPUT_VCF"
+echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$SAMPLE_ID\t$TR_ID\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_LEN\tTR_INFO_VALUE\tTR_PAT\tTR_DECOMP" >> "$OUTPUT_VCF"
 
 # Function to check if a VCF entry lacks phasing information
 # Function to modify the GT field based on PDP values and handle haploid chromosomes
@@ -187,11 +193,11 @@ while read -r LINE; do
     # Parse alternate alleles
     IFS=',' read -ra ALT_ALLELES <<< "$ALT"
 
-    # Determine flanking boundaries
-    UPSTREAM_START=$((TR_START - FLANKING_BASES))
+    # Determine repeat extension boundaries
+    UPSTREAM_START=$((TR_START - EXTEND))
     UPSTREAM_END=$((TR_START - 1))
     DOWNSTREAM_START=$((TR_END + 1))
-    DOWNSTREAM_END=$((TR_END + FLANKING_BASES))
+    DOWNSTREAM_END=$((TR_END + EXTEND))
 
     # Extract flanking sequences
     UPSTREAM_SEQ=$(samtools faidx "$REFERENCE_FASTA" "${CHROM}:${UPSTREAM_START}-${UPSTREAM_END}" | tail -n +2 | tr -d '\n' | tr '[:upper:]' '[:lower:]')
@@ -204,19 +210,19 @@ while read -r LINE; do
         case "$GENOTYPE" in
             "0|.")
                 REF_SEQ="${UPSTREAM_SEQ}$(echo "${REF}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-                HEADER="${CHROM}_${POS}_${TR_ID}_REF"
-                TR_START_REL=$((FLANKING_BASES + 1))
-                TR_END_REL=$((FLANKING_BASES + ${#REF}))
+                HEADER="${CHROM}_${POS}_${TR_ID}_HP1_REF"
+                TR_START_REL=$((EXTEND + 1))
+                TR_END_REL=$((EXTEND + ${#REF}))
                 echo ">$HEADER" >> "$MULTIFASTA"
                 echo "$REF_SEQ" >> "$MULTIFASTA"
-                echo -e ">$HEADER\n$SEQ" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
+                echo -e ">$HEADER\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
                 echo -e "$HEADER\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
                 ;;
             "1|.")
                ALT_SEQ="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               HEADER="${CHROM}_${POS}_${TR_ID}_ALT"
-               TR_START_ALT=$((FLANKING_BASES + 1))
-               TR_END_ALT=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               HEADER="${CHROM}_${POS}_${TR_ID}_HP1_ALT"
+               TR_START_ALT=$((EXTEND + 1))
+               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
                echo ">$HEADER" >> "$MULTIFASTA"
                echo "$ALT_SEQ" >> "$MULTIFASTA"
                echo -e ">$HEADER\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
@@ -232,10 +238,10 @@ while read -r LINE; do
                ALT_SEQ2="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[1]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
                HEADER_ALT1="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
                HEADER_ALT2="${CHROM}_${POS}_${TR_ID}_HP2_ALT2"
-               TR_START_ALT1=$((FLANKING_BASES + 1))
-               TR_END_ALT1=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
-               TR_START_ALT2=$((FLANKING_BASES + 1))
-               TR_END_ALT2=$((FLANKING_BASES + ${#ALT_ALLELES[1]}))
+               TR_START_ALT1=$((EXTEND + 1))
+               TR_END_ALT1=$((EXTEND + ${#ALT_ALLELES[0]}))
+               TR_START_ALT2=$((EXTEND + 1))
+               TR_END_ALT2=$((EXTEND + ${#ALT_ALLELES[1]}))
                echo ">$HEADER_ALT1" >> "$MULTIFASTA"
                echo "$ALT_SEQ1" >> "$MULTIFASTA"
                echo ">$HEADER_ALT2" >> "$MULTIFASTA"
@@ -251,10 +257,10 @@ while read -r LINE; do
                ALT_SEQ2="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
                HEADER_ALT1="${CHROM}_${POS}_${TR_ID}_HP1_ALT2"
                HEADER_ALT2="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
-               TR_START_ALT1=$((FLANKING_BASES + 1))
-               TR_END_ALT1=$((FLANKING_BASES + ${#ALT_ALLELES[1]}))
-               TR_START_ALT2=$((FLANKING_BASES + 1))
-               TR_END_ALT2=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               TR_START_ALT1=$((EXTEND + 1))
+               TR_END_ALT1=$((EXTEND + ${#ALT_ALLELES[1]}))
+               TR_START_ALT2=$((EXTEND + 1))
+               TR_END_ALT2=$((EXTEND + ${#ALT_ALLELES[0]}))
                echo ">$HEADER_ALT1" >> "$MULTIFASTA"
                echo "$ALT_SEQ1" >> "$MULTIFASTA"
                echo -e ">$HEADER_ALT1\n${ALT_ALLELES[1]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
@@ -268,8 +274,8 @@ while read -r LINE; do
                # Homozygous reference
                REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
                SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REL=$((FLANKING_BASES + 1))
-               TR_END_REL=$((FLANKING_BASES + ${#REF}))
+               TR_START_REL=$((EXTEND + 1))
+               TR_END_REL=$((EXTEND + ${#REF}))
                HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_REF"
                HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_REF"
                echo ">$HEADER_HP1" >> "$MULTIFASTA"
@@ -287,10 +293,10 @@ while read -r LINE; do
                ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
                REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
                ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((FLANKING_BASES + 1))
-               TR_END_REF=$((FLANKING_BASES + ${#REF}))
-               TR_START_ALT=$((FLANKING_BASES + 1))
-               TR_END_ALT=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               TR_START_REF=$((EXTEND + 1))
+               TR_END_REF=$((EXTEND + ${#REF}))
+               TR_START_ALT=$((EXTEND + 1))
+               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
                HEADER_REF="${CHROM}_${POS}_${TR_ID}_HP1_REF"
                echo ">$HEADER_REF" >> "$MULTIFASTA"
                echo "$REF_SEQ" >> "$MULTIFASTA"
@@ -308,10 +314,10 @@ while read -r LINE; do
                ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
                REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
                ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((FLANKING_BASES + 1))
-               TR_END_REF=$((FLANKING_BASES + ${#REF}))
-               TR_START_ALT=$((FLANKING_BASES + 1))
-               TR_END_ALT=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               TR_START_REF=$((EXTEND + 1))
+               TR_END_REF=$((EXTEND + ${#REF}))
+               TR_START_ALT=$((EXTEND + 1))
+               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
                HEADER_ALT="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
                HEADER_REF="${CHROM}_${POS}_${TR_ID}_HP2_REF"
                echo ">$HEADER_ALT" >> "$MULTIFASTA"
@@ -328,8 +334,8 @@ while read -r LINE; do
                ALT_SEQ="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
                HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
                HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
-               TR_START_REL=$((FLANKING_BASES + 1))
-               TR_END_REL=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               TR_START_REL=$((EXTEND + 1))
+               TR_END_REL=$((EXTEND + ${#ALT_ALLELES[0]}))
                echo ">$HEADER_HP1" >> "$MULTIFASTA"
                echo "$ALT_SEQ" >> "$MULTIFASTA"
                echo -e ">$HEADER_HP1\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
@@ -344,8 +350,8 @@ while read -r LINE; do
                HEADER_UNPHASED_HP1="${CHROM}_${POS}_${TR_ID}_unphased1"
                HEADER_UNPHASED_HP2="${CHROM}_${POS}_${TR_ID}_unphased2"
                UNPHASED_SEQ="${UPSTREAM_SEQ}$(echo "$REF" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               TR_START_UNPHASED=$((FLANKING_BASES + 1))
-               TR_END_UNPHASED=$((FLANKING_BASES + ${#REF}))
+               TR_START_UNPHASED=$((EXTEND + 1))
+               TR_END_UNPHASED=$((EXTEND + ${#REF}))
                echo ">$HEADER_UNPHASED_HP1" >> "$MULTIFASTA"
                echo "$UNPHASED_SEQ" >> "$MULTIFASTA"
                echo -e ">$HEADER_UNPHASED_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased1.fasta"
@@ -359,8 +365,8 @@ while read -r LINE; do
                # Unphased and reference
                REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
                SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REL=$((FLANKING_BASES + 1))
-               TR_END_REL=$((FLANKING_BASES + ${#REF}))
+               TR_START_REL=$((EXTEND + 1))
+               TR_END_REL=$((EXTEND + ${#REF}))
                HEADER_HP1="${CHROM}_${POS}_${TR_ID}_unphased1"
                HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_REF"
                echo ">$HEADER_HP1" >> "$MULTIFASTA"
@@ -376,8 +382,8 @@ while read -r LINE; do
                # Reference allele and unphased
                REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
                SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REL=$((FLANKING_BASES + 1))
-               TR_END_REL=$((FLANKING_BASES + ${#REF}))
+               TR_START_REL=$((EXTEND + 1))
+               TR_END_REL=$((EXTEND + ${#REF}))
                HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_REF"
                HEADER_HP2="${CHROM}_${POS}_${TR_ID}_unphased2"
                echo ">$HEADER_HP1" >> "$MULTIFASTA"
@@ -395,10 +401,10 @@ while read -r LINE; do
                ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
                REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
                ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((FLANKING_BASES + 1))
-               TR_END_REF=$((FLANKING_BASES + ${#REF}))
-               TR_START_ALT=$((FLANKING_BASES + 1))
-               TR_END_ALT=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               TR_START_REF=$((EXTEND + 1))
+               TR_END_REF=$((EXTEND + ${#REF}))
+               TR_START_ALT=$((EXTEND + 1))
+               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
                HEADER_HP1="${CHROM}_${POS}_${TR_ID}_unphased1"
                echo ">$HEADER_HP1" >> "$MULTIFASTA"
                echo "$REF_SEQ" >> "$MULTIFASTA"
@@ -416,10 +422,10 @@ while read -r LINE; do
                ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
                REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
                ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((FLANKING_BASES + 1))
-               TR_END_REF=$((FLANKING_BASES + ${#REF}))
-               TR_START_ALT=$((FLANKING_BASES + 1))
-               TR_END_ALT=$((FLANKING_BASES + ${#ALT_ALLELES[0]}))
+               TR_START_REF=$((EXTEND + 1))
+               TR_END_REF=$((EXTEND + ${#REF}))
+               TR_START_ALT=$((EXTEND + 1))
+               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
                HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
                echo ">$HEADER_HP1" >> "$MULTIFASTA"
                echo "$ALT_SEQ" >> "$MULTIFASTA"
@@ -435,8 +441,11 @@ while read -r LINE; do
     fi
 done < "$INPUT_VCF"
 
-# Create an upstream-shifted BED file (-250 bp from start)
-awk '{OFS="\t"} {start=$2-250; if (start < 0) start=0; print $1, start, $2}' "$OUTPUT_BED" > "$OUTPUT_UPSTREAM_BED" 
+# Create an upstream-shifted BED file (flanking bp from start)
+awk -v flank="$FLANKING_BASES" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2}' "$OUTPUT_BED" > "$OUTPUT_UPSTREAM_BED" 
+
+# Downstream: from end to (end + flank)
+awk -v flank="$FLANKING_BASES" '{OFS="\t"} {print $1, $3, $3+flank}' "$OUTPUT_BED" > "$OUTPUT_DOWNSTREAM_BED"
 
 # Second processing loop where we extract the reads that span each TR region
 # and remap them against newly created reference TR sequences.
@@ -476,7 +485,7 @@ while read -r LINE; do
             samtools view -h "$PHASED_BAM" "$CHROM:$TR_START-$TR_END" | samtools addreplacerg -r "ID:${TR_ID}" - | samtools view -b - > "$REGION_BAM"
 
             # Check if haplotype exists in MULTIFASTA
-            if ! grep -q -E ">${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}$" "$MULTIFASTA"; then
+            if ! grep -q -E ">${CHROM}_${POS}_${TR_ID}_HP1_${HAPLOTYPE}$" "$MULTIFASTA"; then
                continue
             fi
 
@@ -486,7 +495,7 @@ while read -r LINE; do
 
             # Proceed with processing the haploid allele sequence
             REGION_FASTA="${TMP_DIR}/${TR_ID}_${HAPLOTYPE}_reference.fasta"
-            grep -A 1 -E ">${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}" "$MULTIFASTA" > "$REGION_FASTA"
+            grep -A 1 -E ">${CHROM}_${POS}_${TR_ID}_HP1_${HAPLOTYPE}" "$MULTIFASTA" > "$REGION_FASTA"
             if [[ ! -s "$REGION_FASTA" ]]; then
                 echo "Error: no FASTA sequence found for ${CHROM}:${TR_ID}:${HAPLOTYPE}" >&2
                 continue
@@ -505,17 +514,19 @@ while read -r LINE; do
 
             # Perform modkit pileup on the generated BAM file
             echo "Running modkit pileup for ${HAPLOTYPE}"
-            PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_modkit_pileup.bed"
+            PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_pileup.bed"
             modkit pileup "${REGION_SORTED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
             bgzip "$PILEUP_OUTPUT"
             tabix "${PILEUP_OUTPUT}.gz"
 
             # Perform modkit stats for the TR region for each phased output
-            STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_modkit_stats.tsv"
-            STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_upstream_modkit_stats.tsv"
+            STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
+            STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
+            STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
             echo "Running modkit stats for ${HAPLOTYPE}"
             modkit stats --regions "$OUTPUT_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             modkit stats --regions "$OUTPUT_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+            modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             echo "Sucessfully processed ${CHROM}:${TR_ID}:${HAPLOTYPE}!"
             echo ""
         done
@@ -585,9 +596,11 @@ while read -r LINE; do
                  # Perform modkit stats for the TR region for each phased output
                  STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
                  STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
+                 STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
                  echo "Running modkit stats for TR ${HAPLOTYPE}"
                  modkit stats --regions "$OUTPUT_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
                  modkit stats --regions "$OUTPUT_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+                 modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             else
                  # Log error and continue to next TR entry
                  echo "Error: modkit pileup output is empty or missing for ${TR_ID}:${HAPLOTYPE}" >&2
@@ -623,24 +636,40 @@ while read -r LINE; do
     TR_NVALID=".,."
     upTR_METHYLATION=".,."
     upTR_NVALID=".,."
+    downTR_METHYLATION=".,."
+    downTR_NVALID=".,."
 
     echo "processing ${CHROM}:${TR_ID}"
 
     if is_haploid "$CHROM"; then
-        # Haploid chromosome: Assign methylation for REF or ALT
-        STAT_FILE_TR="${METH}/${CHROM}_${TR_ID}_modkit_stats.tsv"
-        STAT_FILE_upTR="${METH}/${CHROM}_${TR_ID}_upstream_modkit_stats.tsv"
+        # Haploid chromosome: assign methylation for REF or ALT
+        if [[ "$GT" == "1|." ]]; then
+            HAPLOTYPE="ALT"
+        elif [[ "$GT" == "0|." ]]; then
+            HAPLOTYPE="REF"
+        else
+            echo "Skipping haploid TR $CHROM:$TR_ID (unsupported GT=$GT)"
+            continue
+        fi
+
+        STAT_FILE_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
+        STAT_FILE_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
+        STAT_FILE_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
 
         # Check if haplotype's stats file exists
-        if [[ -e "$STAT_FILE_TR" && -s "$STAT_FILE_TR" && -e "$STAT_FILE_upTR" && -s "$STAT_FILE_upTR" ]]; then
+        if [[ -e "$STAT_FILE_TR" && -s "$STAT_FILE_TR" && -e "$STAT_FILE_upTR" && -s "$STAT_FILE_upTR" && -e "$STAT_FILE_downTR" && -s "$STAT_FILE_downTR" ]]; then
             TR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_TR")
             TR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_TR")
             upTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_upTR")
             upTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_upTR")
+            downTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_downTR")
+            downTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_downTR")
             TR_METHYLATION="${TR_AVG_METHYLATION},."
             TR_NVALID="${TR_COV_METH},."
             upTR_METHYLATION="${upTR_AVG_METHYLATION},."
             upTR_NVALID="${upTR_COV_METH},."
+            downTR_METHYLATION="${downTR_AVG_METHYLATION},."
+            downTR_NVALID="${downTR_COV_METH},."
         else
             echo "Warning: missing or empty stats file for haploid TR $TR_ID"
         fi
@@ -655,25 +684,37 @@ while read -r LINE; do
         HP2_upTR_VALUE="."
         HP1_upTR_NCOV="."
         HP2_upTR_NCOV="."
+        HP1_downTR_VALUE="."
+        HP2_downTR_VALUE="."
+        HP1_downTR_NCOV="."
+        HP2_downTR_NCOV="."
+
 
         for HAPLOTYPE in HP1_REF HP1_ALT1 HP1_ALT2 HP2_REF HP2_ALT1 HP2_ALT2; do
             STAT_FILE_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
             STAT_FILE_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
-            if [[ -e "$STAT_FILE_TR" && -s "$STAT_FILE_TR" && -e "$STAT_FILE_upTR" && -s "$STAT_FILE_upTR" ]]; then
+            STAT_FILE_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
+            if [[ -e "$STAT_FILE_TR" && -s "$STAT_FILE_TR" && -e "$STAT_FILE_upTR" && -s "$STAT_FILE_upTR && -e "$STAT_FILE_downTR" && -s "$STAT_FILE_downTR" ]]; then
                 TR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_TR")
                 TR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_TR")
                 upTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_upTR")
                 upTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_upTR")
+                downTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_downTR")
+                downTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_downTR")
                 if [[ "$HAPLOTYPE" == HP1* ]]; then
                     HP1_TR_VALUE="$TR_AVG_METHYLATION"
                     HP1_TR_NCOV="$TR_COV_METH"
                     HP1_upTR_VALUE="$upTR_AVG_METHYLATION"
                     HP1_upTR_NCOV="$upTR_COV_METH"
+                    HP1_downTR_VALUE="$downTR_AVG_METHYLATION"
+                    HP1_downTR_NCOV="$downTR_COV_METH"
                 elif [[ "$HAPLOTYPE" == HP2* ]]; then
                     HP2_TR_VALUE="$TR_AVG_METHYLATION"
                     HP2_TR_NCOV="$TR_COV_METH"
                     HP2_upTR_VALUE="$upTR_AVG_METHYLATION"
                     HP2_upTR_NCOV="$upTR_COV_METH"
+                    HP2_downTR_VALUE="$downTR_AVG_METHYLATION"
+                    HP2_downTR_NCOV="$downTR_COV_METH"
                 fi
             else
                 continue
@@ -684,13 +725,15 @@ while read -r LINE; do
         TR_NVALID="${HP1_TR_NCOV},${HP2_TR_NCOV}"
         upTR_METHYLATION="${HP1_upTR_VALUE},${HP2_upTR_VALUE}"
         upTR_NVALID="${HP1_upTR_NCOV},${HP2_upTR_NCOV}"
+        downTR_METHYLATION="${HP1_downTR_VALUE},${HP2_downTR_VALUE}"
+        downTR_NVALID="${HP1_downTR_NCOV},${HP2_downTR_NCOV}"
     fi
 
     # Append methylation values to the VCF entry
-    #echo -e "$MODIFIED_LINE\t$TR_ID\t$TR_METHYLATION\t$TR_NVALID\t$upTR_METHYLATION\t$upTR_NVALID" >> "$OUTPUT_VCF"
+    #echo -e "$MODIFIED_LINE\t$TR_ID\t$TR_METHYLATION\t$TR_NVALID\t$upTR_METHYLATION\t$upTR_NVALID\t$downTR_METHYLATION\t$downTR_NVALID" >> "$OUTPUT_VCF"
 
     #Store values in an associative array**
-    METHYLATION_VALUES["$CHROM:$TR_ID"]="$TR_METHYLATION $TR_NVALID $upTR_METHYLATION $upTR_NVALID"
+    METHYLATION_VALUES["$CHROM:$TR_ID"]="$TR_METHYLATION $TR_NVALID $upTR_METHYLATION $upTR_NVALID $downTR_METHYLATION $downTR_NVALID"
 
 done < "$INPUT_VCF"
 
@@ -699,7 +742,7 @@ echo "STEP4: RUNNING uTR AND SUMMARY OF TR SEQUENCE FEATURES"
 echo ""
 
 # Define uTR tool path
-UTR_TOOL_DIR="/ifs/software/research/unique/brando/pipeline/tools/uTR/uTR"
+UTR_TOOL_DIR="/ifs/software/research/unique/pipeline_tools/uTR/uTR"
 
 # Function to extract uTR features
 extract_uTR_features() {
@@ -738,12 +781,14 @@ while read -r LINE; do
 
     # Retrieve stored methylation values 🔥
     if [[ -n "${METHYLATION_VALUES["$CHROM:$TR_ID"]}" ]]; then
-        read TR_METHYLATION TR_NVALID upTR_METHYLATION upTR_NVALID <<< "${METHYLATION_VALUES["$CHROM:$TR_ID"]}"
+        read TR_METHYLATION TR_NVALID upTR_METHYLATION upTR_NVALID downTR_METHYLATION downTR_NVALID <<< "${METHYLATION_VALUES["$CHROM:$TR_ID"]}"
     else
         TR_METHYLATION=".,."
         TR_NVALID=".,."
         upTR_METHYLATION=".,."
         upTR_NVALID=".,."
+        downTR_METHYLATION=".,."
+        downTR_NVALID=".,."
         echo "Warning: No methylation values found for $CHROM:$TR_ID"
     fi
 
@@ -806,7 +851,7 @@ while read -r LINE; do
     DECOMP="${HP1_decomp_value},${HP2_decomp_value}"
 
     # Append motif composition values to the VCF entry
-    echo -e "$MODIFIED_LINE\t$TR_ID\t$TR_METHYLATION\t$TR_NVALID\t$upTR_METHYLATION\t$upTR_NVALID\t$TR_LEN\t$INFO_VALUE\t$PAT\t$DECOMP" >> "$OUTPUT_VCF"
+    echo -e "$MODIFIED_LINE\t$TR_ID\t$TR_METHYLATION\t$TR_NVALID\t$upTR_METHYLATION\t$upTR_NVALID\t$downTR_METHYLATION\t$downTR_NVALID\t$TR_LEN\t$INFO_VALUE\t$PAT\t$DECOMP" >> "$OUTPUT_VCF"
 
 done < "$INPUT_VCF"
 
@@ -815,7 +860,7 @@ echo "STEP5: GENERATE SUMMARY FILE"
 echo ""
 
 # Print header for summary file
-echo -e "CHROM\tPOS\tID\tREF_MOTIF\tTR_REF_LENGTH\t${SAMPLE_ID}_GT\t${SAMPLE_ID}_TR_LEN\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID" > "$OUTPUT_SUMMARY"
+echo -e "CHROM\tPOS\tID\tREF_MOTIF\tTR_REF_LENGTH\t${SAMPLE_ID}_GT\t${SAMPLE_ID}_TR_LEN\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID" > "$OUTPUT_SUMMARY"
 
 # Process each non-header line in the output VCF
 awk -F'\t' '
@@ -830,8 +875,10 @@ BEGIN { OFS="\t" }
     tr_n_meth_valid=$13;
     upstream_tr_am=$14;
     upstream_tr_n_meth_valid=$15;
-    tr_len=$16;
-    tr_pat=$18;
+    downstream_tr_am=$16;
+    downstream_tr_n_meth_valid=$17;
+    tr_len=$18;
+    tr_pat=$20;
 
     # Compute REF allele length
     ref_length = length(ref);
@@ -846,7 +893,7 @@ BEGIN { OFS="\t" }
     gt = gt_fields[1];
 
     # Print extracted values
-    print chrom, pos, id, motif, ref_length, gt, tr_len, tr_pat, tr_am, tr_n_meth_valid, upstream_tr_am, upstream_tr_n_meth_valid;
+    print chrom, pos, id, motif, ref_length, gt, tr_len, tr_pat, tr_am, tr_n_meth_valid, upstream_tr_am, upstream_tr_n_meth_valid, downstream_tr_am, downstream_tr_n_meth_valid;
 }' "$OUTPUT_VCF" >> "$OUTPUT_SUMMARY"
 
 echo ""
