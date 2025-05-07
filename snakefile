@@ -46,7 +46,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/{{sample}}_phased_stats.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}_phased_stats_summary.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
@@ -302,7 +302,7 @@ rule phasing:
     output:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-	snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
     resources:
         cpus=16
     conda:
@@ -324,38 +324,38 @@ rule phasing:
         -o {params.out_prefix}_phased \
         -t {resources.cpus} \
         --ont
-
-	/ifs/software/research/unique/pipeline_tools/longphase/longphase haplotag \
-	-b {input.aligned_bam} \
-	-r {input.reference} \
-	-s {params.out_prefix}_phased.vcf \
-	--sv-file {params.out_prefix}_phased_SV.vcf \
-	--mod-file {params.out_prefix}_phased_mod.vcf \
-	-o {params.out_prefix}_phased_alignment 
-        
-	samtools index -o {output.phased_bam_index} {output.phased_bam} 
-	bgzip {params.out_prefix}_phased.vcf
-	bgzip {params.out_prefix}_phased_SV.vcf 
-	tabix {params.out_prefix}_phased.vcf.gz
-	tabix {params.out_prefix}_phased_SV.vcf.gz
-	"""
+        /ifs/software/research/unique/pipeline_tools/longphase/longphase haplotag \
+        -b {input.aligned_bam} \
+        -r {input.reference} \
+        -s {params.out_prefix}_phased.vcf \
+        --sv-file {params.out_prefix}_phased_SV.vcf \
+        --mod-file {params.out_prefix}_phased_mod.vcf \
+        -o {params.out_prefix}_phased_alignment 
+            
+        samtools index -o {output.phased_bam_index} {output.phased_bam} 
+        bgzip {params.out_prefix}_phased.vcf
+        bgzip {params.out_prefix}_phased_SV.vcf 
+        tabix {params.out_prefix}_phased.vcf.gz
+        tabix {params.out_prefix}_phased_SV.vcf.gz
+        """
 
 # Phasing QC statistics
 rule phasing_QC:
     input:
          snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
     output:
-        phasing_stats=f"{OUTPUT_DIR}/qc/{{sample}}_phased_stats.txt",
-	phasing_tsv=f"{OUTPUT_DIR}/qc/{{sample}}_phased_stasts.tsf"
+        phasing_summary=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_phased_stats_summary.txt",
+        phasing_tsv=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_phased_stats.tsv"
     params:
-        f"{OUTPUT_DIR}/qc/{{sample}}"
+        f"{OUTPUT_DIR}/qc/aligned/{{sample}}"
     conda:
-        "ifs/software/research/unique/pipeline_tools/whatshap"
+        "conda_env_yaml/whatshap_env.yaml"
     threads: 24
     shell:
-        """"
-        whatshap stats --tsv={params}_phased_stats {input} > {output.phasing_stats}
-        """"
+        """
+        whatshap stats \
+            --tsv={params}_phased_stats.tsv {input} > {output.phasing_summary}
+        """
 
 # Methylation calling
 rule methylation_calling:
@@ -377,30 +377,26 @@ rule methylation_calling:
         "conda_env_yaml/modkit.yaml"
     shell:
         """
-
-
         modkit pileup {input.phased_bam} {params.out_dir}/phased/ \
         --ref {input.reference} \
         --combine-strands \
         --cpg \
         --partition-tag HP \
         --prefix {wildcards.sample}_haplotype
-	
-	modkit pileup {input.phased_bam} {params.unphased_bed} \
+        modkit pileup {input.phased_bam} {params.unphased_bed} \
         --ref {input.reference} \
         --combine-strands \
-        --cpg 
-        
-        echo start	
-	bgzip {params.hap1_bed}
-	bgzip {params.hap2_bed}
-	bgzip {params.ungrouped_bed}
-	bgzip {params.unphased_bed}
-	echo finished
-	tabix {params.hap1_bed}.gz
+        --cpg
+        echo start
+        bgzip {params.hap1_bed}
+        bgzip {params.hap2_bed}
+        bgzip {params.ungrouped_bed}
+        bgzip {params.unphased_bed}
+        echo finished
+        tabix {params.hap1_bed}.gz
         tabix {params.hap2_bed}.gz
-       	tabix {params.ungrouped_bed}.gz
-       	tabix {params.unphased_bed}.gz
+        tabix {params.ungrouped_bed}.gz
+        tabix {params.unphased_bed}.gz
         """
 
 
@@ -413,7 +409,7 @@ rule TE_calling:
         reference=REFERENCE
     output:
         chr_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/chr.txt",
-	out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
+        out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
     params:
         out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}"),
         consensus_extension=CONSENSUS_EXTENSION
@@ -531,7 +527,7 @@ rule ref_TE_methylation_calling:
         phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}",
         out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE",
         TE_catalog=TE_CATALOG, 
-	type_of_TE=TYPE_OF_TE,
+        type_of_TE=TYPE_OF_TE,
         flanking_length_bp=FLANKING_LENGTH_BP
     conda:
         "conda_env_yaml/modkit.yaml"
@@ -542,9 +538,8 @@ rule ref_TE_methylation_calling:
         -u {params.unphased_dir} \
         -v {params.phased_variation_dir} \
         -c {params.TE_catalog} \
-	-t {params.type_of_TE} \
-	-s {wildcards.sample} \
-	-o {params.out_dir} \
-	-f {params.flanking_length_bp}
+    -t {params.type_of_TE} \
+    -s {wildcards.sample} \
+    -o {params.out_dir} \
+    -f {params.flanking_length_bp}
         """
-
