@@ -214,8 +214,6 @@ if START_FROM in ["pod5", "ubam"]:
             coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
         params:
             prefix=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_coverage"
-        conda:
-            "conda_env_yaml/PanDepth_env.yaml"
         threads: 24
         shell:
             """
