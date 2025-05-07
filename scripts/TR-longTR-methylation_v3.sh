@@ -694,7 +694,7 @@ while read -r LINE; do
             STAT_FILE_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
             STAT_FILE_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
             STAT_FILE_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
-            if [[ -e "$STAT_FILE_TR" && -s "$STAT_FILE_TR" && -e "$STAT_FILE_upTR" && -s "$STAT_FILE_upTR && -e "$STAT_FILE_downTR" && -s "$STAT_FILE_downTR" ]]; then
+            if [[ -e "$STAT_FILE_TR" && -s "$STAT_FILE_TR" && -e "$STAT_FILE_upTR" && -s "$STAT_FILE_upTR" && -e "$STAT_FILE_downTR" && -s "$STAT_FILE_downTR" ]]; then
                 TR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_TR")
                 TR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_FILE_TR")
                 upTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_FILE_upTR")

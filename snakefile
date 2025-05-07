@@ -26,12 +26,9 @@ if START_FROM == "pod5":
     ])
 elif START_FROM == "ubam":
     all_inputs.extend([
-        expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}_unaligned_bam_NanoPlot-report.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html", sample=SAMPLES),
         expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/unaligned/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}_LRS_aligned_bam.html", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}_aligned_bam_NanoPlot-report.html", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}_coverage.chr.stat.gz", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
     ])
 elif START_FROM == "bam":
     # no basecalling or alignment outputs expected
@@ -41,8 +38,10 @@ else:
     exit(1)
     # This is redundant and will never be executed since you define the fallback value in config.get("start_from", "pod5")
 
-# /ifs/data/research/unique/projects/snakemake_test/QC_reports
 all_inputs.extend([
+    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam", sample=SAMPLES),
@@ -85,13 +84,13 @@ if START_FROM in ["pod5", "ubam"]:
     # QC for unaligned bam with -- NanoPlot --
     rule QC_NanoP_unaligned:
         input:
-            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
+            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam"
         params:
-            results_dir=f"{OUTPUT_DIR}/qc/unaligned/",
-            name_id=f"unaligned_bam"
+            results_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/",
+            name_id="unaligned_bam"
         output:
-            summary_stats=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}_unaligned_bam_NanoStats.txt",
-            html_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}_unaligned_bam_NanoPlot-report.html"
+            summary_stats=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoStats.txt",            
+            html_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html"
         threads:24
         log:
             f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_unaligned.log"
@@ -125,16 +124,17 @@ if START_FROM in ["pod5", "ubam"]:
             minimap2 -y -t 64 -ax map-ont {input.reference} {output.fastq} | samtools sort -o {output.aligned_bam} -
             samtools index -o {output.bam_index} {output.aligned_bam}
             """
-# QC for fastq file -- LongReadSum --
+
+    # QC for fastq file -- LongReadSum --
     rule QC_LRS_fastq:
         input:
             sum_txt=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
         output:
-            sum_report=f"{OUTPUT_DIR}/qc/unaligned/QC_LRS_{{sample}}_fastq.html",
-            sum_txt=f"{OUTPUT_DIR}/qc/unaligned/QC_LRS_{{sample}}_summary.txt"
+            sum_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/QC_LRS_{{sample}}_fastq.html",
+            sum_txt=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/QC_LRS_{{sample}}_summary.txt"
         params:
             name_id=f"QC_LRS_{{sample}}_",
-            out_dir=f"{OUTPUT_DIR}/qc/unaligned"
+            out_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}"
         log:
             f"{OUTPUT_DIR}/qc/log/LRS_{{sample}}_unaligned.log"
         threads: 24
@@ -150,21 +150,20 @@ if START_FROM in ["pod5", "ubam"]:
                 -u 33 
             mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}summary.txt
             """
-            # -u quality offset for bases in fastq, default 33
-            # 8 min for HG001_subset, 
     
-    
+
+if START_FROM in ["pod5", "ubam", "bam"]:
     
     # QC for aligned bam with -- LongReadSum --
     rule QC_LRS_aligned:
         input:
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
         params:
-            results_dir=f"{OUTPUT_DIR}/qc/aligned", # not aligned/ that will fail the commandline separation in shell
+            results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}", # not aligned/ that will fail the commandline separation in shell
             name_id=f"{{sample}}_LRS_aligned_"
         output:
-            summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_LRS_aligned_bam_summary.txt", 
-            report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_LRS_aligned_bam.html"
+            summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam_summary.txt",
+            report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
         threads: 24
         log:
             f"{OUTPUT_DIR}/qc/log/LRS_{{sample}}_aligned.log"
@@ -184,11 +183,11 @@ if START_FROM in ["pod5", "ubam"]:
         input:
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
         params:
-            results_dir=f"{OUTPUT_DIR}/qc/aligned/",
+            results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/",
             name_id=f"aligned_bam"
         output:
-            summary_stats=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_aligned_bam_NanoStats.txt",
-            html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_aligned_bam_NanoPlot-report.html" 
+            summary_stats=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoStats.txt",
+            html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html"
         threads: 24
         log:
             f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_aligned.log"
@@ -204,31 +203,27 @@ if START_FROM in ["pod5", "ubam"]:
                 --bam {input.aligned_bam} \
                 >& {log}
             """
-            
+
     # QC coverage calculation with -- PanDepth --
     rule coverage:
         input:
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
         output:
-            coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
+            coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
         params:
-            prefix=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_coverage"
+            prefix=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage"
         conda:
             "conda_env_yaml/PanDepth_env.yaml"
         threads: 24
         shell:
             """
-            pandepth \
+            /ifs/software/research/unique/pipeline_tools/PanDepth/bin/pandepth \
                 -i {input} \
                 -t {threads} \
                 -o {params.prefix}
             """
-            # cd /ifs/software/research/unique/leonard/tools/PanDepth/bin --> only if included in PATH variable of bashrc
 
-
-
-# Variant calling: SNPs and Indels
-if START_FROM in ["pod5", "ubam", "bam"]:
+    # Variant calling: SNPs and Indels
     rule variant_calling_snps_indels:
         input:
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
@@ -472,7 +467,6 @@ rule TR_methylation_calling:
     shell:
         """
         bash scripts/TR-longTR-methylation_v3.sh \
-
         -v {input.TR_vcf} \
         -r {input.reference} \
         -i {input.phased_bam} \
