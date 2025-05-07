@@ -46,6 +46,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/{{sample}}_phased_stats.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
@@ -341,7 +342,22 @@ rule phasing:
 	tabix {params.out_prefix}_phased_SV.vcf.gz
 	"""
 
-
+# Phasing QC statistics
+rule phasing_QC:
+    input:
+         snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+    output:
+        phasing_stats=f"{OUTPUT_DIR}/qc/{{sample}}_phased_stats.txt",
+	phasing_tsv=f"{OUTPUT_DIR}/qc/{{sample}}_phased_stasts.tsf"
+    params:
+        f"{OUTPUT_DIR}/qc/{{sample}}"
+    conda:
+        "ifs/software/research/unique/pipeline_tools/whatshap"
+    threads: 24
+    shell:
+        """"
+        whatshap stats --tsv={params}_phased_stats {input} > {output.phasing_stats}
+        """"
 
 # Methylation calling
 rule methylation_calling:
