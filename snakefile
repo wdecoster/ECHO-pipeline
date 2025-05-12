@@ -46,7 +46,8 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}_phased_stats_summary.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
@@ -339,23 +340,38 @@ rule phasing:
         tabix {params.out_prefix}_phased_SV.vcf.gz
         """
 
-# Phasing QC statistics
-rule phasing_QC:
+# Single Nucleotide Variants Phasing QC statistics
+rule SNV_phasing_QC:
     input:
-         snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+         SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
     output:
-        phasing_summary=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_phased_stats_summary.txt",
-        phasing_tsv=f"{OUTPUT_DIR}/qc/aligned/{{sample}}_phased_stats.tsv"
-    params:
-        f"{OUTPUT_DIR}/qc/aligned/{{sample}}"
+        SNV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt",
+        SNV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats.tsv"
     conda:
         "conda_env_yaml/whatshap_env.yaml"
     threads: 24
     shell:
         """
         whatshap stats \
-            --tsv={params}_phased_stats.tsv {input} > {output.phasing_summary}
+            --tsv={output.SNV_phasing_tsv} {input} > {output.SNV_phasing_summary}
         """
+
+# Structural Variant Phasing QC statistics
+rule SV_phasing_QC:
+    input:
+         SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
+    output:
+        SV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt",
+        SV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats.tsv"
+    conda:
+        "conda_env_yaml/whatshap_env.yaml"
+    threads: 24
+    shell:
+        """
+        whatshap stats \
+            --tsv={output.SV_phasing_tsv} {input} > {output.SV_phasing_summary}
+        """
+
 
 # Methylation calling
 rule methylation_calling:
@@ -538,8 +554,8 @@ rule ref_TE_methylation_calling:
         -u {params.unphased_dir} \
         -v {params.phased_variation_dir} \
         -c {params.TE_catalog} \
-    -t {params.type_of_TE} \
-    -s {wildcards.sample} \
-    -o {params.out_dir} \
-    -f {params.flanking_length_bp}
+        -t {params.type_of_TE} \
+        -s {wildcards.sample} \
+        -o {params.out_dir} \
+        -f {params.flanking_length_bp}
         """
