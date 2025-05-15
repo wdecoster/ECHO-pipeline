@@ -1,6 +1,6 @@
 configfile: "config.yaml"
 
-
+# Config Params
 SAMPLES = config["samples"]
 START_FROM = config.get("start_from", "pod5")
 OUTPUT_DIR = config["output_dir"]
@@ -13,6 +13,13 @@ FLANKING_LENGTH_BP = config["flanking_length_bp"]
 CONSENSUS_EXTENSION = config["extension_repeat_consensus"]
 HAPLOID_CHRS = config["haploid_chrs"]
 TYPE_OF_TE = config["type_of_te"]
+
+
+# pyhton directive to create timestamp
+from datetime import datetime
+
+LOGTIMESTAMP = datetime.now().strftime("%Y.%m.%d_%H:%M")
+LOGFILE = f"{OUTPUT_DIR}/qc/log/logfile_{LOGTIMESTAMP}.txt"
 
 # debugging in case --config is not parsed correctly
 print(f"START_FROM = {START_FROM}")
@@ -60,10 +67,44 @@ all_inputs.extend([
 
 rule all:
     input:
+        LOGFILE,
         all_inputs
 
 
-#Basecalling
+
+
+# Logfile 
+rule create_log:
+    output:
+        LOGFILE
+    shell:
+        """
+        echo "================ Pipeline Execution Log ================" > {output}
+        echo "Unique Run ID: {LOGTIMESTAMP}" >> {output}
+        echo "Date & Time: $(date)" >> {output}
+        echo "Executed on Server: $(hostname)" >> {output}
+        echo "" >> {output}
+
+        echo "--------------- CONFIGURATION PARAMETERS ---------------" >> {output}
+        echo "SAMPLES: {SAMPLES}" >> {output}
+        echo "START_FROM: {START_FROM}" >> {output}    
+        echo "OUTPUT_DIR: {OUTPUT_DIR}" >> {output}
+        echo "INPUT_DIR: {INPUT_DIR}" >> {output}
+        echo "REFERENCE: {REFERENCE}" >> {output} 
+        echo "REFRENCE_TE: {REFRENCE_TE}" >> {output}
+        echo "TR_CATALOG: {TR_CATALOG}" >> {output}
+        echo "TE_CATALOG: {TE_CATALOG}" >> {output}
+        echo "FLANKING_LENGTH_BP: {FLANKING_LENGTH_BP}" >> {output}
+        echo "CONSENSUS_EXTENSION: {CONSENSUS_EXTENSION}" >> {output}
+        echo "HAPLOID_CHRS: {HAPLOID_CHRS}" >> {output}
+        echo "TYPE_OF_TE: {TYPE_OF_TE}" >> {output}
+
+        echo "------------------- RESOURCE SUMMARY -------------------" >> {output}
+        echo "Would give number of cores if specified..." >> {output}
+        echo "=========================================================" >> {output}
+        """
+
+
 if START_FROM == "pod5":
     rule basecalling:
         input:
