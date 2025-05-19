@@ -2,7 +2,7 @@ __default__:
   partition: "research"
   gres: ""
   time: "4-00:00:00"
-  mem: "32G"
+  mem: "24G"
   cpus: 24 # default 8
   out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
   err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
@@ -14,57 +14,121 @@ basecalling:
   mem: "64G"
   cpus: 8
 
+QC_NanoP_unaligned:
+  partition: "research"
+  time: "02:00:00"
+  mem: "24G"
+  cpus: 32
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+
 alignment:
   partition: "research"
-  mem: "128G"
-  cpus: 64
+  time: "10:00:00"
+  mem: "132G"
+  cpus: 80
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
-variant_calling_snps_indels:
-  time: "24:00:00"
+coverage:
+  time: "00:45:00"
+  partition: "research"
+  mem: "32G"
+  cpus: 24
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+
+QC_LRS_fastq:
+  time: "06:00:00"
+  partition: "research"
+  mem: "32G"
+  cpus: 48
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+
+
+QC_LRS_aligned:
+  time: "03:00:00"
   partition: "research"
   mem: "64G"
   cpus: 32
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+
+QC_NanoP_aligned:
+  time: "03:00:00"
+  partition: "research"
+  mem: "32G"
+  cpus: 16
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+
+variant_calling_snps_indels:
+  time: "06:00:00"
+  partition: "research"
+  mem: "96G"
+  cpus: 48
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 variant_calling_sv:
+  time: "00:45:00"
   partition: "research"
-  mem: "64G"
+  mem: "32G"
   cpus: 16
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 phasing:
   partition: "research"
-  mem: "64G"
-  cpus: 16
+  time: "08:00:00"
+  mem: "160G"
+  cpus: 32
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 methylation_calling:
   partition: "research"
   mem: "64G"
   cpus: 16
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 TE_calling:
   partition: "research"
-  mem: "64G"
-  cpus: 32
+  time: "04:00:00"
+  mem: "128G"
+  cpus: 48
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 TR_calling:
   partition: "research"
-  mem: "64G"
-  cpus: 32
+  time: "00:45:00"
+  mem: "28G"
+  cpus: 16
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 TR_methylation_calling:
   partition: "research"
-  mem: "32G"
-  cpus: 16
+  time: "00:45:00"
+  mem: "28G"
+  cpus: 8
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 non_ref_TE_methylation_calling:
   partition: "research"
-  mem: "32G"
+  mem: "24G"
   cpus: 16
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
 ref_TE_methylation_calling:
   partition: "research"
-  mem: "32G"
+  mem: "24G"
   cpus: 16
-
-
-
+  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
+  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
