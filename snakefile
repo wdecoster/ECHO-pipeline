@@ -18,8 +18,8 @@ TYPE_OF_TE = config["type_of_te"]
 # pyhton directive to create timestamp
 from datetime import datetime
 
-LOGTIMESTAMP = datetime.now().strftime("%Y.%m.%d_%H:%M")
-LOGFILE = f"{OUTPUT_DIR}/qc/log/logfile_{LOGTIMESTAMP}.txt"
+LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
 # debugging in case --config is not parsed correctly
 print(f"START_FROM = {START_FROM}")
@@ -86,7 +86,7 @@ rule create_log:
         echo "" >> {output}
 
         echo "--------------- CONFIGURATION PARAMETERS ---------------" >> {output}
-        echo "SAMPLES: {SAMPLES}" >> {output}
+        echo "SAMPLE NAME: {SAMPLES}" >> {output}
         echo "START_FROM: {START_FROM}" >> {output}    
         echo "OUTPUT_DIR: {OUTPUT_DIR}" >> {output}
         echo "INPUT_DIR: {INPUT_DIR}" >> {output}
@@ -100,7 +100,8 @@ rule create_log:
         echo "TYPE_OF_TE: {TYPE_OF_TE}" >> {output}
 
         echo "------------------- RESOURCE SUMMARY -------------------" >> {output}
-        echo "Would give number of cores if specified..." >> {output}
+        echo "CPUs on this node: $(nproc)" >> {output}
+        echo "RAM for this node $(free -h | grep Mem | awk '{{print "total: " $2, "free: " $7}}')" >> {output}
         echo "=========================================================" >> {output}
         """
 
