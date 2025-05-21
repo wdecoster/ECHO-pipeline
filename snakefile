@@ -170,7 +170,7 @@ if START_FROM in ["pod5", "ubam", "bam"]:
         output:
             summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam_summary.txt",
             report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
-        threads: 32
+        threads: 24
         log:
             f"{OUTPUT_DIR}/qc/log/LRS_{{sample}}_aligned.log"
         conda:
@@ -194,7 +194,7 @@ if START_FROM in ["pod5", "ubam", "bam"]:
         output:
             summary_stats=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoStats.txt",
             html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html"
-        threads: 16
+        threads: 24
         log:
             f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_aligned.log"
         conda:

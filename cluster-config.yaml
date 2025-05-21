@@ -51,7 +51,7 @@ QC_LRS_aligned:
   time: "03:00:00"
   partition: "research"
   mem: "64G"
-  cpus: 32
+  cpus: 24
   out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
   err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
@@ -59,7 +59,7 @@ QC_NanoP_aligned:
   time: "03:00:00"
   partition: "research"
   mem: "32G"
-  cpus: 16
+  cpus: 24
   out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
   err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
 
