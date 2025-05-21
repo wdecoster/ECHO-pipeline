@@ -1,16 +1,19 @@
 samples:
-  - HG002
+  - 8981
 
 
-start_from: "bam" #Options: "pod5", "ubam", "bam".
-input_dir: "/ifs/data/research/unique/projects/leena"
-output_dir: "/ifs/data/research/unique/projects/leena"
+start_from: "ubam" #Options: "pod5", "ubam", "bam".
+input_dir: "/ifs/data/research/unique/projects/semen_controls"
+output_dir: "/ifs/data/research/unique/projects/semen_controls"
 reference: "/ifs/data/research/unique/leena/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta"
 reference_TE: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
 
-tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed"
-te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_retroposon.bed"
-type_of_te: "retroposon" #Options: all, all_cpg, DNA, DNA_cpg, LINE, LINE_cpg, helitron, helitron_cpg, SINE, SINE_cpg, LTR, LTR_cpg, retroposon, retroposon_cpg
+#tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/genome-wide/repeat_catalog_v1.hg38.1_to_6bp_motifs.longTR_cpg.bed" #genome-wide STR catalog
+#tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed" #pathogenic STR catalog
+tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/forensic/STRbase_GRCh38_STRloci_longTR.bed" #forensic STR catalog
+type_of_tr: "pathogenic" #Modify according to TR catalog used (genome-wide, pathogenic, forensic)
+te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_SINE_cpg.bed"
+type_of_te: "SINE_cpg" #Options: all, all_cpg, DNA, DNA_cpg, LINE, LINE_cpg, helitron, helitron_cpg, SINE, SINE_cpg, LTR, LTR_cpg, retroposon, retroposon_cpg
 
 flanking_length_bp: "250" #Description: flanking regions to be analysed for methylation and sequence variation
 extension_repeat_consensus: "1000" #Description: number of bases to extend repeat consensus with for re-mapping

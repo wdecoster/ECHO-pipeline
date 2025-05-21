@@ -13,6 +13,7 @@ FLANKING_LENGTH_BP = config["flanking_length_bp"]
 CONSENSUS_EXTENSION = config["extension_repeat_consensus"]
 HAPLOID_CHRS = config["haploid_chrs"]
 TYPE_OF_TE = config["type_of_te"]
+TYPE_OF_TR = config["type_of_tr"]
 
 # debugging in case --config is not parsed correctly
 print(f"START_FROM = {START_FROM}")
@@ -51,8 +52,8 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz", sample=SAMPLES),
-    directory(expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}", sample=SAMPLES)),
+    expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
+    directory(expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}", sample=SAMPLES)),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE/{{sample}}_summary_per_ref_{TYPE_OF_TE}.txt", sample=SAMPLES),
     REFERENCE
@@ -458,9 +459,10 @@ rule TR_calling:
         TR_catalog=TR_CATALOG,
         reference=REFERENCE
     output:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz"
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz"
     params:
-        haploid_chrs=HAPLOID_CHRS
+        haploid_chrs=HAPLOID_CHRS,
+        type_of_tr=TYPE_OF_TR
     container:
         "/ifs/software/research/unique/containers/longtr_2025_11_03.sif"
     shell:
@@ -480,16 +482,17 @@ rule TR_calling:
 # Tandem Repeats methylation calling
 rule TR_methylation_calling:
     input:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs.vcf.gz",
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz",
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
         reference=REFERENCE
     output:
-        out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}")
+        out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}")
     params:
         flanking_length_bp=FLANKING_LENGTH_BP,
         haploid_chrs=HAPLOID_CHRS,
-        extension=CONSENSUS_EXTENSION
+        extension=CONSENSUS_EXTENSION,
+        type_of_TR=TYPE_OF_TR
     conda:
         "conda_env_yaml/TR_longTR_methylation.yaml"
     shell:

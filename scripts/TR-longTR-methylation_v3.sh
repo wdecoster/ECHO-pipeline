@@ -630,6 +630,7 @@ while read -r LINE; do
     # Parse relevant VCF fields (same als in loop 1 and 2)
     CHROM=$(echo "$MODIFIED_LINE" | cut -f1)
     TR_ID=$(echo "$MODIFIED_LINE" | cut -f3)
+    GT=$(echo "$MODIFIED_LINE" | cut -f10 | cut -d':' -f1)
 
     # Initialize methylation values with defaults for unphased
     TR_METHYLATION=".,."
