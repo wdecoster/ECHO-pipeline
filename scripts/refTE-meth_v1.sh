@@ -63,8 +63,8 @@ SV_filt="${VARIATION}_SV_filt.vcf"
 # Generate shifted bed file for upstream TE regions (default -250 bp, or number of bases specified by flank variable)
 UPSTREAM_TE_CATALOG="${OUTDIR}/${TE}_upstream.bed"
 DOWNSTREAM_TE_CATALOG="${OUTDIR}/${TE}_downstream.bed"
-awk -v flank="$FLANK" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2, $4}' "$TE_CATALOG" > "$UPSTREAM_TE_CATALOG"
-awk -v flank="$FLANK" '{OFS="\t"} {print $1, $3, $3+flank, $4}' "$TE_CATALOG" > "$DOWNSTREAM_TE_CATALOG"
+awk -v flank="$FLANK" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2, $7}' "$TE_CATALOG" > "$UPSTREAM_TE_CATALOG"
+awk -v flank="$FLANK" '{OFS="\t"} {print $1, $3, $3+flank, $7}' "$TE_CATALOG" > "$DOWNSTREAM_TE_CATALOG"
 
 
 # ------------ Filter VCF ------------
@@ -224,7 +224,7 @@ while IFS=$'\t' read -r chr start end family dot strand id; do
     fi
 
     # Output line
-    echo -e "${chr}\t${start}\t${end}\t${family}\t${dot}\t${strand}\t${id}\t${length}\t${TE_avgMeth}\t${TE_Nvalid}\t${UP_avgMeth}\t${UP_Nvalid}\t${DOWN_avgMeth}\t${DOWN_Nvalid}\t${TE_avgMeth_unphased}\t${TE_Nvalid_unphased}\t${UP_avgMeth_unphased}\t${UP_Nvalid_unphased}\t${DOWN_avgMeth_unphased}\t${DOWN_Nvalid_unphased}\${total_snp}\t${snp_count}\t${indel_count}\t${sv_count}\t${svtypes}\t${sv_ids}" >> "$OUTPUT"
+    echo -e "${chr}\t${start}\t${end}\t${family}\t${dot}\t${strand}\t${id}\t${length}\t${TE_avgMeth}\t${TE_Nvalid}\t${UP_avgMeth}\t${UP_Nvalid}\t${DOWN_avgMeth}\t${DOWN_Nvalid}\t${TE_avgMeth_unphased}\t${TE_Nvalid_unphased}\t${UP_avgMeth_unphased}\t${UP_Nvalid_unphased}\t${DOWN_avgMeth_unphased}\t${DOWN_Nvalid_unphased}\t${total_snp}\t${snp_count}\t${indel_count}\t${sv_count}\t${svtypes}\t${sv_ids}" >> "$OUTPUT"
 
 done < "$TE_CATALOG"
 
