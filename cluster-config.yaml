@@ -4,8 +4,8 @@ __default__:
   time: "4-00:00:00"
   mem: "24G"
   cpus: 24 # default 8
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 basecalling:
   partition: "gpu"
@@ -19,32 +19,32 @@ QC_NanoP_unaligned:
   time: "02:00:00"
   mem: "24G"
   cpus: 32
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 alignment:
   partition: "research"
   time: "10:00:00"
   mem: "132G"
   cpus: 80
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 coverage:
   time: "00:45:00"
   partition: "research"
   mem: "32G"
   cpus: 24
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 QC_LRS_fastq:
   time: "06:00:00"
   partition: "research"
   mem: "32G"
   cpus: 48
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 
 QC_LRS_aligned:
@@ -52,83 +52,83 @@ QC_LRS_aligned:
   partition: "research"
   mem: "64G"
   cpus: 24
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 QC_NanoP_aligned:
   time: "03:00:00"
   partition: "research"
   mem: "32G"
   cpus: 24
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 variant_calling_snps_indels:
   time: "06:00:00"
   partition: "research"
   mem: "96G"
   cpus: 48
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 variant_calling_sv:
   time: "00:45:00"
   partition: "research"
   mem: "32G"
   cpus: 16
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 phasing:
   partition: "research"
   time: "08:00:00"
   mem: "160G"
   cpus: 32
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 methylation_calling:
   partition: "research"
   mem: "64G"
   cpus: 16
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 TE_calling:
   partition: "research"
   time: "04:00:00"
   mem: "128G"
   cpus: 48
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 TR_calling:
   partition: "research"
   time: "00:45:00"
   mem: "28G"
   cpus: 16
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 TR_methylation_calling:
   partition: "research"
   time: "00:45:00"
   mem: "28G"
   cpus: 8
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 non_ref_TE_methylation_calling:
   partition: "research"
   mem: "24G"
   cpus: 16
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
 ref_TE_methylation_calling:
   partition: "research"
   mem: "24G"
   cpus: 16
-  out: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.out"
-  err: "/ifs/data/research/unique/projects/snakemake_test/slurm_log/snk_%j.err"
+  output: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.out"
+  error: "{config["output_dir"]}/logs/slurm/{rule}.{wildcards.sample}.%j.err"
 
