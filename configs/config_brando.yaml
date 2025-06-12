@@ -1,0 +1,25 @@
+samples:
+  - HG001_subset
+
+start_from: "ubam" #Options: "pod5", "ubam", "bam".
+
+input_dir: "/ifs/data/research/unique/projects/test_config"
+output_dir: "/ifs/data/research/unique/projects/test_config"
+
+#reference: "/ifs/data/research/unique/leena/references/T2T-CHM13/T2T-CHM13v2.fasta"
+#reference_TE: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
+
+reference: "/ifs/data/research/unique/leena/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta"
+reference_TE: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
+
+tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed"
+te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_retroposon.bed"
+
+type_of_te: "retroposon" #Options: all, all_cpg, DNA, DNA_cpg, LINE, LINE_cpg, helitron, helitron_cpg, SINE, SINE_cpg, LTR, LTR_cpg, retroposon, retroposon_cpg
+type_of_tr: "pathogenic" #Modify according to TR catalog used (genome-wide, pathogenic, forensic)
+
+
+flanking_length_bp: "250" #Description: flanking regions to be analysed for methylation and sequence variation
+extension_repeat_consensus: "1000" #Description: number of bases to extend repeat consensus with for re-mapping
+
+haploid_chrs: "chrM,chrX,chrY"

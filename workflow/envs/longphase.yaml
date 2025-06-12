@@ -1,0 +1,14 @@
+name: longphase_env
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.8
+  - gcc_linux-64      # Provides the GNU Compiler Collection for Linux
+  - cmake             # Needed to configure the build
+  - make              # For building the tool
+  - zlib              # Compression library often required
+  - htslib            # For handling VCF/VCF.gz, if needed
+  - boost             # C++ libraries required by many bioinformatics toolsname: longphase_env
+  - samtools=1.21
+
