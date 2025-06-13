@@ -4,14 +4,16 @@
 # But NOT these files
 !.gitignore
 !README.md
-!cluster-config.yaml
-!config.yaml
-!snakemake
 
-# And NOT these directories
+# And NOT these directories (and their contents)
 !scripts/
+!scripts/**
+!LICENCE
 !conda_env_yaml/
-
-# Ensure contents of those directories are also not ignored
-scripts/*
-conda_env_yaml/*
+!conda_env_yaml/**
+!workflow/
+!workflow/**
+!test_data
+!test_data/**
+!configs/cluster-config.yaml
+!configs/config.yaml

@@ -18,12 +18,19 @@ TYPE_OF_TR = config["type_of_tr"]
 
 # pyhton directive to create timestamp
 from datetime import datetime
+from pathlib import Path
 
+# Get the absolute path to the Snakefile's directory for launching custom scripts
+WORKFLOW_ROOT = Path(workflow.basedir)
+TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v3.sh"
+REFTE_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/refTE-meth_v1.sh"
+TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v1.sh"
+ 
+
+# Create timestamp for log file
 LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
-# debugging in case --config is not parsed correctly
-print(f"START_FROM = {START_FROM}")
 
 all_inputs = []
 
@@ -111,7 +118,7 @@ if START_FROM == "pod5":
     rule basecalling:
         input:
             pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
-            model_dir="/ifs/software/research/unique/brando/dorado_models/"
+            model_dir=ancient("/ifs/software/research/unique/brando/dorado_models/")
         output:
             unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
             summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
@@ -140,7 +147,7 @@ if START_FROM in ["pod5", "ubam"]:
         log:
             f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_unaligned.log"
         conda:
-            "conda_env_yaml/Nanoplot_env.yaml"
+            "envs/Nanoplot_env.yaml"
         shell:
             """
             NanoPlot -t {threads} \
@@ -157,7 +164,7 @@ if START_FROM in ["pod5", "ubam"]:
     rule alignment:
         input:
             unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
-            reference=REFERENCE
+            reference=ancient(REFERENCE)
         output:
             fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq",
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
@@ -166,7 +173,7 @@ if START_FROM in ["pod5", "ubam"]:
             temp_out_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/output.sam"
         threads:80
         conda:
-            "conda_env_yaml/minimap2.yaml"
+            "envs/minimap2.yaml"
         shell:
             """
             samtools fastq -@ 24 -T 'MM,ML' {input.unaligned_bam} > {output.fastq}
@@ -190,7 +197,7 @@ if START_FROM in ["pod5", "ubam"]:
             f"{OUTPUT_DIR}/qc/log/LRS_{{sample}}_unaligned.log"
         threads: 48
         conda:
-            "conda_env_yaml/Longreadsum_env.yaml"
+            "envs/Longreadsum_env.yaml"
         shell:
             """
             longreadsum fq \
@@ -198,10 +205,10 @@ if START_FROM in ["pod5", "ubam"]:
                 -o {params.out_dir} \
                 -t {threads} \
                 --outprefix {params.name_id} \
-                -u 33 
+            -u 33 
             mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}summary.txt
             """
-    
+        
 
 if START_FROM in ["pod5", "ubam", "bam"]:
     
@@ -214,18 +221,18 @@ if START_FROM in ["pod5", "ubam", "bam"]:
             name_id=f"{{sample}}_LRS_aligned_"
         output:
             summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam_summary.txt",
-            report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
+            html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
         threads: 24
         log:
             f"{OUTPUT_DIR}/qc/log/LRS_{{sample}}_aligned.log"
         conda:
-            "conda_env_yaml/Longreadsum_env.yaml"
+            "envs/Longreadsum_env.yaml"
         shell:
             """
             longreadsum bam -i {input.aligned_bam} -o {params.results_dir} \
-                --log {log} \
-                -t {threads} \
-                --outprefix {params.name_id}
+            --log {log} \
+            -t {threads} \
+            --outprefix {params.name_id}
             mv {params.results_dir}/bam_summary.txt {params.results_dir}/{params.name_id}bam_summary.txt
             """
 
@@ -243,16 +250,16 @@ if START_FROM in ["pod5", "ubam", "bam"]:
         log:
             f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_aligned.log"
         conda:
-            "conda_env_yaml/Nanoplot_env.yaml"
+            "envs/Nanoplot_env.yaml"
         shell:
             """
             NanoPlot -t {threads} \
-                -o {params.results_dir} \
-                --dpi 250 -c blue -f png --N50 \
-                --title {wildcards.sample}_{params.name_id} \
-                --prefix {wildcards.sample}_{params.name_id}_ \
-                --bam {input.aligned_bam} \
-                >& {log}
+            -o {params.results_dir} \
+            --dpi 250 -c blue -f png --N50 \
+            --title {wildcards.sample}_{params.name_id} \
+            --prefix {wildcards.sample}_{params.name_id}_ \
+            --bam {input.aligned_bam} \
+            >& {log}
             """
 
     # QC coverage calculation with -- PanDepth --
@@ -267,9 +274,9 @@ if START_FROM in ["pod5", "ubam", "bam"]:
         shell:
             """
             /ifs/software/research/unique/pipeline_tools/PanDepth/bin/pandepth \
-                -i {input} \
-                -t {threads} \
-                -o {params.prefix}
+            -i {input} \
+            -t {threads} \
+            -o {params.prefix}
             """
 
     # Variant calling: SNPs and Indels
@@ -277,8 +284,8 @@ if START_FROM in ["pod5", "ubam", "bam"]:
         input:
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
             bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-            reference=REFERENCE,
-            mode_path="/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500"
+            reference=ancient(REFERENCE),
+            mode_path=ancient("/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500")
         params:
             out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"
         output:
@@ -286,51 +293,50 @@ if START_FROM in ["pod5", "ubam", "bam"]:
             snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
         threads: 48
         conda:
-            "conda_env_yaml/clair3.yaml"
+            "envs/clair3.yaml"
         shell:
             """
             export OMP_NUM_THREADS={threads}
             run_clair3.sh \
-                --bam_fn {input.aligned_bam} \
-                --ref_fn {input.reference} \
-                --output {params.out_dir} \
-                --threads {threads} \
-                --platform="ont" \
-                --model_path {input.mode_path} \
-                --enable_phasing \
-                --longphase_for_phasing
+            --bam_fn {input.aligned_bam} \
+            --ref_fn {input.reference} \
+            --output {params.out_dir} \
+            --threads {threads} \
+            --platform="ont" \
+            --model_path {input.mode_path} \
+            --enable_phasing \
+            --longphase_for_phasing
             """
 
 
-# Variant calling: STRUCTURAL VARIANTS
-if START_FROM in ["pod5", "ubam", "bam"]:
+    # Variant calling: STRUCTURAL VARIANTS
     rule variant_calling_sv:
         input:
             aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
             bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-            reference=REFERENCE
+            reference=ancient(REFERENCE)
         output:
             sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
             sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi"
         threads: 16
         conda:
-            "conda_env_yaml/sniffles2.yaml"
+            "envs/sniffles2.yaml"
         shell:
             """
             sniffles \
-                --input {input.aligned_bam} \
-                --reference {input.reference} \
-                --vcf {output.sv_vcf_gz}.tmp \
-                --threads {threads} \
-                --output-rnames
-
+            --input {input.aligned_bam} \
+            --reference {input.reference} \
+            --vcf {output.sv_vcf_gz}.tmp \
+            --threads {threads} \
+            --output-rnames
+    
             bgzip -@ 8 -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz}
             tabix -f -p vcf {output.sv_vcf_gz}
             rm -f {output.sv_vcf_gz}.tmp
             """
 
 
-# Phasing
+    # Phasing
 rule phasing:
     input:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
@@ -339,17 +345,17 @@ rule phasing:
         snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi",
         sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
         sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi",
-        reference=REFERENCE
+        reference=ancient(REFERENCE)
     params:
         out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}"    
     output:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-	      snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
     threads: 16
-
     conda:
-        "conda_env_yaml/longphase.yaml"
+        "envs/longphase.yaml"
     shell:
         """
         /ifs/software/research/unique/pipeline_tools/longphase/longphase modcall \
@@ -377,7 +383,7 @@ rule phasing:
             
         samtools index -o {output.phased_bam_index} {output.phased_bam} 
         bgzip -@ 8 {params.out_prefix}_phased.vcf
-        bgzip -@ 8 {params.out_prefix}_phased_SV.vc 
+        bgzip -@ 8 {params.out_prefix}_phased_SV.vcf 
         tabix {params.out_prefix}_phased.vcf.gz
         tabix {params.out_prefix}_phased_SV.vcf.gz
         """
@@ -387,33 +393,33 @@ rule phasing:
 # Single Nucleotide Variants Phasing QC statistics
 rule SNV_phasing_QC:
     input:
-         SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
     output:
         SNV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt",
         SNV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats.tsv"
     conda:
-        "conda_env_yaml/whatshap_env.yaml"
+        "envs/whatshap_env.yaml"
     threads: 24
     shell:
         """
         whatshap stats \
-            --tsv={output.SNV_phasing_tsv} {input} > {output.SNV_phasing_summary}
+        --tsv={output.SNV_phasing_tsv} {input} > {output.SNV_phasing_summary}
         """
 
 # Structural Variant Phasing QC statistics
 rule SV_phasing_QC:
     input:
-         SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
     output:
         SV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt",
         SV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats.tsv"
     conda:
-        "conda_env_yaml/whatshap_env.yaml"
+        "envs/whatshap_env.yaml"
     threads: 24
     shell:
         """
         whatshap stats \
-            --tsv={output.SV_phasing_tsv} {input} > {output.SV_phasing_summary}
+        --tsv={output.SV_phasing_tsv} {input} > {output.SV_phasing_summary}
         """
 
 
@@ -422,7 +428,7 @@ rule methylation_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-        reference=REFERENCE
+        reference=ancient(REFERENCE)
     params:
         out_dir=f"{OUTPUT_DIR}/04_methylation_calling/",
         hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed",
@@ -434,7 +440,7 @@ rule methylation_calling:
         hap2_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz",
         unphased_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz"
     conda:
-        "conda_env_yaml/modkit.yaml"
+        "envs/modkit.yaml"
     shell:
         """
         modkit pileup {input.phased_bam} {params.out_dir}/phased/ \
@@ -448,7 +454,7 @@ rule methylation_calling:
         --ref {input.reference} \
         --combine-strands \
         --cpg 
-       
+           
         bgzip -@ 8 {params.hap1_bed}
         bgzip -@ 8 {params.hap2_bed}
         bgzip -@ 8 {params.ungrouped_bed}
@@ -465,8 +471,8 @@ rule TE_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-        reference_TE=REFRENCE_TE,
-        reference=REFERENCE
+        reference_TE=ancient(REFRENCE_TE),
+        reference=ancient(REFERENCE)
     output:
         chr_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/chr.txt",
         out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
@@ -475,7 +481,7 @@ rule TE_calling:
         consensus_extension=CONSENSUS_EXTENSION
     threads: 48
     conda:
-        "conda_env_yaml/tldr.yaml"
+        "envs/tldr.yaml"
     shell:
         """
         # Generate chromosome list file
@@ -503,8 +509,8 @@ rule TR_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-        TR_catalog=TR_CATALOG,
-        reference=REFERENCE
+        TR_catalog=ancient(TR_CATALOG),
+        reference=ancient(REFERENCE)
     output:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz"
     params:
@@ -532,7 +538,7 @@ rule TR_methylation_calling:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz",
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-        reference=REFERENCE
+        reference=ancient(REFERENCE)
     output:
         out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}")
     params:
@@ -541,10 +547,10 @@ rule TR_methylation_calling:
         extension=CONSENSUS_EXTENSION,
         type_of_TR=TYPE_OF_TR
     conda:
-        "conda_env_yaml/TR_longTR_methylation.yaml"
+        "envs/TR_longTR_methylation.yaml"
     shell:
         """
-        bash scripts/TR-longTR-methylation_v3.sh \
+        bash {TR_LONGTR_METH_SCRIPT_PATH} \
         -v {input.TR_vcf} \
         -r {input.reference} \
         -i {input.phased_bam} \
@@ -566,10 +572,10 @@ rule non_ref_TE_methylation_calling:
         out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE",
         flanking_length_bp=FLANKING_LENGTH_BP
     conda:
-        "conda_env_yaml/modkit.yaml"
+        "envs/modkit.yaml"
     shell:
         """
-        bash scripts/TLDR-methylation_v1.sh \
+        bash {TLDR_METH_SCRIPT_PATH} \
         -i {input.TLDR_txt_output} \
         -o {params.out_dir} \
         -s {wildcards.sample} \
@@ -592,10 +598,10 @@ rule ref_TE_methylation_calling:
         type_of_TE=TYPE_OF_TE,
         flanking_length_bp=FLANKING_LENGTH_BP
     conda:
-        "conda_env_yaml/modkit.yaml"
+        "envs/modkit.yaml"
     shell:
         """
-        bash scripts/refTE-meth_v1.sh \
+        bash {REFTE_METH_SCRIPT_PATH} \
         -p {params.phased_dir} \
         -u {params.unphased_dir} \
         -v {params.phased_variation_dir} \
