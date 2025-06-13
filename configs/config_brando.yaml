@@ -1,7 +1,7 @@
 samples:
-  - HG001_subset
+  - HG002_8X
 
-start_from: "ubam" #Options: "pod5", "ubam", "bam".
+start_from: "bam" #Options: "pod5", "ubam", "bam".
 
 input_dir: "/ifs/data/research/unique/projects/test_config"
 output_dir: "/ifs/data/research/unique/projects/test_config"
