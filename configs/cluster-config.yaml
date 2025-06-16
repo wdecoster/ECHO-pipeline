@@ -24,7 +24,7 @@ alignment:
   mem: "132G"
   cpus: 80
 
-coverage:
+coverage_calculation:
   time: "00:45:00"
   partition: "research"
   mem: "32G"

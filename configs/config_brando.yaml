@@ -1,5 +1,5 @@
 samples:
-  - HG002_8X
+  - HG001_subset
 
 start_from: "bam" #Options: "pod5", "ubam", "bam".
 
