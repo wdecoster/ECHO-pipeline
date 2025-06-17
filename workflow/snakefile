@@ -7,6 +7,8 @@ OUTPUT_DIR = config["output_dir"]
 INPUT_DIR = config["input_dir"]
 REFERENCE = config["reference"]
 REFRENCE_TE = config["reference_TE"]
+MIN_READ_QUAL = config["fastq_filtering"]["min_read_quality"]
+MIN_READ_LENGTH = config["fastq_filtering"]["min_read_length"]
 TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
@@ -42,8 +44,13 @@ if START_FROM == "pod5":
 elif START_FROM == "ubam":
     all_inputs.extend([
         expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq", sample=SAMPLES),
+    ])
+elif START_FROM == "fastq":
+    all_inputs.extend([
+        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq", sample=SAMPLES),
         expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_filtered.html", sample=SAMPLES),
     ])
 elif START_FROM == "bam":
     # no basecalling or alignment outputs expected
@@ -80,7 +87,6 @@ rule all:
 
 
 
-
 # Logfile 
 rule create_log:
     output:
@@ -114,242 +120,284 @@ rule create_log:
         """
 
 
-if START_FROM == "pod5":
-    rule basecalling:
-        input:
-            pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
-            model_dir=ancient("/ifs/software/research/unique/brando/dorado_models/")
-        output:
-            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
-            summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
-        shell:
-            """
-            module load bioinf/dorado
-            dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
-            dorado summary {output.unaligned_bam} > {output.summary_file}
-            """
+#Basecalling 
+rule basecalling:
+    input:
+        pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
+        model_dir=ancient("/ifs/software/research/unique/brando/dorado_models/")
+    output:
+        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
+        summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
+    shell:
+        """
+        module load bioinf/dorado
+        dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
+        dorado summary {output.unaligned_bam} > {output.summary_file}
+        """
 
 
-# QC for unaligned and Alignment 
-if START_FROM in ["pod5", "ubam"]:
     
-    # QC for unaligned bam with -- NanoPlot --
-    rule QC_NanoP_unaligned:
-        input:
-            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam"
-        params:
-            results_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/",
-            name_id="unaligned_bam"
-        output:
-            summary_stats=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoStats.txt",            
-            html_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html"
-        threads:32
-        log:
-            f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_unaligned.log"
-        conda:
-            "envs/Nanoplot_env.yaml"
-        shell:
-            """
-            NanoPlot -t {threads} \
-                --huge \
-                -o {params.results_dir} \
-                --dpi 250 -c green -f png --N50 \
-                --title {wildcards.sample}_{params.name_id} \
-                --prefix {wildcards.sample}_{params.name_id}_ \
-                --ubam {input.unaligned_bam} \
-                >& {log}
-            """
-        
-    # ALIGNMENT 
-    rule alignment:
-        input:
-            unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
-            reference=ancient(REFERENCE)
-        output:
-            fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq",
-            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-            bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
-        params:
-            temp_out_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/output.sam"
-        log:
-            f"{OUTPUT_DIR}/logs/alignment/{{sample}}.log"
-        threads:80
-        conda:
-            "envs/minimap2.yaml"
-        shell:
-            """
-            (
-                samtools fastq -@ 24 -T 'MM,ML' {input.unaligned_bam} > {output.fastq}
-                minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {output.fastq} > {params.temp_out_bam} 
-                samtools sort -@ 24 {params.temp_out_bam} > {output.aligned_bam}
-                samtools index -o {output.bam_index} {output.aligned_bam}
-                rm {params.temp_out_bam}
-            ) > {log} 2>&1 
-            """
+# QC for unaligned bam with -- NanoPlot --
+rule QC_NanoP_unaligned:
+    input:
+        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam"
+    params:
+        results_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/",
+        name_id="unaligned_bam"
+    output:
+        summary_stats=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoStats.txt",            
+        html_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html"
+    threads:32
+    log:
+        f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_unaligned.log"
+    conda:
+        "envs/Nanoplot_env.yaml"
+    shell:
+        """
+        NanoPlot -t {threads} \
+            --huge \
+            -o {params.results_dir} \
+            --dpi 250 -c green -f png --N50 \
+            --title {wildcards.sample}_{params.name_id} \
+            --prefix {wildcards.sample}_{params.name_id}_ \
+            --ubam {input.unaligned_bam} \
+            >& {log}
+        """
 
-    # QC for fastq file -- LongReadSum --
-    rule QC_LRS_fastq:
-        input:
-            sum_txt=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
-        output:
-            sum_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/QC_LRS_{{sample}}_fastq.html",
-            sum_txt=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/QC_LRS_{{sample}}_summary.txt"
-        params:
-            name_id=f"QC_LRS_{{sample}}_",
-            out_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}"
-        log:
-            f"{OUTPUT_DIR}/logs/QC_LRS_fastq/{{sample}}_unaligned.log"
-        threads: 48
-        conda:
-            "envs/Longreadsum_env.yaml"
-        shell:
-            """
-            longreadsum fq \
-                -i {input} \
-                -o {params.out_dir} \
-                -t {threads} \
-                --outprefix {params.name_id} \
-                -u 33 \ 
-                > {log} 2>&1
-            mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}summary.txt
-            """
-        
 
-if START_FROM in ["pod5", "ubam", "bam"]:
+
+#CONVERSION UBAM TO FASTQ
+rule ubam_to_fastq:
+    input:
+        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam"
+    output:
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ubam_to_fastq/{{sample}}.log"
+    threads: 24
+    conda:
+        "envs/minimap2.yaml"
+    shell:
+        """
+        samtools fastq -@ {threads} -T 'MM,ML' {input.unaligned_bam} > {output.fastq} 2> {log}
+        """
+
+
+        
+#FILTERING READS IN FASTQ
+rule filter_fastq:
+    input:
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
+    output:
+        filtered_fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/filter_fastq/{{sample}}.log"
+    threads: 24
+    conda:
+        "envs/chopper.yaml"
+    shell:
+        """
+        if [ {MIN_READ_QUAL} -gt 0 ] || [ {MIN_READ_LENGTH} -gt 0 ]; then
+            chopper -q {MIN_READ_QUAL} -l {MIN_READ_LENGTH} -i {input.fastq} -t {threads} > {output.filtered_fastq} 2> {log}
+        else
+            cp {input.fastq} {output.filtered_fastq}
+            echo "Filtering skipped (q=0, l=0)" > {log}
+        fi
+        """        
+
+
+
+
+rule QC_LRS_fastq:
+    input:
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
+    output:
+        sum_report=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_filtered.html",
+        sum_txt=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_filtered_summary.txt"
+    params:
+        name_id=f"QC_LRS_{{sample}}_fastq_filtered_",
+        out_dir=f"{OUTPUT_DIR}/qc/fastq_filtered/{{sample}}"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_fastq/{{sample}}.log"
+
+    threads: 48
+    conda:
+        "envs/Longreadsum_env.yaml"
+    shell:
+        """
+        longreadsum fq \
+            -i {input.fastq} \
+            -o {params.out_dir} \
+            -t {threads} \
+            --outprefix {params.name_id} \
+            -u 33 \
+            2> {log}
+
+        mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}summary.txt
+        """
+
+
+
+# ALIGNMENT 
+rule alignment:
+    input:
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq",
+        reference=ancient(REFERENCE)
+    output:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
+    params:
+        temp_out_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/output.sam"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/alignment/{{sample}}.log"
+    threads:80
+    conda:
+        "envs/minimap2.yaml"
+    shell:
+        """
+        (
+            minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {params.temp_out_bam} 
+            samtools sort -@ 24 {params.temp_out_bam} > {output.aligned_bam}
+            samtools index -o {output.bam_index} {output.aligned_bam}
+            rm {params.temp_out_bam}
+        ) > {log} 2>&1 
+        """
+
+
     
-    # QC for aligned bam with -- LongReadSum --
-    rule QC_LRS_aligned:
-        input:
-            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
-        params:
-            results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}", # not aligned/ that will fail the commandline separation in shell
-            name_id=f"{{sample}}_LRS_aligned_"
-        output:
-            summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam_summary.txt",
-            html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
-        threads: 24
-        log:
-            f"{OUTPUT_DIR}/logs/QC_LRS_aligned/{{sample}}_aligned.log"
-        conda:
-            "envs/Longreadsum_env.yaml"
-        shell:
-            """
-            longreadsum bam -i {input.aligned_bam} -o {params.results_dir} \
-                --log {log} \
-                -t {threads} \
-                --outprefix {params.name_id} \
-                >> {log} 2>&1
-            mv {params.results_dir}/bam_summary.txt {params.results_dir}/{params.name_id}bam_summary.txt
-            """
+# QC for aligned bam with -- LongReadSum --
+rule QC_LRS_aligned:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
+    params:
+        results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}", # not aligned/ that will fail the commandline separation in shell
+        name_id=f"{{sample}}_LRS_aligned_"
+    output:
+        summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam_summary.txt",
+        html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
+    threads: 24
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_aligned/{{sample}}_aligned.log"
+    conda:
+        "envs/Longreadsum_env.yaml"
+    shell:
+        """
+        longreadsum bam -i {input.aligned_bam} -o {params.results_dir} \
+            --log {log} \
+            -t {threads} \
+            --outprefix {params.name_id} \
+            >> {log} 2>&1
+        mv {params.results_dir}/bam_summary.txt {params.results_dir}/{params.name_id}bam_summary.txt
+        """
 
-    # QC for aligned bam with -- NanoPlot --
-    rule QC_NanoP_aligned:
-        input:
-            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
-        params:
-            results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/",
-            name_id=f"aligned_bam"
-        output:
-            summary_stats=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoStats.txt",
-            html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html"
-        threads: 24
-        log:
-            f"{OUTPUT_DIR}/logs/QC_NanoP_aligned/{{sample}}_aligned.log"
-        conda:
-            "envs/Nanoplot_env.yaml"
-        shell:
-            """
-            NanoPlot -t {threads} \
-                -o {params.results_dir} \
-                --dpi 250 -c blue -f png --N50 \
-                --title {wildcards.sample}_{params.name_id} \
-                --prefix {wildcards.sample}_{params.name_id}_ \
-                --bam {input.aligned_bam} \
-                > {log} 2>&1
-            """
+# QC for aligned bam with -- NanoPlot --
+rule QC_NanoP_aligned:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
+    params:
+        results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/",
+        name_id=f"aligned_bam"
+    output:
+        summary_stats=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoStats.txt",
+        html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html"
+    threads: 24
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_NanoP_aligned/{{sample}}_aligned.log"
+    conda:
+        "envs/Nanoplot_env.yaml"
+    shell:
+        """
+        NanoPlot -t {threads} \
+            -o {params.results_dir} \
+            --dpi 250 -c blue -f png --N50 \
+            --title {wildcards.sample}_{params.name_id} \
+            --prefix {wildcards.sample}_{params.name_id}_ \
+            --bam {input.aligned_bam} \
+            > {log} 2>&1
+        """
 
-    # QC coverage calculation with -- PanDepth --
-    rule coverage_calculation:
-        input:
-            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
-        output:
-            coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
-        params:
-            prefix=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage"
-        log:
-            f"{OUTPUT_DIR}/logs/coverage_calculation/{{sample}}.log"
-        threads: 24
-        shell:
-            """
-            /ifs/software/research/unique/pipeline_tools/PanDepth/bin/pandepth \
-                -i {input} \
-                -t {threads} \
-                -o {params.prefix} \
-                > {log} 2>&1
-            """
+# QC coverage calculation with -- PanDepth --
+rule coverage_calculation:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
+    output:
+        coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
+    params:
+        prefix=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/coverage_calculation/{{sample}}.log"
+    threads: 24
+    shell:
+        """
+        /ifs/software/research/unique/pipeline_tools/PanDepth/bin/pandepth \
+            -i {input} \
+            -t {threads} \
+            -o {params.prefix} \
+            > {log} 2>&1
+        """
 
-    # Variant calling: SNPs and Indels
-    rule variant_calling_snps_indels:
-        input:
-            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-            bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-            reference=ancient(REFERENCE),
-            mode_path=ancient("/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500")
-        params:
-            out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"
-        output:
-            snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
-            snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
-        log:
-            f"{OUTPUT_DIR}/logs/variant_calling_snps_indels/{{sample}}.log"
-        threads: 48
-        conda:
-            "envs/clair3.yaml"
-        shell:
-            """
-            export OMP_NUM_THREADS={threads}
-            run_clair3.sh \
-                --bam_fn {input.aligned_bam} \
-                --ref_fn {input.reference} \
-                --output {params.out_dir} \
+# Variant calling: SNPs and Indels
+rule variant_calling_snps_indels:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        reference=ancient(REFERENCE),
+        mode_path=ancient("/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500")
+    params:
+        out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"
+    output:
+        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
+        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_snps_indels/{{sample}}.log"
+    threads: 48
+    conda:
+        "envs/clair3.yaml"
+    shell:
+        """
+        export OMP_NUM_THREADS={threads}
+        run_clair3.sh \
+            --bam_fn {input.aligned_bam} \
+            --ref_fn {input.reference} \
+            --output {params.out_dir} \
+            --threads {threads} \
+            --platform="ont" \
+            --model_path {input.mode_path} \
+            --enable_phasing \
+            --longphase_for_phasing \
+            > {log} 2>&1
+        """
+
+
+# Variant calling: STRUCTURAL VARIANTS
+rule variant_calling_sv:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        reference=ancient(REFERENCE)
+    output:
+        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
+        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_sv/{{sample}}.log"
+    threads: 16
+    conda:
+        "envs/sniffles2.yaml"
+    shell:
+        """
+        (
+            sniffles \
+                --input {input.aligned_bam} \
+                --reference {input.reference} \
+                --vcf {output.sv_vcf_gz}.tmp \
                 --threads {threads} \
-                --platform="ont" \
-                --model_path {input.mode_path} \
-                --enable_phasing \
-                --longphase_for_phasing \
-                > {log} 2>&1
-            """
-
-
-    # Variant calling: STRUCTURAL VARIANTS
-    rule variant_calling_sv:
-        input:
-            aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-            bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-            reference=ancient(REFERENCE)
-        output:
-            sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
-            sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi"
-        log:
-            f"{OUTPUT_DIR}/logs/variant_calling_sv/{{sample}}.log"
-        threads: 16
-        conda:
-            "envs/sniffles2.yaml"
-        shell:
-            """
-            (
-                sniffles \
-                    --input {input.aligned_bam} \
-                    --reference {input.reference} \
-                    --vcf {output.sv_vcf_gz}.tmp \
-                    --threads {threads} \
-                    --output-rnames
-        
-                bgzip -@ 8 -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz}
-                tabix -f -p vcf {output.sv_vcf_gz}
-                rm -f {output.sv_vcf_gz}.tmp
-            ) > {log} 2>&1
-            """
+                --output-rnames
+    
+            bgzip -@ 8 -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz}
+            tabix -f -p vcf {output.sv_vcf_gz}
+            rm -f {output.sv_vcf_gz}.tmp
+        ) > {log} 2>&1
+        """
 
 
     # Phasing
@@ -370,7 +418,7 @@ rule phasing:
         SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
         SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
     log:
-        f"{OUTPUT_DIR}/logs/phasing/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}.log"
     threads: 16
     conda:
         "envs/longphase.yaml"
@@ -421,7 +469,7 @@ rule SNV_phasing_QC:
     conda:
         "envs/whatshap_env.yaml"
     log:
-        f"{OUTPUT_DIR}/logs/SNV_phasing_QC/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/SNV_phasing_QC/{{sample}}.log"
     threads: 24
     shell:
         """
@@ -440,7 +488,7 @@ rule SV_phasing_QC:
     conda:
         "envs/whatshap_env.yaml"
     log:
-        f"{OUTPUT_DIR}/logs/SV_phasing_QC/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/SV_phasing_QC/{{sample}}.log"
     threads: 24
     shell:
         """
@@ -467,7 +515,7 @@ rule methylation_calling:
         hap2_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz",
         unphased_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz"
     log:
-        f"{OUTPUT_DIR}/logs/methylation_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}.log"
     conda:
         "envs/modkit.yaml"
     shell:
@@ -511,7 +559,7 @@ rule TE_calling:
         out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}"),
         consensus_extension=CONSENSUS_EXTENSION
     log:
-        f"{OUTPUT_DIR}/logs/TE_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/TE_calling/{{sample}}.log"
     threads: 48
     conda:
         "envs/tldr.yaml"
@@ -552,7 +600,7 @@ rule TR_calling:
         haploid_chrs=HAPLOID_CHRS,
         type_of_tr=TYPE_OF_TR
     log:
-        f"{OUTPUT_DIR}/logs/TR_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling/{{sample}}.log"
     container:
         "/ifs/software/research/unique/containers/longtr_2025_11_03.sif"
     shell:
@@ -585,7 +633,7 @@ rule TR_methylation_calling:
         extension=CONSENSUS_EXTENSION,
         type_of_TR=TYPE_OF_TR
     log:
-        f"{OUTPUT_DIR}/logs/TR_methylation_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}.log"
     conda:
         "envs/TR_longTR_methylation.yaml"
     shell:
@@ -613,7 +661,7 @@ rule non_ref_TE_methylation_calling:
         out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE",
         flanking_length_bp=FLANKING_LENGTH_BP
     log:
-        f"{OUTPUT_DIR}/logs/non_ref_TE_methylation_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
     conda:
         "envs/modkit.yaml"
     shell:
@@ -642,7 +690,7 @@ rule ref_TE_methylation_calling:
         type_of_TE=TYPE_OF_TE,
         flanking_length_bp=FLANKING_LENGTH_BP
     log:
-        f"{OUTPUT_DIR}/logs/ref_TE_methylation_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling/{{sample}}.log"
     conda:
         "envs/modkit.yaml"
     shell:

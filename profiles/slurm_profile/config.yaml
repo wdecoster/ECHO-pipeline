@@ -1,0 +1,13 @@
+# profiles/slurm_profile/config.yaml
+
+jobs: 6
+use-conda: true
+conda-frontend: conda
+use-singularity: true
+singularity-args: "-B /ifs/data/research/unique"
+cluster-config: "configs/cluster-config.yaml"
+configfile: "configs/config_brando.yaml"
+cluster: "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time} -o {cluster.output} -e {cluster.error}"
+rerun-incomplete: true
+latency-wait: 60
+
