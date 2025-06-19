@@ -5,6 +5,7 @@
 !.gitignore
 !README.md
 !LICENSE
+profiles/*
 
 # And NOT these directories (and their contents)
 !scripts/

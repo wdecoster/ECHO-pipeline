@@ -50,7 +50,7 @@ elif START_FROM == "fastq":
     all_inputs.extend([
         expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq", sample=SAMPLES),
         expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_filtered.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_filtered_fastq.html", sample=SAMPLES),
     ])
 elif START_FROM == "bam":
     # no basecalling or alignment outputs expected
@@ -162,7 +162,7 @@ rule QC_NanoP_unaligned:
             --prefix {wildcards.sample}_{params.name_id}_ \
             --ubam {input.unaligned_bam} \
             >& {log}
-        """
+"""
 
 
 
@@ -212,11 +212,11 @@ rule QC_LRS_fastq:
     input:
         fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
     output:
-        sum_report=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_filtered.html",
-        sum_txt=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_filtered_summary.txt"
+        sum_report=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_filtered_fastq.html",
+        sum_txt=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_filtered_fastq_summary.txt"
     params:
-        name_id=f"QC_LRS_{{sample}}_fastq_filtered_",
-        out_dir=f"{OUTPUT_DIR}/qc/fastq_filtered/{{sample}}"
+        name_id=f"QC_LRS_{{sample}}_filtered_",
+        out_dir=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_fastq/{{sample}}.log"
 
@@ -233,7 +233,8 @@ rule QC_LRS_fastq:
             -u 33 \
             2> {log}
 
-        mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}summary.txt
+        mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}fastq_summary.txt
+        mv {params.out_dir}/FASTQ_details.txt {params.out_dir}/{params.name_id}fastq_details.txt
         """
 
 
@@ -241,7 +242,7 @@ rule QC_LRS_fastq:
 # ALIGNMENT 
 rule alignment:
     input:
-        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq",
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq",
         reference=ancient(REFERENCE)
     output:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
