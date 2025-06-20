@@ -62,7 +62,7 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 - TR catalog path
 - Length of flanking regions for TE and TR analysis
 
-> An example `config.yaml` file is provided. Copy it and customize it for your own analysis.
+> An example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copz the config.yaml there an customize it for your own analysis.
 
 ---
 
@@ -71,17 +71,8 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 To run the pipeline, use the following command:
 
 ```bash
-snakemake -s workflow/snakefile --use-conda --use-singularity --jobs 4 --configfile config/config.yaml --cluster-config config/cluster-config.yaml --cluster "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique"
+snakemake -s workflow/snakefile --profile profiles/slurm_profile 
 ```
 
 ---
-
-## 🔁 Restarting After Interruption
-
-If the pipeline is interrupted, you can resume from where it left off using the `--rerun-incomplete` flag:
-
-```bash
-snakemake -s workflow/snakefile --use-conda --use-singularity --jobs 4 --configfile config/config.yaml --cluster-config config/cluster-config.yaml --cluster "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time}" --conda-frontend conda --singularity-args "-B /ifs/data/research/unique" --rerun-incomplete
-```
-
 
