@@ -5,7 +5,7 @@
 !.gitignore
 !README.md
 !LICENSE
-profiles/*
+profiles/brando_profile
 
 # And NOT these directories (and their contents)
 !scripts/
