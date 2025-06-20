@@ -3,6 +3,7 @@
 
 # But NOT these files
 !.gitignore
+!.gitattributes
 !README.md
 !LICENSE
 profiles/brando_profile

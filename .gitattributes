@@ -1,0 +1,9 @@
+# Normalize line endings to LF (Unix style)
+* text=auto eol=lf
+
+# GitHub language detection for Snakemake
+*.smk linguist-language=Python
+snakefile linguist-language=Python
+
+# Prevent logs and metadata from being exported in git archives
+.snakemake/ export-ignore
