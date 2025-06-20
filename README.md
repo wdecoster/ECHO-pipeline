@@ -62,7 +62,7 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 - TR catalog path
 - Length of flanking regions for TE and TR analysis
 
-> An example `config.yaml` file is provided. Copy it and customize it for your own analysis.
+> An example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copz the config.yaml there an customize it for your own analysis.
 
 ---
 
