@@ -86,7 +86,6 @@ all_inputs.extend([
 
 rule all:
     input:
-        LOGFILE,
         all_inputs
 
 
