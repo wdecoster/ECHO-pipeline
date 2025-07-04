@@ -18,9 +18,13 @@ TYPE_OF_TE = config["type_of_te"]
 TYPE_OF_TR = config["type_of_tr"]
 
 
-# pyhton directive to create timestamp
+# Load packages 
 from datetime import datetime
 from pathlib import Path
+import os
+
+# Create directory to store slurm outputs
+os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
