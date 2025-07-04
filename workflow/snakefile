@@ -6,7 +6,7 @@ START_FROM = config.get("start_from", "pod5")
 OUTPUT_DIR = config["output_dir"]
 INPUT_DIR = config["input_dir"]
 REFERENCE = config["reference"]
-REFRENCE_TE = config["reference_TE"]
+REFERENCE_TE = config["reference_TE"]
 MIN_READ_QUAL = config["fastq_filtering"]["min_read_quality"]
 MIN_READ_LENGTH = config["fastq_filtering"]["min_read_length"]
 TR_CATALOG = config["tr_catalog"]
@@ -18,9 +18,13 @@ TYPE_OF_TE = config["type_of_te"]
 TYPE_OF_TR = config["type_of_tr"]
 
 
-# pyhton directive to create timestamp
+# Load packages 
 from datetime import datetime
 from pathlib import Path
+import os
+
+# Create directory to store slurm outputs
+os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
@@ -105,7 +109,7 @@ rule create_log:
         echo "OUTPUT_DIR: {OUTPUT_DIR}" >> {output}
         echo "INPUT_DIR: {INPUT_DIR}" >> {output}
         echo "REFERENCE: {REFERENCE}" >> {output} 
-        echo "REFRENCE_TE: {REFRENCE_TE}" >> {output}
+        echo "REFERENCE_TE: {REFERENCE_TE}" >> {output}
         echo "TR_CATALOG: {TR_CATALOG}" >> {output}
         echo "TE_CATALOG: {TE_CATALOG}" >> {output}
         echo "FLANKING_LENGTH_BP: {FLANKING_LENGTH_BP}" >> {output}
@@ -551,7 +555,7 @@ rule TE_calling:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-        reference_TE=ancient(REFRENCE_TE),
+        reference_TE=ancient(REFERENCE_TE),
         reference=ancient(REFERENCE)
     output:
         chr_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/chr.txt",

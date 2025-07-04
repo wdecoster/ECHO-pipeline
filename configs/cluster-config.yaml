@@ -14,7 +14,7 @@ basecalling:
   mem: "64G"
   cpus: 8
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_NanoP_unaligned:
   partition: "research"
@@ -22,7 +22,7 @@ QC_NanoP_unaligned:
   mem: "24G"
   cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 ubam_to_fastq:
   partition: "research"
@@ -30,7 +30,7 @@ ubam_to_fastq:
   mem: "24G"
   cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 filter_fastq:
   partition: "research"
@@ -38,7 +38,7 @@ filter_fastq:
   mem: "24G"
   cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 alignment:
   partition: "research"
@@ -46,7 +46,7 @@ alignment:
   mem: "132G"
   cpus: 80
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 coverage_calculation:
   time: "00:45:00"
@@ -54,7 +54,7 @@ coverage_calculation:
   mem: "32G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_LRS_fastq:
   time: "06:00:00"
@@ -62,7 +62,7 @@ QC_LRS_fastq:
   mem: "32G"
   cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_LRS_aligned:
   time: "03:00:00"
@@ -70,7 +70,7 @@ QC_LRS_aligned:
   mem: "64G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_NanoP_aligned:
   time: "03:00:00"
@@ -78,7 +78,7 @@ QC_NanoP_aligned:
   mem: "32G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 variant_calling_snps_indels:
   time: "06:00:00"
@@ -86,7 +86,7 @@ variant_calling_snps_indels:
   mem: "96G"
   cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 variant_calling_sv:
   time: "00:45:00"
@@ -94,7 +94,7 @@ variant_calling_sv:
   mem: "32G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 phasing:
   partition: "research"
@@ -102,14 +102,14 @@ phasing:
   mem: "160G"
   cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 methylation_calling:
   partition: "research"
   mem: "64G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 TE_calling:
   partition: "research"
@@ -117,7 +117,7 @@ TE_calling:
   mem: "128G"
   cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 TR_calling:
   partition: "research"
@@ -125,7 +125,7 @@ TR_calling:
   mem: "28G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 TR_methylation_calling:
   partition: "research"
@@ -133,19 +133,19 @@ TR_methylation_calling:
   mem: "28G"
   cpus: 8
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 non_ref_TE_methylation_calling:
   partition: "research"
   mem: "24G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 ref_TE_methylation_calling:
   partition: "research"
   mem: "24G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error:  "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
