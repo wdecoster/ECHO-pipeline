@@ -30,7 +30,7 @@ os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 WORKFLOW_ROOT = Path(workflow.basedir)
 TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v3.sh"
 REFTE_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/refTE-meth_v1.sh"
-TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v1.sh"
+TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
  
 
 # Create timestamp for log file
@@ -251,7 +251,7 @@ rule alignment:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
         bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
     params:
-        temp_out_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/output.sam"
+        temp_out_sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}.sam"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/alignment/{{sample}}.log"
     threads:80
@@ -260,10 +260,10 @@ rule alignment:
     shell:
         """
         (
-            minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {params.temp_out_bam} 
-            samtools sort -@ 24 {params.temp_out_bam} > {output.aligned_bam}
+            minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {params.temp_out_sam} 
+            samtools sort -@ 24 {params.temp_out_sam} > {output.aligned_bam}
             samtools index -o {output.bam_index} {output.aligned_bam}
-            rm {params.temp_out_bam}
+            rm {params.temp_out_sam}
         ) > {log} 2>&1 
         """
 
@@ -666,6 +666,7 @@ rule non_ref_TE_methylation_calling:
         flanking_length_bp=FLANKING_LENGTH_BP
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
+    threads: 32
     conda:
         "envs/modkit.yaml"
     shell:
@@ -675,6 +676,7 @@ rule non_ref_TE_methylation_calling:
             -o {params.out_dir} \
             -s {wildcards.sample} \
             -f {params.flanking_length_bp} \
+            -t {threads} \
             > {log} 2>&1
         """
 
