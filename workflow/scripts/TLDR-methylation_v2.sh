@@ -1,4 +1,14 @@
 #!/bin/bash
+# -----------------------------------------------------------------------------
+# Script Name:    ref_TE_cpg_res.sh
+# Description:    This script
+# Author:         Leena Putzeys, Brando Poggiali
+# Date Created:   2025-03-02
+# Last Modified:  2025-07-08
+# Version:        2.0.0
+# License:        MIT
+# Dependencies:   [modkit, bgzip, tabix, samtools, awk]
+# -----------------------------------------------------------------------------
 
 # Script to analyse non-ref TEs called by TLDR, adding allele-specific methylation information
 
