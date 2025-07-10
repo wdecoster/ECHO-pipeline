@@ -1,8 +1,9 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
 # Script Name:    ref_TE_cpg_res.sh
-# Description:    This script 
-# Author:         Leena Putzeys,Brando Poggiali
+# Description:    Intersecting bed files containing methylation information of 
+#                 all cpg sites with TE catalogs. 
+# Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
 # Version:        2.0.0
@@ -12,8 +13,6 @@
 
 # for debugging in bash pipeline, x for logging executed commands
 set -euo pipefail
-#set -x
-set -m # for jobmanagement and listing within the bash shell
 
 # Usage and help function
 usage() {
@@ -93,7 +92,8 @@ awk -v flank="$FLANK" '{OFS="\t"} {print $1, $3, $3+flank, $7}' "$TE_CATALOG" > 
 DOWNstream_PID=$!
 wait $UPstream_PID $DOWNstream_PID
 
-echo "Falnking files created"
+echo "Upstream and Downstream bed files created"
+echo
 # ------------ (2) Bedtools intersect Operationen ------------ #
 # Intersect modkit pileup data on (upstream/downstream) TE catalog to obtain methylation of individual CpGs that are embedded in TE elements or their flanking regions.
 
@@ -111,12 +111,10 @@ bedtools_intersect_cmds=(
 )
 
 
-echo "-- (3) -- : Running bedtools intersect operations..."
-# ++ Time measuring ++#
-start_t=$(date +%s.%N)
+echo "Running bedtools intersect operations..."
 
 # 9 == Number of all commands, process them all in parallel
-max_parallel_jobs=5
+max_parallel_jobs=9
 
 # starting to loop thourgh commands
 for b_cmd in "${bedtools_intersect_cmds[@]}"; do
@@ -133,9 +131,6 @@ done
 # wait on all background jobs from bedtools intersect
 wait
 
-end_t=$(date +%s.%N)
-elapsed=$(echo "$end_t - $start_t" | bc)
 rm -rd "${OUTDIR}/TMP"
-echo "time for intersection modkit data: $elapsed seconds"
 echo " ---- completed ----"
 
