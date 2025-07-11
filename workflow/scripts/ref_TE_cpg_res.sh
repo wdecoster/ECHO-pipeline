@@ -8,7 +8,7 @@
 # Last Modified:  2025-07-08
 # Version:        2.0.0
 # License:        MIT
-# Dependencies:   [modkit, bgzip, tabix, bedtools]
+# Dependencies:   [modkit, bgzip, tabix, bedtools, awk]
 # -----------------------------------------------------------------------------
 
 # for debugging in bash pipeline, x for logging executed commands
@@ -17,7 +17,7 @@ set -euo pipefail
 # Usage and help function
 usage() {
     echo "Usage: $0 -p <phased_dir> -u <unphased_dir> -t <TE_type> -c <TE_catalog>  \\
-                -s <sample_id> -o <output_dir> -x <threads ==n/2> [-f <flank_bp>] "
+                -s <sample_id> -o <output_dir> [-f <flank_bp>] "
     exit 1
 }
 
@@ -31,7 +31,7 @@ if [[ "${1:-}" == "--help" ]]; then
 fi
 
 # ------------ Required tools ------------
-REQUIRED_TOOLS=(modkit bgzip tabix bcftools bedtools)
+REQUIRED_TOOLS=(modkit bgzip tabix bcftools bedtools awk)
 for tool in "${REQUIRED_TOOLS[@]}"; do
     if ! command -v "$tool" &>/dev/null; then
         echo "Error: Required tool '$tool' not found in PATH."
@@ -46,12 +46,11 @@ TE=""
 TE_CATALOG=""
 SAMPLE_ID=""
 OUTDIR=""
-TOTAL_THREADS=2
 FLANK=250
 
 # ------------ Parse Args ------------ 
 # assings input arguments of each --option to the parameter.
-while getopts "p:u:t:c:s:o:x:f:" opt; do
+while getopts "p:u:t:c:s:o:f:" opt; do
     case $opt in
         p) PHASED_PILEUP="$OPTARG" ;;
         u) UNPHASED_PILEUP="$OPTARG" ;;
@@ -59,7 +58,6 @@ while getopts "p:u:t:c:s:o:x:f:" opt; do
         c) TE_CATALOG="$OPTARG" ;;
         s) SAMPLE_ID="$OPTARG" ;;
         o) OUTDIR="$OPTARG" ;;
-        x) TOTAL_THREADS="$OPTARG" ;; # must be even ! (n/2)
         f) FLANK="$OPTARG" ;; # optional
         *) usage ;;
     esac

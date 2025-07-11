@@ -1,4 +1,16 @@
 #!/bin/bash
+# -----------------------------------------------------------------------------
+# Script Name:    ref_TE_cpg_res.sh
+# Description:    Intersecting bed files containing methylation information of
+#                 all cpg sites with TE catalogs.
+# Author:         Leena Putzeys, Brando Poggiali
+# Date Created:   2025-03-02
+# Last Modified:  2025-07-08
+# Version:        2.0.0
+# License:        MIT
+# Dependencies:   [modkit, bgzip, tabix, bedtools, bcftools, awk]
+# -----------------------------------------------------------------------------
+
 
 # for debugging in bash pipeline, x for logging executed commands
 set -euo pipefail
@@ -21,7 +33,7 @@ if [[ "${1:-}" == "--help" ]]; then
     usage
 fi
 # ------------ Required tools ------------
-REQUIRED_TOOLS=(modkit bgzip tabix bcftools bedtools)
+REQUIRED_TOOLS=(modkit bgzip tabix bcftools bedtools awk)
 for tool in "${REQUIRED_TOOLS[@]}"; do
     if ! command -v "$tool" &>/dev/null; then
         echo "Error: Required tool '$tool' not found in PATH."
@@ -31,8 +43,7 @@ done
 
 
 # =========================================== 
-# First half of Script summarizes methylation and variation across TEST annotated in 
-# the reference genome           
+# First half of Script summarizes methylation and variation 
 # =========================================== 
 
 # ------------ Default Values ------------
@@ -94,7 +105,7 @@ awk -v flank="$FLANK" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print
 UPstream_PID=$!
 awk -v flank="$FLANK" '{OFS="\t"} {print $1, $3, $3+flank, $7}' "$TE_CATALOG" > "$DOWNSTREAM_TE_CATALOG" &
 DOWNstream_PID=$!
-wait $UPstream_PID $DOWNstream_PID
+# wait $UPstream_PID $DOWNstream_PID
 
 #++ time ++#
 end_t=$(date +%s.%N)
@@ -112,7 +123,7 @@ bcftools view "$SNP_data" -i 'FILTER="PASS" & FORMAT/DP>5' --threads "$((TOTAL_T
 VCF_SNP_PID=$!
 bcftools view "$SV_data" -i 'FILTER="PASS" & INFO/SUPPORT>5' --threads "$((TOTAL_THREADS/2))" --output-file "$SV_filt" &
 VCF_SV_PID=$!
-wait $VCF_SNP_PID $VCF_SV_PID
+wait $UPstream_PID $DOWNstream_PID $VCF_SNP_PID $VCF_SV_PID
 
 
 # Check and process SNP_filt, skip if already exists
@@ -151,20 +162,23 @@ elapsed=$(echo "$end_t - $start_t" | bc)
 echo "Executed time for (2) filtering vcf files : $elapsed seconds"
 
 
-
 # ------------ (3) Modkit stats Operationen ------------
 echo "-- (3) -- : Running modkit stats operations..."
 #++ Time measuring ++#
 start_t=$(date +%M)
 
 # reassigning max threads manually for parallelization
-max_parallel_jobs=2
+max_parallel_jobs=4 #9 for retroposon
 # goal is to keep always 2 jobs in parallel with max possible threads for each
-threads_per_job=$((TOTAL_THREADS / 2))
+threads_per_job=$((TOTAL_THREADS / 4)) #8 for retroposon
 # making sure, at least one job is running in parallel
 [[ $max_parallel_jobs -lt 1 ]] && max_parallel_jobs=1
 
 echo "-- Starting modkit stats calculation with $threads_per_job threads per jobs and $max_parallel_jobs maximal paralel executed jobs --"
+
+
+rm -f "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_stats_unphased.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_stats_unphased.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv"
+
 
 # including job array struccture
 cmds=(
@@ -179,7 +193,7 @@ cmds=(
   "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv\" \"$unphased_pileup\""
 )
 
-# starting to loop thourgh commands
+# starting to loop thirough commands
 for cmd in "${cmds[@]}"; do
     # counting all jobs in current shell
     while (( $(jobs | wc -l) >= max_parallel_jobs )); do
@@ -194,16 +208,16 @@ for cmd in "${cmds[@]}"; do
 done
 
 # wait for all instances
-wait
+# wait
 ##################################
 elapsed=$(echo "$end_t - $start_t" | bc)
 
-echo "time for (4) modkit stats: $elapsed seconds"
-echo "-- (4) -- completed."
+echo "time for (3) modkit stats: $elapsed seconds"
+echo "-- (3) -- completed."
 
 
-# ------------ (5) Variant Intersections ------------
-echo "-- (5) -- : Running variant intersections..."
+# ------------ (4) Variant Intersections ------------
+echo "-- (4) -- : Running variant intersections..."
 #++ Time measuring ++#
 start_t=$(date +%M)
 
@@ -213,8 +227,9 @@ SNP_INTERSECT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SNPs_intersect.bed"
 SV_INTERSECT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SV_intersect.bed"
 SNP_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SNPs_intersect_count.bed"
 SV_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SV_intersect_count.bed"
+
 # execute them all parrallel in background
-max_parallel_jobs=5 
+max_parallel_jobs=4 #9 for retroposon
 # Command array for variant intersections
 variant_intersect_cmds=(
     "bedtools intersect -a \"${TE_CATALOG}\" -b \"${SNP_filt}.gz\" -wa -wb > \"${SNP_INTERSECT}\""
@@ -239,8 +254,8 @@ wait
 
 end_t=$(date +%M)
 elapsed=$(echo "$end_t - $start_t" | bc)
-echo "time for (5) intersection varaint : $elapsed minutes"
-echo "-- (5) -- completed."
+echo "time for (4) intersection varaint : $elapsed minutes"
+echo "-- (4) -- completed."
 
 echo "All operations completed successfully!"
 
