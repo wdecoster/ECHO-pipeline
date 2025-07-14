@@ -168,9 +168,9 @@ echo "-- (3) -- : Running modkit stats operations..."
 start_t=$(date +%M)
 
 # reassigning max threads manually for parallelization
-max_parallel_jobs=4 #9 for retroposon
+max_parallel_jobs=5 #9 for retroposon
 # goal is to keep always 2 jobs in parallel with max possible threads for each
-threads_per_job=$((TOTAL_THREADS / 4)) #8 for retroposon
+threads_per_job=$((TOTAL_THREADS / 8)) #8 for retroposon
 # making sure, at least one job is running in parallel
 [[ $max_parallel_jobs -lt 1 ]] && max_parallel_jobs=1
 
@@ -229,7 +229,7 @@ SNP_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SNPs_intersect_count.
 SV_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SV_intersect_count.bed"
 
 # execute them all parrallel in background
-max_parallel_jobs=4 #9 for retroposon
+max_parallel_jobs=5 #9 for retroposon
 # Command array for variant intersections
 variant_intersect_cmds=(
     "bedtools intersect -a \"${TE_CATALOG}\" -b \"${SNP_filt}.gz\" -wa -wb > \"${SNP_INTERSECT}\""
