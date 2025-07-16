@@ -7,7 +7,7 @@ use-singularity: true
 singularity-args: "-B /ifs/data/research/unique"
 cluster-config: "configs/cluster-config.yaml"
 configfile: "configs/config.yaml"
-cluster: "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time} -o {cluster.output} -e {cluster.error}"
+cluster: "sbatch --partition={cluster.partition} {cluster.gres} --mem={cluster.mem} --cpus-per-task={cluster.cpus} --time={cluster.time} --output {cluster.output} --error {cluster.error}"
 rerun-incomplete: true
 latency-wait: 60
 
