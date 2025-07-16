@@ -98,8 +98,8 @@ variant_calling_sv:
 
 phasing:
   partition: "research"
-  time: "08:00:00"
-  mem: "160G"
+  time: "20:00:00"
+  mem: "200G"
   cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
@@ -113,7 +113,7 @@ methylation_calling:
 
 TE_calling:
   partition: "research"
-  time: "04:00:00"
+  time: "12:00:00"
   mem: "128G"
   cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -121,7 +121,6 @@ TE_calling:
 
 TR_calling:
   partition: "research"
-  time: "00:45:00"
   mem: "28G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -129,7 +128,6 @@ TR_calling:
 
 TR_methylation_calling:
   partition: "research"
-  time: "00:45:00"
   mem: "28G"
   cpus: 8
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"

@@ -20,7 +20,7 @@ set -m # for jobmanagement and listing within the bash shell
 # Usage and help function
 usage() {
     echo "Usage: $0 -p <phased_dir> -u <unphased_dir> -v <phased_variation_dir> \\
-                -t <TE_type> -c <TE_catalog> -s <sample_id> -o <output_dir> -x <threads ==n/2> [-f <flank_bp>] "
+                -t <TE_type> -c <TE_catalog> -s <sample_id> -o <output_dir> -x <threads> [-f <flank_bp>] "
     exit 1
 }
 
@@ -118,10 +118,10 @@ echo "Executed time for (1) generating shifted bed files: $elapsed seconds"
 #++ Time measuring ++#
 start_t=$(date +%s.%N)
 # is there actually a benefit of --threads ??
-echo "Thread count: $((TOTAL_THREADS/2))"
-bcftools view "$SNP_data" -i 'FILTER="PASS" & FORMAT/DP>5' --threads "$((TOTAL_THREADS/2))" --output-file "$SNP_filt" & 
+echo "Thread count: $((TOTAL_THREADS))"
+bcftools view "$SNP_data" -i 'FILTER="PASS" & FORMAT/DP>5' --threads $((TOTAL_THREADS/4)) --output-file "$SNP_filt" & 
 VCF_SNP_PID=$!
-bcftools view "$SV_data" -i 'FILTER="PASS" & INFO/SUPPORT>5' --threads "$((TOTAL_THREADS/2))" --output-file "$SV_filt" &
+bcftools view "$SV_data" -i 'FILTER="PASS" & INFO/SUPPORT>5' --threads $((TOTAL_THREADS/4)) --output-file "$SV_filt" &
 VCF_SV_PID=$!
 wait $UPstream_PID $DOWNstream_PID $VCF_SNP_PID $VCF_SV_PID
 
@@ -165,12 +165,12 @@ echo "Executed time for (2) filtering vcf files : $elapsed seconds"
 # ------------ (3) Modkit stats analysis -----------------------------------------------------------
 echo "-- (3) -- : Running modkit stats operations..."
 #++ Time measuring ++#
-start_t=$(date +%M)
+start_t=$(date +%s)
 
 # reassigning max threads manually for parallelization
-max_parallel_jobs=9 #9 for retroposon
+max_parallel_jobs=2 #9 for retroposon
 # goal is to keep always 2 jobs in parallel with max possible threads for each
-threads_per_job=$((TOTAL_THREADS / 8)) #8 for retroposon
+threads_per_job=$((TOTAL_THREADS / 2)) #8 for retroposon
 # making sure, at least one job is running in parallel
 [[ $max_parallel_jobs -lt 1 ]] && max_parallel_jobs=1
 
@@ -209,16 +209,16 @@ done
 
 # wait for all instances
 # wait
-elapsed=$(echo "$end_t - $start_t" | bc)
+end_t=$(date +%s)
+elapsed=$(( (end_t - start_t) / 60 ))
 
-echo "time for (3) modkit stats: $elapsed seconds"
+echo "time for (3) modkit stats: $elapsed minutes"
 echo "-- (3) -- completed."
 
 
 # ------------ (4) Variant Intersections ----------------------------------------------------------------
 echo "-- (4) -- : Running variant intersections..."
 #++ Time measuring ++#
-start_t=$(date +%M)
 
 # Report SNPs and SVs that intersect with TE elements of interest
 # define paths and max parallel jobs
@@ -228,7 +228,7 @@ SNP_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SNPs_intersect_count.
 SV_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SV_intersect_count.bed"
 
 # execute them all parrallel in background
-max_parallel_jobs=5 #9 for retroposon
+max_parallel_jobs=3 #9 for retroposon
 # Command array for variant intersections
 variant_intersect_cmds=(
     "bedtools intersect -a \"${TE_CATALOG}\" -b \"${SNP_filt}.gz\" -wa -wb > \"${SNP_INTERSECT}\""
@@ -251,16 +251,17 @@ done
 # wait on intersect jobs to finish
 wait
 
-end_t=$(date +%M)
-elapsed=$(echo "$end_t - $start_t" | bc)
-echo "time for (4) intersection variant : $elapsed minutes"
+end_t=$(date +%s)
+elapsed=$(( (end_t - start_t) / 60 ))
+
+echo "time for (3) + (4) intersection variant : $elapsed minutes"
 echo "-- (4) -- completed."
 
 
 # ------------ (5) Create summary files -----------------------------------------------------------
 echo "-- (5) -- : Create summary file..."
 #++ Time measuring ++#
-start_t=$(date +%M)
+start_t=$(date +%s)
 
 #- (4.1) Intersect TE catalog with intersected SNV, SV count files and SV codes -
 (
@@ -283,9 +284,9 @@ start_t=$(date +%M)
   
   sort -k1,1 -k2,2n -k3,3n "${OUTDIR}/interesected_SV_collapsed.bed" > "${OUTDIR}/interesected_SV_collapsed_sorted.bed"
   
-  bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count.bed" -b "${OUTDIR}/interesected_SV_collapsed_sorted.bed"  -wao  | cut -f1-9,13 > "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed"
+  bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count.bed" -b "${OUTDIR}/interesected_SV_collapsed_sorted.bed"  -wao -f 1.0 -r | cut -f1-9,13 > "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed"
   
-#  rm "${OUTDIR}/TE_cat_SNP_SV_count.bed" "${OUTDIR}/TE_cat_SNP_SV_count.bed" "${OUTDIR}/interesected_SV_collapsed.bed" "${OUTDIR}/interesected_SV_collapsed_sorted.bed"
+  rm "${OUTDIR}/TE_cat_SNP_count.bed" "${OUTDIR}/TE_cat_SNP_SV_count.bed" "${OUTDIR}/interesected_SV_collapsed.bed" "${OUTDIR}/interesected_SV_collapsed_sorted.bed"
 ) &
 VARIANT_JOB=$!
 
@@ -300,27 +301,35 @@ UNPHASED_JOB=$!
 
 #- (4.3) Merge phased methylation stats from TE, and upstream/downstrem regions -
 (
+echo "Empty flanking" > "${OUTDIR}/phased_stats_upstream.bed"
+
 paste "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $3 == $11 { print $1, $2, $3, $4, $5, $7 "," $15, $8 "," $16 }' > "${OUTDIR}/phased_stats.bed"
 
-paste "${OUTDIR}/phased_stats.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $2 == $18 { print $1, $2, $3, $4, $5, $6, $7, $14 "," $22, $15 "," $23 }' > "${OUTDIR}/phased_stats_upstream.bed" 
+paste "${OUTDIR}/phased_stats.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $2 == $18 { print $1, $2, $3, $4, $5, $6, $7, $14 "," $22, $15 "," $23 }' >> "${OUTDIR}/phased_stats_upstream.bed" 
 
 paste "${OUTDIR}/phased_stats_upstream.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $3 == $11 && $3 == $19 { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $16 "," $24, $17 "," $25 }' > "${OUTDIR}/phased_stats_TE_and_flanking.bed"
 
-#rm "${OUTDIR}/phased_stats.bed" "${OUTDIR}/phased_stats_upstream.bed"
+rm "${OUTDIR}/phased_stats.bed" "${OUTDIR}/phased_stats_upstream.bed"
 ) &
 PHASED_JOB=$!
 
 wait ${VARIANT_JOB} ${UNPHASED_JOB} ${PHASED_JOB}
 
+#Create summary file merging variant TE file with unphased methylation stat file and then the phased one.
+bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed" -b "${OUTDIR}/unphased_stats_TE_and_flanking.bed" -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $16, $17,$18, $19,$20, $21 }' > "${OUTDIR}/summary_variants_unphased.tsv"
 
-#bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed" -b "${OUTDIR}/unphased_stats_TE_and_flanking.bed"  -wao  | cut -f1-9,13 > ${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed
+#Print header summary file
+echo -e "#chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tdownstream_avgMeth_phased\tdownstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\tdownstream_avgMeth_unphased\tdownstream_Nvalid_unphased\ttotal_SNP\tSNP_count\tINDEL_count\tSV_count\tSV_types\tSV_IDs" > "${OUTDIR}/${SAMPLE_ID}_${TE}_methylation_summary.bed"
 
+#
+bedtools intersect -a "${OUTDIR}/summary_variants_unphased.tsv" -b "${OUTDIR}/phased_stats_TE_and_flanking.bed"  -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $3 - $2, $23, $22, $25, $24, $27, $26, $12, $11, $14, $13, $16, $15, $8, $9, $10 }' >> "${OUTDIR}/${SAMPLE_ID}_${TE}_methylation_summary.bed"
 
+#Remove intermediary files
+rm "${OUTDIR}/phased_stats_TE_and_flanking.bed" "${OUTDIR}/summary_variants_unphased.tsv" "${OUTDIR}/unphased_stats_TE_and_flanking.bed"
 
+end_t=$(date +%s)
+elapsed=$(( (end_t - start_t) / 60 ))
 
-
-end_t=$(date +%M)
-elapsed=$(echo "$end_t - $start_t" | bc)
 echo "time for (5) Summary creation : $elapsed minutes"
 echo "-- (5) -- completed."
 
