@@ -300,11 +300,11 @@ while read -r LINE; do
                HEADER_REF="${CHROM}_${POS}_${TR_ID}_HP1_REF"
                echo ">$HEADER_REF" >> "$MULTIFASTA"
                echo "$REF_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
+               echo -e ">$HEADER_REF\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
                HEADER_ALT="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
                echo ">$HEADER_ALT" >> "$MULTIFASTA"
                echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
+               echo -e ">$HEADER_ALT\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
                echo -e "$HEADER_REF\t$TR_START_REF\t$TR_END_REF\t$TR_ID" >> "$OUTPUT_BED"
                echo -e "$HEADER_ALT\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
                ;;
@@ -322,10 +322,10 @@ while read -r LINE; do
                HEADER_REF="${CHROM}_${POS}_${TR_ID}_HP2_REF"
                echo ">$HEADER_ALT" >> "$MULTIFASTA"
                echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
+               echo -e ">$HEADER_ALT\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
                echo ">$HEADER_REF" >> "$MULTIFASTA"
                echo "$REF_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
+               echo -e ">$HEADER_REF\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
                echo -e "$HEADER_ALT\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
                echo -e "$HEADER_REF\t$TR_START_REF\t$TR_END_REF\t$TR_ID" >> "$OUTPUT_BED"
                ;;
@@ -529,6 +529,12 @@ while read -r LINE; do
             modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             echo "Sucessfully processed ${CHROM}:${TR_ID}:${HAPLOTYPE}!"
             echo ""
+
+            # Cleanup temporary files
+            rm -f "$REGION_FASTQ"
+            rm -f "$REGION_SAM"
+            rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
+
         done
     else
         for HAPLOTYPE in HP1_REF HP2_REF HP1_ALT1 HP1_ALT2 HP2_ALT1 HP2_ALT2 unphased1 unphased2; do
@@ -606,6 +612,13 @@ while read -r LINE; do
                  echo "Error: modkit pileup output is empty or missing for ${TR_ID}:${HAPLOTYPE}" >&2
                  continue
             fi
+
+
+            # Cleanup temporary files
+            rm -f "$REGION_FASTQ"
+            rm -f "$REGION_SAM"
+            rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
+
 
             echo "Sucessfully processed ${CHROM}:${TR_ID}:${HAPLOTYPE}!"
             echo ""
@@ -900,7 +913,7 @@ BEGIN { OFS="\t" }
 echo ""
 echo "Output files are in $OUTPUT_DIR. Remove temporary files stored in: $TMP_DIR"
 # Uncomment the following line to automatically remove temporary files after the run
-#rm -rf "$TMP_DIR"
+rm -rf "$TMP_DIR"
 echo ""
 echo "--------------------------------"
 echo "Pipeline completed successfully!"
