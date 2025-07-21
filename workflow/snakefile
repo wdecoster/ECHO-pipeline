@@ -81,7 +81,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed", sample=SAMPLES),
     REFERENCE
 ])
@@ -690,11 +690,11 @@ rule ref_TE_methylation_calling_cpg_res:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
         snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
     output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed"
+        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed"
     params:
         phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/phased",
         unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/unphased",
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE",
+        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution",
         TE_catalog=TE_CATALOG, 
         type_of_TE=TYPE_OF_TE,
         flanking_length_bp=FLANKING_LENGTH_BP
