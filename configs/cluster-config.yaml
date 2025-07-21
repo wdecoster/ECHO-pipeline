@@ -140,10 +140,17 @@ non_ref_TE_methylation_calling:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-ref_TE_methylation_calling:
+ref_TE_methylation_calling_cpg_res:
   partition: "research"
-  mem: "24G"
-  cpus: 16
+  mem: "32G"
+  cpus: 32
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+ref_TE_methylation_calling_averages:
+  partition: "research"
+  mem: "32G"
+  cpus: 96
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
