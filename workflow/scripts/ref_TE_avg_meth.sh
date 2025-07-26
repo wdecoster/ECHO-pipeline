@@ -325,7 +325,7 @@ echo -e "#chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\t
 bedtools intersect -a "${OUTDIR}/summary_variants_unphased.tsv" -b "${OUTDIR}/phased_stats_TE_and_flanking.bed"  -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $3 - $2, $23, $22, $25, $24, $27, $26, $12, $11, $14, $13, $16, $15, $8, $9, $10 }' >> "${OUTDIR}/${SAMPLE_ID}_${TE}_methylation_summary.bed"
 
 #Remove intermediary files
-rm "${OUTDIR}/phased_stats_TE_and_flanking.bed" "${OUTDIR}/summary_variants_unphased.tsv" "${OUTDIR}/unphased_stats_TE_and_flanking.bed"
+rm "${OUTDIR}/phased_stats_TE_and_flanking.bed" "${OUTDIR}/summary_variants_unphased.tsv" "${OUTDIR}/unphased_stats_TE_and_flanking.bed" "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed"
 
 end_t=$(date +%s)
 elapsed=$(( (end_t - start_t) / 60 ))

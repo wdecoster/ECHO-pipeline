@@ -29,7 +29,8 @@ os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
 TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v3.sh"
-REFTE_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/refTE-meth_v1.sh"
+REF_TE_METH_CPG_RES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_cpg_res.sh"
+REF_TE_METH_AVERAGES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_avg_meth.sh"
 TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
  
 
@@ -80,7 +81,8 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE/{{sample}}_summary_per_ref_{TYPE_OF_TE}.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed", sample=SAMPLES),
     REFERENCE
 ])
 
@@ -681,18 +683,18 @@ rule non_ref_TE_methylation_calling:
             > {log} 2>&1
         """
 
+
 # Reference TE methylation calling
-rule ref_TE_methylation_calling:
+rule ref_TE_methylation_calling_cpg_res:
     input:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
         snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
     output:
-        output_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE/{{sample}}_summary_per_ref_{TYPE_OF_TE}.txt"
+        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed"
     params:
         phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/phased",
         unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/unphased",
-        phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}",
-        out_dir=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/ref_TE",
+        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution",
         TE_catalog=TE_CATALOG, 
         type_of_TE=TYPE_OF_TE,
         flanking_length_bp=FLANKING_LENGTH_BP
@@ -702,10 +704,9 @@ rule ref_TE_methylation_calling:
         "envs/modkit.yaml"
     shell:
         """
-        bash {REFTE_METH_SCRIPT_PATH} \
+        bash {REF_TE_METH_CPG_RES_SCRIPT_PATH} \
             -p {params.phased_dir} \
             -u {params.unphased_dir} \
-            -v {params.phased_variation_dir} \
             -c {params.TE_catalog} \
             -t {params.type_of_TE} \
             -s {wildcards.sample} \
@@ -713,3 +714,39 @@ rule ref_TE_methylation_calling:
             -f {params.flanking_length_bp} \
             > {log} 2>&1
         """
+
+
+rule ref_TE_methylation_calling_averages:
+    input:
+        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
+        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+    output:
+        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed"
+    params:
+        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/phased",
+        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/unphased",
+        phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}",
+        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE",
+        TE_catalog=TE_CATALOG,
+        type_of_TE=TYPE_OF_TE,
+        flanking_length_bp=FLANKING_LENGTH_BP
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling/{{sample}}.log"
+    threads: 96
+    conda:
+        "envs/modkit.yaml"
+    shell:
+        """
+        bash {REF_TE_METH_AVERAGES_SCRIPT_PATH} \
+            -p {params.phased_dir} \
+            -u {params.unphased_dir} \
+            -v {params.phased_variation_dir} \
+            -c {params.TE_catalog} \
+            -t {params.type_of_TE} \
+            -s {wildcards.sample} \
+            -x {threads} \
+            -o {params.out_dir} \
+            -f {params.flanking_length_bp} \
+            > {log} 2>&1
+        """
+
