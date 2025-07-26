@@ -684,7 +684,7 @@ rule non_ref_TE_methylation_calling:
         """
 
 
-# Reference TE methylation calling
+# Reference TE methylation calling at cpg region level
 rule ref_TE_methylation_calling_cpg_res:
     input:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
