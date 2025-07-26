@@ -1,9 +1,19 @@
 #!/bin/bash
+# -----------------------------------------------------------------------------
+# Script Name:    ref_TE_cpg_res.sh
+# Description:    A script to analyse TRs genotyped using LongTR, adding
+#                 allele-specific methylation information.
+# Author:         Leena Putzeys, Brando Poggiali
+# Date Created:   2025-03-02
+# Last Modified:  2025-07-08
+# Version:        2.0.0
+# License:        MIT
+# Dependencies:   [modkit, bgzip, tabix, samtools, minimap2, bedtools, bcftools, awk]
+# Usage: ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 
+#        -o <output_dir> -s <sample_id> -e <extend> -f <flanking_bases> 
+#        -h <haploid_chromosomes>
+# -----------------------------------------------------------------------------
 
-# A script to analyse TRs genotyped using LongTR, adding allele-specific methylation information.
-
-# Usage:
-# ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> -o <output_dir> -s <sample_id> -e <extend> -f <flanking_bases> -h <haploid_chromosomes>
 
 set -e
 
@@ -67,8 +77,6 @@ is_haploid() {
     return 1
 }
 
-# Create output directory if it doesnt exist
-mkdir -p "$OUTPUT_DIR"
 
 # Define paths inside the output directory
 INPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_input_sorted.vcf"
@@ -82,22 +90,14 @@ ALIGNMENTS="${OUTPUT_DIR}/alignments"
 METH="${OUTPUT_DIR}/methylation"
 OUTPUT_SUMMARY="${OUTPUT_DIR}/${SAMPLE_ID}_TR_summary.tsv"
 
-mkdir -p "$TMP_DIR" "$ALIGNMENTS" "$METH"
+mkdir -p "$OUTPUT_DIR" "$TMP_DIR" "$ALIGNMENTS" "$METH"
 
-if [[ "$VCF_FILE" == *.gz ]]; then
-    gunzip -c "$VCF_FILE" > "${OUTPUT_DIR}/${SAMPLE_ID}_input.vcf"
-    VCF_FILE="${OUTPUT_DIR}/${SAMPLE_ID}_input.vcf"
-fi
+#Sort vcf file
+bcftools sort "$VCF_FILE" -Oz -o "$INPUT_VCF"
 
-grep "^#" "$VCF_FILE" > "$INPUT_VCF" && grep -v "^#" "$VCF_FILE" | sort -V -k1,1 -k2,2 >> "$INPUT_VCF"
-
-# Prepare output files
-> "$MULTIFASTA"
-> "$OUTPUT_BED"
-> "$OUTPUT_VCF"
 
 # Copy existing headers from the input VCF
-grep "^##" "$VCF_FILE" > "$OUTPUT_VCF"
+bcftools view -h "$VCF_FILE" > "$OUTPUT_VCF"
 
 # Add header information to VCF output file
 echo "##METHYLATION: TR_AM - Description=\"Average methylation percentage for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
