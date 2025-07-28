@@ -99,27 +99,29 @@ bcftools sort "$VCF_FILE" -Oz -o "$INPUT_VCF"
 # Copy existing headers from the input VCF
 bcftools view -h "$VCF_FILE" > "$OUTPUT_VCF"
 
-# Add header information to VCF output file
-echo "##METHYLATION: TR_AM - Description=\"Average methylation percentage for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##METHYLATION: TR_N_METH_VALID - Description=\"Count of valid sites used for AM calculation for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##METHYLATION: UPSTREAM_TR_AM - Description=\"Average methylation percentage for upstream sequence (region specified by flanking bp) of TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##METHYLATION: UPSTREAM_TR_N_METH_VALID - Description=\"Count of valid sites used for UPSTREAM AM calculation for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##METHYLATION: DOWNSTREAM_TR_AM - Description=\"Average methylation percentage for downstream sequence (region specified by flanking bp) of TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##METHYLATION: DOWNSTREAM_TR_N_METH_VALID - Description=\"Count of valid sites used for downstream AM calculation for TR alleles (ref,alt)\">" >> "$OUTPUT_VCF"
-echo "##TR SEQUENCE COMPOSITION: LENGTH OF TR ALLELE (HP1|HP2)\">" >> "$OUTPUT_VCF"
-echo "##TR SEQUENCE COMPOSITION: uTR info output per allele (HP1;HP2). Format: (A,B,C), where A shows the length of the DNA string, B means the number of types detected, and C is the dissimilarity ratio between the tandem repeat pattern and the string\">" >> "$OUTPUT_VCF"
-echo "##TR SEQUENCE COMPOSITION: TR pattern as defined by uTR (HP1,HP2)\">" >> "$OUTPUT_VCF"
-echo "##TR SEQUENCE COMPOSITION: TR motif decomposition as defined by uTR (HP1,HP2)\">" >> "$OUTPUT_VCF"
-echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$SAMPLE_ID\t$TR_ID\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_LEN\tTR_INFO_VALUE\tTR_PAT\tTR_DECOMP" >> "$OUTPUT_VCF"
+# Add FORMAT fields for individual-specific methylation info
+echo '##FORMAT=<ID=TR_AM,Number=1,Type=Float,Description="Average methylation percentage for this individual at the TR region">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=TR_N_METH_VALID,Number=1,Type=Integer,Description="Number of valid CpG sites used for TR methylation calculation in this individual">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=UPSTREAM_TR_AM,Number=1,Type=Float,Description="Average methylation percentage upstream of TR for this individual">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=UPSTREAM_TR_N_METH_VALID,Number=1,Type=Integer,Description="Valid CpGs upstream of TR in this individual">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=DOWNSTREAM_TR_AM,Number=1,Type=Float,Description="Average methylation percentage downstream of TR for this individual">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=DOWNSTREAM_TR_N_METH_VALID,Number=1,Type=Integer,Description="Valid CpGs downstream of TR in this individual">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=TR_LEN,Number=1,Type=String,Description="Length of TR alleles for this individual, format HP1|HP2">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=TR_INFO_VALUE,Number=1,Type=String,Description="uTR info output per allele (HP1;HP2), format (A,B,C)">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=TR_PAT,Number=1,Type=String,Description="TR pattern per allele, format HP1,HP2">' >> "$OUTPUT_VCF"
+echo '##FORMAT=<ID=TR_DECOMP,Number=1,Type=String,Description="TR motif decomposition per allele, format HP1,HP2">' >> "$OUTPUT_VCF"
+
+# Add VCF column headers
+echo -e "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t$SAMPLE_ID" >> "$OUTPUT_VCF"
 
 # Function to check if a VCF entry lacks phasing information
 # Function to modify the GT field based on PDP values and handle haploid chromosomes
 modify_gt_based_on_pdp() {
-    local LINE FORMAT INFO GT_INDEX PDP_INDEX GT_VALUE PDP_VALUE MODIFIED_GT CHROM
+    local LINE FORMAT SAMPLE_INFO GT_INDEX PDP_INDEX GT_VALUE PDP_VALUE MODIFIED_GT CHROM
 
     LINE="$1"
     FORMAT=$(echo "$LINE" | cut -f9)
-    INFO=$(echo "$LINE" | cut -f10)
+    SAMPLE_INFO=$(echo "$LINE" | cut -f10)
     CHROM=$(echo "$LINE" | cut -f1)  # Extract chromosome name
 
     # Find the indexes of GT and PDP in the FORMAT field
@@ -127,15 +129,14 @@ modify_gt_based_on_pdp() {
     PDP_INDEX=$(echo "$FORMAT" | awk -F':' '{for (i=1; i<=NF; i++) if ($i=="PDP") print i}')
 
     # Extract GT value
-    GT_VALUE=$(echo "$INFO" | cut -d':' -f$GT_INDEX)
+    GT_VALUE=$(echo "$SAMPLE_INFO" | cut -d':' -f$GT_INDEX)
 
     # Check PDP value
     if is_haploid "$CHROM"; then
-        # Haploid chromosome case (no PDP field)
-        MODIFIED_GT="${GT_VALUE}|."
+        MODIFIED_GT="${GT_VALUE}"
     else
         # Extract PDP value
-        PDP_VALUE=$(echo "$INFO" | cut -d':' -f$PDP_INDEX)
+        PDP_VALUE=$(echo "$SAMPLE_INFO" | cut -d':' -f$PDP_INDEX)
 
         # Split GT and PDP into alleles
         IFS='|' read -r GT1 GT2 <<< "$GT_VALUE"
@@ -159,7 +160,7 @@ modify_gt_based_on_pdp() {
     fi
 
     # Replace the old GT value with the new one
-    MODIFIED_INFO=$(echo "$INFO" | awk -v gt_index="$GT_INDEX" -v new_gt="$MODIFIED_GT" 'BEGIN{FS=OFS=":"}{$gt_index=new_gt; print}')
+    MODIFIED_INFO=$(echo "$SAMPLE_INFO" | awk -v gt_index="$GT_INDEX" -v new_gt="$MODIFIED_GT" 'BEGIN{FS=OFS=":"}{$gt_index=new_gt; print}')
 
     # Construct the modified VCF line
     echo -e "$(echo "$LINE" | cut -f1-9)\t$MODIFIED_INFO"
@@ -168,18 +169,18 @@ modify_gt_based_on_pdp() {
 
 # First processing loop: read VCF file and generate TR-specific FASTA and BED entries
 echo ""
-echo "STEP1: PREPARING INPUT FILES"
+echo "START ANALYSIS"
 echo ""
 
-while read -r LINE; do
-    # Skip VCF header lines
-    if [[ $LINE == \#* ]]; then
-        continue
-    fi
 
+bcftools view "$INPUT_VCF" | while read -r LINE; do
+    # Declare name of files
+    REGION_BAM="${TMP_DIR}/${TR_ID}_extracted.bam"
+    REGION_FASTQ="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}.extracted.fastq"
+    
     # Modify GT field based on PDP values
     MODIFIED_LINE=$(modify_gt_based_on_pdp "$LINE")
-
+    
     # Parse VCF fields
     CHROM=$(echo "$MODIFIED_LINE" | cut -f1)
     POS=$(echo "$MODIFIED_LINE" | cut -f2)
@@ -190,8 +191,10 @@ while read -r LINE; do
     TR_END=$(echo "$MODIFIED_LINE" | grep -o "END=[0-9]*" | cut -d"=" -f2)
     GENOTYPE=$(echo "$MODIFIED_LINE" | cut -f10 | cut -d':' -f1)
 
-    # Parse alternate alleles
+    # Parse alternate genotypes and alleles
+    IFS='|' read -ra GENO_ARRAY <<< "$GENOTYPE"
     IFS=',' read -ra ALT_ALLELES <<< "$ALT"
+    ALL_ALLELES=("$REF" "${ALT_ARRAY[@]}")
 
     # Determine repeat extension boundaries
     UPSTREAM_START=$((TR_START - EXTEND))
@@ -202,6 +205,86 @@ while read -r LINE; do
     # Extract flanking sequences
     UPSTREAM_SEQ=$(samtools faidx "$REFERENCE_FASTA" "${CHROM}:${UPSTREAM_START}-${UPSTREAM_END}" | tail -n +2 | tr -d '\n' | tr '[:upper:]' '[:lower:]')
     DOWNSTREAM_SEQ=$(samtools faidx "$REFERENCE_FASTA" "${CHROM}:${DOWNSTREAM_START}-${DOWNSTREAM_END}" | tail -n +2 | tr -d '\n' | tr '[:upper:]' '[:lower:]')
+
+
+    for allele in "${GENO_ARRAY[@]}"; do
+
+        SEQ="${UPSTREAM_SEQ}$(echo "${ALL_ALLELES[${allele}]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
+        HEADER="${CHROM}_${POS}_${TR_ID}_${allele}"
+        REGION_FASTA="${HEADER}.fasta"
+        TR_START_REL=$((EXTEND + 1))
+        TR_END_REL=$((EXTEND + ${#REF}))
+        echo ">$HEADER" >> "$REGION_FASTA"
+        echo "$SEQ" >> "$REGION_FASTA"
+        samtools faidx "$REGION_FASTA"
+        # Extract reads overlapping the region and convert to FASTQ
+        samtools view -h "$PHASED_BAM" "$CHROM:$TR_START-$TR_END" | samtools addreplacerg -r "ID:${TR_ID}" - | samtools view -b - > "$REGION_BAM"
+        samtools fastq -t -T MM,ML,HP,PS "$REGION_BAM" > "$REGION_FASTQ" 2>/dev/null
+
+        # Map with minimap2
+        echo "Remapping to TR allele $allele sequence"
+        REGION_SAM="${TMP_DIR}/${CHROM}_${TR_ID}_${allele}_mapped.sam"
+        minimap2 -ax map-ont -y --sam-hit-only "$REGION_FASTA" "$REGION_FASTQ" > "$REGION_SAM" 2>/dev/null
+
+        # Convert, sort, and index BAM
+        REGION_SORTED_BAM="${ALIGNMENTS}/${CHROM}_${TR_ID}_${allele}_mapped.sorted.bam"
+        samtools view -bS "$REGION_SAM" | samtools sort -o "$REGION_SORTED_BAM" 2>/dev/null
+        samtools index "$REGION_SORTED_BAM"
+
+        # Perform modkit pileup on the generated BAM file
+        echo "Running modkit pileup for ${allele}"
+        PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${allele}_modkit_pileup.bed"
+        modkit pileup "${REGION_SORTED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
+
+        # Check for phased output files
+        if  [[ -e "$PILEUP_OUTPUT" && -s "$PILEUP_OUTPUT" ]]; then
+        echo "Modkit pileup completed successfully"
+        # Compress and index the phased pileup output
+        bgzip "$PILEUP_OUTPUT"
+        tabix "${PILEUP_OUTPUT}.gz"
+
+        # Perform modkit stats for the TR region for each phased output
+        TR_ALL_START=$((EXTEND + 1))
+        TR_ALL_END=$((EXTEND + ${#ALL_ALLELES[${allele}]}))
+        REGION_BED="${HEADER}.bed"
+        REGION_BED="${HEADER}.bed"
+        REGION_BED="${HEADER}.bed"
+        
+
+        echo -e "$HEADER\t$TR_ALL_START\t$TR_ALL_END\t$TR_ID" > "$REGION_BED"
+        bedtools flank -i "$OUTPUT_BED" -l "$FLANKING_BASES" -r 0 > "$OUTPUT_UPSTREAM_BED"
+        bedtools flank -i "$OUTPUT_BED" -l 0 -r "$FLANKING_BASES" > "$OUTPUT_DOWNSTREAM_BED"
+
+        STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${allele}_modkit_stats.tsv"
+        STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${allele}_upstream_modkit_stats.tsv"
+        STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${allele}_downstream_modkit_stats.tsv"
+        echo "Running modkit stats for TR ${allele}"
+        modkit stats --regions "$REGION_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+        modkit stats --regions "$OUTPUT_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+        modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+            else
+                 # Log error and continue to next TR entry
+                 echo "Error: modkit pileup output is empty or missing for ${TR_ID}:${HAPLOTYPE}" >&2
+                 continue
+            fi
+
+
+            # Cleanup temporary files
+            rm -f "$REGION_FASTQ"
+            rm -f "$REGION_SAM"
+            rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
+
+
+done
+
+
+
+
+
+
+
+
+
 
 
     # Generate FASTA and BED entries based on genotype
@@ -439,7 +522,7 @@ while read -r LINE; do
                ;;
         esac
     fi
-done < "$INPUT_VCF"
+done
 
 # Create an upstream-shifted BED file (flanking bp from start)
 awk -v flank="$FLANKING_BASES" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2}' "$OUTPUT_BED" > "$OUTPUT_UPSTREAM_BED" 
