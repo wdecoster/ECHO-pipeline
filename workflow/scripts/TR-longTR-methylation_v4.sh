@@ -174,9 +174,6 @@ echo ""
 
 
 bcftools view "$INPUT_VCF" | while read -r LINE; do
-    # Declare name of files
-    REGION_BAM="${TMP_DIR}/${TR_ID}_extracted.bam"
-    REGION_FASTQ="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}.extracted.fastq"
     
     # Modify GT field based on PDP values
     MODIFIED_LINE=$(modify_gt_based_on_pdp "$LINE")
@@ -207,489 +204,105 @@ bcftools view "$INPUT_VCF" | while read -r LINE; do
     DOWNSTREAM_SEQ=$(samtools faidx "$REFERENCE_FASTA" "${CHROM}:${DOWNSTREAM_START}-${DOWNSTREAM_END}" | tail -n +2 | tr -d '\n' | tr '[:upper:]' '[:lower:]')
 
 
-    for allele in "${GENO_ARRAY[@]}"; do
+    for i in "${!GENO_ARRAY[@]}"; do #iterate over indices to work with haplotypes [0 is HP1 and 1 is HP2]
+	allele=${GENO_ARRAY[$i]}
 
-        SEQ="${UPSTREAM_SEQ}$(echo "${ALL_ALLELES[${allele}]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-        HEADER="${CHROM}_${POS}_${TR_ID}_${allele}"
+        if [[ "$allele" == "." ]]; then
+            TR_VALUE="."
+            TR_NCOV="."
+            upTR_VALUE="."
+            upTR_NCOV="."
+            downTR_VALUE="."
+            downTR_NCOV="." 
+        fi
+       
+        if is_haploid "$CHROM"; then
+            HAPLOTYPE="haploid"  
+        elif [[ "$i" -eq 0 ]]; then
+            HAPLOTYPE=1
+        elif [[ "$i" -eq 1 ]]; then
+            HAPLOTYPE=2
+        fi
+        
+        #Create fasta file
+        SEQ="${UPSTREAM_SEQ}$(echo "${ALL_ALLELES[${i}]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
+        HEADER="${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}"
         REGION_FASTA="${HEADER}.fasta"
         TR_START_REL=$((EXTEND + 1))
         TR_END_REL=$((EXTEND + ${#REF}))
         echo ">$HEADER" >> "$REGION_FASTA"
         echo "$SEQ" >> "$REGION_FASTA"
         samtools faidx "$REGION_FASTA"
+         
         # Extract reads overlapping the region and convert to FASTQ
+        REGION_BAM="${TMP_DIR}/${TR_ID}_extracted.bam"
         samtools view -h "$PHASED_BAM" "$CHROM:$TR_START-$TR_END" | samtools addreplacerg -r "ID:${TR_ID}" - | samtools view -b - > "$REGION_BAM"
-        samtools fastq -t -T MM,ML,HP,PS "$REGION_BAM" > "$REGION_FASTQ" 2>/dev/null
+        
+        # Filter reads by HP tag
+        if [[ "$HAPLOTYPE" == 1 ]]; then
+            echo "Filter HP1 reads"
+            FILTERED_BAM="${TMP_DIR}/${CHROM}_${TR_ID}_extracted_HP1.bam"
+            samtools view -h "$REGION_BAM" | awk '/^@/ || /HP:i:1/' | samtools view -b - > "$FILTERED_BAM"
+        elif [[ "$HAPLOTYPE" == 2 ]]; then
+            echo "Filter HP2 reads"
+            FILTERED_BAM="${TMP_DIR}/${CHROM}_${TR_ID}_extracted_HP2.bam"
+            samtools view -h "$REGION_BAM" | awk '/^@/ || /HP:i:2/' | samtools view -b - > "$FILTERED_BAM"
+        else
+            echo "No filtering since chromosome is haploid"
+            FILTERED_BAM="$REGION_BAM"
+        fi
+
+        # Validate the bam file
+        if [[ ! -s "$FILTERED_BAM" ]]; then
+            echo "Error: no reads extracted for $TR_ID, $HAPLOTYPE"
+            continue
+        fi
+
+
+        # Convert to FASTQ
+        REGION_FASTQ="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}.extracted.fastq"
+        samtools fastq -t -T MM,ML,HP,PS "$FILTERED_BAM" > "$REGION_FASTQ" 2>/dev/null
 
         # Map with minimap2
-        echo "Remapping to TR allele $allele sequence"
-        REGION_SAM="${TMP_DIR}/${CHROM}_${TR_ID}_${allele}_mapped.sam"
+        echo "Remapping to TR $HAPLOTYPE sequence"
+        REGION_SAM="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}_mapped.sam"
         minimap2 -ax map-ont -y --sam-hit-only "$REGION_FASTA" "$REGION_FASTQ" > "$REGION_SAM" 2>/dev/null
 
         # Convert, sort, and index BAM
-        REGION_SORTED_BAM="${ALIGNMENTS}/${CHROM}_${TR_ID}_${allele}_mapped.sorted.bam"
-        samtools view -bS "$REGION_SAM" | samtools sort -o "$REGION_SORTED_BAM" 2>/dev/null
-        samtools index "$REGION_SORTED_BAM"
+        REGION_REALIGNED_BAM="${ALIGNMENTS}/${CHROM}_${TR_ID}_${HAPLOTYPE}_mapped.sorted.bam"
+        samtools view -bS "$REGION_SAM" | samtools sort -o "$REGION_REALIGNED_BAM" 2>/dev/null
+        samtools index "$REGION_REALIGNED_BAM"
 
         # Perform modkit pileup on the generated BAM file
         echo "Running modkit pileup for ${allele}"
-        PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${allele}_modkit_pileup.bed"
-        modkit pileup "${REGION_SORTED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
+        PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_pileup.bed"
+        modkit pileup "${REGION_REALIGNED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
 
         # Check for phased output files
         if  [[ -e "$PILEUP_OUTPUT" && -s "$PILEUP_OUTPUT" ]]; then
-        echo "Modkit pileup completed successfully"
-        # Compress and index the phased pileup output
-        bgzip "$PILEUP_OUTPUT"
-        tabix "${PILEUP_OUTPUT}.gz"
-
-        # Perform modkit stats for the TR region for each phased output
-        TR_ALL_START=$((EXTEND + 1))
-        TR_ALL_END=$((EXTEND + ${#ALL_ALLELES[${allele}]}))
-        REGION_BED="${HEADER}.bed"
-        REGION_BED="${HEADER}.bed"
-        REGION_BED="${HEADER}.bed"
-        
-
-        echo -e "$HEADER\t$TR_ALL_START\t$TR_ALL_END\t$TR_ID" > "$REGION_BED"
-        bedtools flank -i "$OUTPUT_BED" -l "$FLANKING_BASES" -r 0 > "$OUTPUT_UPSTREAM_BED"
-        bedtools flank -i "$OUTPUT_BED" -l 0 -r "$FLANKING_BASES" > "$OUTPUT_DOWNSTREAM_BED"
-
-        STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${allele}_modkit_stats.tsv"
-        STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${allele}_upstream_modkit_stats.tsv"
-        STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${allele}_downstream_modkit_stats.tsv"
-        echo "Running modkit stats for TR ${allele}"
-        modkit stats --regions "$REGION_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-        modkit stats --regions "$OUTPUT_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-        modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-            else
-                 # Log error and continue to next TR entry
-                 echo "Error: modkit pileup output is empty or missing for ${TR_ID}:${HAPLOTYPE}" >&2
-                 continue
-            fi
-
-
-            # Cleanup temporary files
-            rm -f "$REGION_FASTQ"
-            rm -f "$REGION_SAM"
-            rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
-
-
-done
-
-
-
-
-
-
-
-
-
-
-
-    # Generate FASTA and BED entries based on genotype
-    if is_haploid "$CHROM"; then
-        # Haploid chromosome logic
-        case "$GENOTYPE" in
-            "0|.")
-                REF_SEQ="${UPSTREAM_SEQ}$(echo "${REF}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-                HEADER="${CHROM}_${POS}_${TR_ID}_HP1_REF"
-                TR_START_REL=$((EXTEND + 1))
-                TR_END_REL=$((EXTEND + ${#REF}))
-                echo ">$HEADER" >> "$MULTIFASTA"
-                echo "$REF_SEQ" >> "$MULTIFASTA"
-                echo -e ">$HEADER\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-                echo -e "$HEADER\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-                ;;
-            "1|.")
-               ALT_SEQ="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               HEADER="${CHROM}_${POS}_${TR_ID}_HP1_ALT"
-               TR_START_ALT=$((EXTEND + 1))
-               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
-               echo ">$HEADER" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo -e "$HEADER\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-        esac
-    else
-        # Diploid chromosome logic
-        case "$GENOTYPE" in
-            "1|2")
-               # Heterozygous two alternate alleles
-               ALT_SEQ1="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               ALT_SEQ2="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[1]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               HEADER_ALT1="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
-               HEADER_ALT2="${CHROM}_${POS}_${TR_ID}_HP2_ALT2"
-               TR_START_ALT1=$((EXTEND + 1))
-               TR_END_ALT1=$((EXTEND + ${#ALT_ALLELES[0]}))
-               TR_START_ALT2=$((EXTEND + 1))
-               TR_END_ALT2=$((EXTEND + ${#ALT_ALLELES[1]}))
-               echo ">$HEADER_ALT1" >> "$MULTIFASTA"
-               echo "$ALT_SEQ1" >> "$MULTIFASTA"
-               echo ">$HEADER_ALT2" >> "$MULTIFASTA"
-               echo -e ">$HEADER_ALT1\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo "$ALT_SEQ2" >> "$MULTIFASTA"
-               echo -e ">$HEADER_ALT2\n${ALT_ALLELES[1]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_ALT1\t$TR_START_ALT1\t$TR_END_ALT1\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_ALT2\t$TR_START_ALT2\t$TR_END_ALT2\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           "2|1")
-               # Heterozygous two alternate alleles
-               ALT_SEQ1="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[1]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               ALT_SEQ2="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               HEADER_ALT1="${CHROM}_${POS}_${TR_ID}_HP1_ALT2"
-               HEADER_ALT2="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
-               TR_START_ALT1=$((EXTEND + 1))
-               TR_END_ALT1=$((EXTEND + ${#ALT_ALLELES[1]}))
-               TR_START_ALT2=$((EXTEND + 1))
-               TR_END_ALT2=$((EXTEND + ${#ALT_ALLELES[0]}))
-               echo ">$HEADER_ALT1" >> "$MULTIFASTA"
-               echo "$ALT_SEQ1" >> "$MULTIFASTA"
-               echo -e ">$HEADER_ALT1\n${ALT_ALLELES[1]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo ">$HEADER_ALT2" >> "$MULTIFASTA"
-               echo "$ALT_SEQ2" >> "$MULTIFASTA"
-               echo -e ">$HEADER_ALT2\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_ALT1\t$TR_START_ALT1\t$TR_END_ALT1\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_ALT2\t$TR_START_ALT2\t$TR_END_ALT2\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           "0|0")
-               # Homozygous reference
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REL=$((EXTEND + 1))
-               TR_END_REL=$((EXTEND + ${#REF}))
-               HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_REF"
-               HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_REF"
-               echo ">$HEADER_HP1" >> "$MULTIFASTA"
-               echo "$SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo ">$HEADER_HP2" >> "$MULTIFASTA"
-               echo "$SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_HP1\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_HP2\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           "0|1")
-               # Heterozygous reference and first alternate
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
-               REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((EXTEND + 1))
-               TR_END_REF=$((EXTEND + ${#REF}))
-               TR_START_ALT=$((EXTEND + 1))
-               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
-               HEADER_REF="${CHROM}_${POS}_${TR_ID}_HP1_REF"
-               echo ">$HEADER_REF" >> "$MULTIFASTA"
-               echo "$REF_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_REF\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               HEADER_ALT="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
-               echo ">$HEADER_ALT" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_ALT\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_REF\t$TR_START_REF\t$TR_END_REF\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_ALT\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           "1|0")
-               # Heterozygous reference and first alternate
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
-               REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((EXTEND + 1))
-               TR_END_REF=$((EXTEND + ${#REF}))
-               TR_START_ALT=$((EXTEND + 1))
-               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
-               HEADER_ALT="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
-               HEADER_REF="${CHROM}_${POS}_${TR_ID}_HP2_REF"
-               echo ">$HEADER_ALT" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_ALT\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo ">$HEADER_REF" >> "$MULTIFASTA"
-               echo "$REF_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_REF\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_ALT\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_REF\t$TR_START_REF\t$TR_END_REF\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           "1|1")
-               # Homozygous first alternate
-               ALT_SEQ="${UPSTREAM_SEQ}$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
-               HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
-               TR_START_REL=$((EXTEND + 1))
-               TR_END_REL=$((EXTEND + ${#ALT_ALLELES[0]}))
-               echo ">$HEADER_HP1" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo ">$HEADER_HP2" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_HP1\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_HP2\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           ".|.")
-               # Unphased or missing data for both alleles
-               HEADER_UNPHASED_HP1="${CHROM}_${POS}_${TR_ID}_unphased1"
-               HEADER_UNPHASED_HP2="${CHROM}_${POS}_${TR_ID}_unphased2"
-               UNPHASED_SEQ="${UPSTREAM_SEQ}$(echo "$REF" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
-               TR_START_UNPHASED=$((EXTEND + 1))
-               TR_END_UNPHASED=$((EXTEND + ${#REF}))
-               echo ">$HEADER_UNPHASED_HP1" >> "$MULTIFASTA"
-               echo "$UNPHASED_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_UNPHASED_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased1.fasta"
-               echo ">$HEADER_UNPHASED_HP2" >> "$MULTIFASTA"
-               echo "$UNPHASED_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_UNPHASED_HP2\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased2.fasta"
-               echo -e "$HEADER_UNPHASED_HP1\t$TR_START_UNPHASED\t$TR_END_UNPHASED\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_UNPHASED_HP2\t$TR_START_UNPHASED\t$TR_END_UNPHASED\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           ".|0")
-               # Unphased and reference
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REL=$((EXTEND + 1))
-               TR_END_REL=$((EXTEND + ${#REF}))
-               HEADER_HP1="${CHROM}_${POS}_${TR_ID}_unphased1"
-               HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_REF"
-               echo ">$HEADER_HP1" >> "$MULTIFASTA"
-               echo "$SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased1.fasta"
-               echo ">$HEADER_HP2" >> "$MULTIFASTA"
-               echo "$SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_HP1\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_HP2\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-            "0|.")
-               # Reference allele and unphased
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REL=$((EXTEND + 1))
-               TR_END_REL=$((EXTEND + ${#REF}))
-               HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_REF"
-               HEADER_HP2="${CHROM}_${POS}_${TR_ID}_unphased2"
-               echo ">$HEADER_HP1" >> "$MULTIFASTA"
-               echo "$SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               echo ">$HEADER_HP2" >> "$MULTIFASTA"
-               echo "$SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased2.fasta"
-               echo -e "$HEADER_HP1\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_HP2\t$TR_START_REL\t$TR_END_REL\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-            ".|1")
-               # Heterozygous reference and first alternate
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
-               REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((EXTEND + 1))
-               TR_END_REF=$((EXTEND + ${#REF}))
-               TR_START_ALT=$((EXTEND + 1))
-               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
-               HEADER_HP1="${CHROM}_${POS}_${TR_ID}_unphased1"
-               echo ">$HEADER_HP1" >> "$MULTIFASTA"
-               echo "$REF_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased1.fasta"
-               HEADER_HP2="${CHROM}_${POS}_${TR_ID}_HP2_ALT1"
-               echo ">$HEADER_HP2" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP2.fasta"
-               echo -e "$HEADER_HP1\t$TR_START_REF\t$TR_END_REF\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_HP2\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-           "1|.")
-               # Heterozygous reference and first alternate
-               REF_UPPER=$(echo "$REF" | tr '[:lower:]' '[:upper:]')
-               ALT_UPPER=$(echo "${ALT_ALLELES[0]}" | tr '[:lower:]' '[:upper:]')
-               REF_SEQ="${UPSTREAM_SEQ}${REF_UPPER}${DOWNSTREAM_SEQ}"
-               ALT_SEQ="${UPSTREAM_SEQ}${ALT_UPPER}${DOWNSTREAM_SEQ}"
-               TR_START_REF=$((EXTEND + 1))
-               TR_END_REF=$((EXTEND + ${#REF}))
-               TR_START_ALT=$((EXTEND + 1))
-               TR_END_ALT=$((EXTEND + ${#ALT_ALLELES[0]}))
-               HEADER_HP1="${CHROM}_${POS}_${TR_ID}_HP1_ALT1"
-               echo ">$HEADER_HP1" >> "$MULTIFASTA"
-               echo "$ALT_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP1\n${ALT_ALLELES[0]}" > "${TMP_DIR}/${CHROM}_${TR_ID}_HP1.fasta"
-               HEADER_HP2="${CHROM}_${POS}_${TR_ID}_unphased2"
-               echo ">$HEADER_HP2" >> "$MULTIFASTA"
-               echo "$REF_SEQ" >> "$MULTIFASTA"
-               echo -e ">$HEADER_HP2\n$REF" > "${TMP_DIR}/${CHROM}_${TR_ID}_unphased2.fasta"
-               echo -e "$HEADER_HP1\t$TR_START_ALT\t$TR_END_ALT\t$TR_ID" >> "$OUTPUT_BED"
-               echo -e "$HEADER_HP2\t$TR_START_REF\t$TR_END_REF\t$TR_ID" >> "$OUTPUT_BED"
-               ;;
-        esac
-    fi
-done
-
-# Create an upstream-shifted BED file (flanking bp from start)
-awk -v flank="$FLANKING_BASES" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2}' "$OUTPUT_BED" > "$OUTPUT_UPSTREAM_BED" 
-
-# Downstream: from end to (end + flank)
-awk -v flank="$FLANKING_BASES" '{OFS="\t"} {print $1, $3, $3+flank}' "$OUTPUT_BED" > "$OUTPUT_DOWNSTREAM_BED"
-
-# Second processing loop where we extract the reads that span each TR region
-# and remap them against newly created reference TR sequences.
-
-echo ""
-echo "STEP2: REMAPPING AND METHYLATION ANALYSIS"
-echo ""
-
-while read -r LINE; do
-    # Skip VCF header lines
-    if [[ $LINE == \#* ]]; then
-        continue
-    fi
-
-    MODIFIED_LINE=$(modify_gt_based_on_pdp "$LINE")
-
-    # Parse and extract same parameters than in first loop
-    CHROM=$(echo "$MODIFIED_LINE" | cut -f1)
-    POS=$(echo "$MODIFIED_LINE" | cut -f2)
-    TR_ID=$(echo "$MODIFIED_LINE" | cut -f3)
-    TR_START=$(echo "$MODIFIED_LINE" | grep -o "START=[0-9]*" | cut -d'=' -f2)
-    TR_END=$(echo "$MODIFIED_LINE" | grep -o "END=[0-9]*" | cut -d"=" -f2)
-
-    # Log progress
-    echo -e ".............Processing ${CHROM}:${TR_ID}............."
-    echo ""
-
-
-    echo "Extracting overlapping reads"
-
-    # Check again if haploid
-    if is_haploid "$CHROM"; then
-        # Haploid chromosome logic: process only one sequence (ALT or REF)
-        for HAPLOTYPE in ALT REF; do
-            # Extract reads overlapping the region
-            REGION_BAM="${TMP_DIR}/${TR_ID}_extracted.bam"
-            samtools view -h "$PHASED_BAM" "$CHROM:$TR_START-$TR_END" | samtools addreplacerg -r "ID:${TR_ID}" - | samtools view -b - > "$REGION_BAM"
-
-            # Check if haplotype exists in MULTIFASTA
-            if ! grep -q -E ">${CHROM}_${POS}_${TR_ID}_HP1_${HAPLOTYPE}$" "$MULTIFASTA"; then
-               continue
-            fi
-
-            # Convert to FASTQ
-            REGION_FASTQ="${TMP_DIR}/${TR_ID}.extracted.fastq"
-            samtools fastq -t -T MM,ML,HP,PS "$REGION_BAM" > "$REGION_FASTQ" 2>/dev/null
-
-            # Proceed with processing the haploid allele sequence
-            REGION_FASTA="${TMP_DIR}/${TR_ID}_${HAPLOTYPE}_reference.fasta"
-            grep -A 1 -E ">${CHROM}_${POS}_${TR_ID}_HP1_${HAPLOTYPE}" "$MULTIFASTA" > "$REGION_FASTA"
-            if [[ ! -s "$REGION_FASTA" ]]; then
-                echo "Error: no FASTA sequence found for ${CHROM}:${TR_ID}:${HAPLOTYPE}" >&2
-                continue
-            fi
-            samtools faidx "$REGION_FASTA"
-
-            # Map with minimap2
-            echo "Remapping to TR ${HAPLOTYPE} sequence"
-            REGION_SAM="${TMP_DIR}/${TR_ID}_mapped.sam"
-            minimap2 -ax map-ont -y --sam-hit-only "$REGION_FASTA" "$REGION_FASTQ" > "$REGION_SAM" 2>/dev/null
-
-            # Convert, sort, and index BAM
-            REGION_SORTED_BAM="${ALIGNMENTS}/${CHROM}_${TR_ID}_mapped.sorted.bam"
-            samtools view -bS "$REGION_SAM" | samtools sort -o "$REGION_SORTED_BAM"
-            samtools index "$REGION_SORTED_BAM"
-
-            # Perform modkit pileup on the generated BAM file
-            echo "Running modkit pileup for ${HAPLOTYPE}"
-            PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_pileup.bed"
-            modkit pileup "${REGION_SORTED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
+            echo "Modkit pileup completed successfully"
+            # Compress and index the phased pileup output
             bgzip "$PILEUP_OUTPUT"
             tabix "${PILEUP_OUTPUT}.gz"
 
             # Perform modkit stats for the TR region for each phased output
+            TR_ALL_START=$((EXTEND + 1))
+            TR_ALL_END=$((EXTEND + ${#ALL_ALLELES[${i}]}))
+            REGION_BED="${HEADER}.bed"
+            REGION_UPSTREAM_BED="${HEADER}_upstream.bed"
+            REGION_DOWNSTREAM_BED="${HEADER}_downstream.bed"
+        
+            echo -e "$HEADER\t$TR_ALL_START\t$TR_ALL_END\t$TR_ID" > "$REGION_BED"
+            bedtools flank -i "$OUTPUT_BED" -l "$FLANKING_BASES" -r 0 > "$OUTPUT_UPSTREAM_BED"
+            bedtools flank -i "$OUTPUT_BED" -l 0 -r "$FLANKING_BASES" > "$OUTPUT_DOWNSTREAM_BED"
+
             STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
             STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
             STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
-            echo "Running modkit stats for ${HAPLOTYPE}"
-            modkit stats --regions "$OUTPUT_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+            echo "Running modkit stats for TR ${HAPLOTYPE}"
+            modkit stats --regions "$REGION_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             modkit stats --regions "$OUTPUT_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-            echo "Sucessfully processed ${CHROM}:${TR_ID}:${HAPLOTYPE}!"
-            echo ""
-
-            # Cleanup temporary files
-            rm -f "$REGION_FASTQ"
-            rm -f "$REGION_SAM"
-            rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
-
-        done
-    else
-        for HAPLOTYPE in HP1_REF HP2_REF HP1_ALT1 HP1_ALT2 HP2_ALT1 HP2_ALT2 unphased1 unphased2; do
-            # Extract reads overlapping the region
-            REGION_BAM="${TMP_DIR}/${TR_ID}_extracted.bam"
-            samtools view -h "$PHASED_BAM" "$CHROM:$TR_START-$TR_END" | samtools addreplacerg -r "ID:${TR_ID}" - | samtools view -b - > "$REGION_BAM"
-
-            # Check if haplotype exists in MULTIFASTA
-            if ! grep -q -E ">${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}" "$MULTIFASTA"; then
-               continue
-            fi
-
-            # Filter reads by HP tag
-            if [[ "$HAPLOTYPE" == HP1* ]]; then
-                echo "Filter HP1 reads"
-                FILTERED_BAM="${TMP_DIR}/${CHROM}_${TR_ID}_extracted_HP1.bam"
-                samtools view -h "$REGION_BAM" | awk '/^@/ || /HP:i:1/' | samtools view -b - > "$FILTERED_BAM"
-            elif [[ "$HAPLOTYPE" == HP2* ]]; then
-                echo "Filter HP2 reads"
-                FILTERED_BAM="${TMP_DIR}/${CHROM}_${TR_ID}_extracted_HP2.bam"
-                samtools view -h "$REGION_BAM" | awk '/^@/ || /HP:i:2/' | samtools view -b - > "$FILTERED_BAM"
-            else
-                echo "Filter unphased reads"
-                FILTERED_BAM="${TMP_DIR}/${CHROM}_${TR_ID}_extracted_UNPHASED.bam"
-                samtools view -h "$REGION_BAM" | awk '/^@/ || !/HP:i:/' | samtools view -b - > "$FILTERED_BAM"
-            fi
-
-            # Validate the bam file
-            if [[ ! -s "$FILTERED_BAM" ]]; then
-                echo "Error: no reads extracted for $TR_ID, $HAPLOTYPE"
-                continue
-            fi
-
-            # Convert to FASTQ
-            REGION_FASTQ="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}.extracted.fastq"
-            samtools fastq -t -T MM,ML,HP,PS "$FILTERED_BAM" > "$REGION_FASTQ" 2>/dev/null
-
-            # Proceed with processing the haplotype
-            REGION_FASTA="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}_reference.fasta"
-            grep -A 1 -E ">${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}" "$MULTIFASTA" > "$REGION_FASTA"
-            samtools faidx "$REGION_FASTA"
-
-            # Map with minimap2
-            echo "Remapping to TR $HAPLOTYPE sequence"
-            REGION_SAM="${TMP_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}_mapped.sam"
-            minimap2 -ax map-ont -y --sam-hit-only "$REGION_FASTA" "$REGION_FASTQ" > "$REGION_SAM" 2>/dev/null
-
-            # Convert, sort, and index BAM
-            REGION_SORTED_BAM="${ALIGNMENTS}/${CHROM}_${TR_ID}_${HAPLOTYPE}_mapped.sorted.bam"
-            samtools view -bS "$REGION_SAM" | samtools sort -o "$REGION_SORTED_BAM" 2>/dev/null
-            samtools index "$REGION_SORTED_BAM"
-
-            # Perform modkit pileup on the generated BAM file
-            echo "Running modkit pileup for ${HAPLOTYPE}"
-            PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_pileup.bed"
-            modkit pileup "${REGION_SORTED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
-
-            # Check for phased output files
-            if  [[ -e "$PILEUP_OUTPUT" && -s "$PILEUP_OUTPUT" ]]; then
-                 echo "Modkit pileup completed successfully"
-                 # Compress and index the phased pileup output
-                 bgzip "$PILEUP_OUTPUT"
-                 tabix "${PILEUP_OUTPUT}.gz"
-
-                 # Perform modkit stats for the TR region for each phased output
-                 STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
-                 STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
-                 STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
-                 echo "Running modkit stats for TR ${HAPLOTYPE}"
-                 modkit stats --regions "$OUTPUT_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-                 modkit stats --regions "$OUTPUT_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-                 modkit stats --regions "$OUTPUT_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
             else
                  # Log error and continue to next TR entry
                  echo "Error: modkit pileup output is empty or missing for ${TR_ID}:${HAPLOTYPE}" >&2
@@ -700,14 +313,14 @@ while read -r LINE; do
             # Cleanup temporary files
             rm -f "$REGION_FASTQ"
             rm -f "$REGION_SAM"
+            rm -f "$REGION_BAM"
+            rm -f "$REGION_BED"
+            rm -f "$REGION_BAM"
             rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
 
 
-            echo "Sucessfully processed ${CHROM}:${TR_ID}:${HAPLOTYPE}!"
-            echo ""
-        done
-    fi
-done < "$INPUT_VCF"
+    done
+done
 
 # Third processing loop: assign average allele-specific TR methylation values to VCF
 
@@ -935,6 +548,23 @@ while read -r LINE; do
         elif [[ "$HAPLOTYPE" == HP2* ]]; then
             HP2_info_value="$info_value"
             HP2_TR_len="$TR_len"
+            HP2_pat_value="$pat_value"
+            HP2_decomp_value="$decomp_value"
+        else
+            continue
+        fi
+    done
+
+    INFO_VALUE="${HP1_info_value};${HP2_info_value}"
+    TR_LEN="${HP1_TR_len}|${HP2_TR_len}"
+    PAT="${HP1_pat_value},${HP2_pat_value}"
+    DECOMP="${HP1_decomp_value},${HP2_decomp_value}"
+
+    # Append motif composition values to the VCF entry
+    echo -e "$MODIFIED_LINE\t$TR_ID\t$TR_METHYLATION\t$TR_NVALID\t$upTR_METHYLATION\t$upTR_NVALID\t$downTR_METHYLATION\t$downTR_NVALID\t$TR_LEN\t$INFO_VALUE\t$PAT\t$DECOMP" >> "$OUTPUT_VCF"
+
+done < "$INPUT_VCF"
+
             HP2_pat_value="$pat_value"
             HP2_decomp_value="$decomp_value"
         else
