@@ -185,18 +185,21 @@ bcftools sort "$CORRECT_HEADER_VCF_FILE" -Oz -o "$INPUT_VCF"
 # Copy existing headers from the input VCF
 zgrep '^##' "$CORRECT_HEADER_VCF_FILE" | grep -v '^##bcftools'> "$OUTPUT_VCF"
 
+#bcftools view -h "$OUTPUT_VCF".tmp | grep -Ev '^##INFO=<ID=(NSKIP|NFILT|INEXACT_ALLELE|BPDIFFS|DP|DSNP|DFLANKINDEL|REFAC|AC)' > "$OUTPUT_VCF"
+
+
 # Add FORMAT fields for individual-specific methylation info
 # Add new FORMAT lines
 cat <<EOF >> "$OUTPUT_VCF"
-##FORMAT=<ID=TR_LEN,Number=1,Type=String,Description="Length of TR allele in bp, format HP1|HP2">
-##FORMAT=<ID=TR_N_CPG,Number=1,Type=Float,Description="Number of CpG sites (CG) in the TR sequence, format HP1|HP2">
-##FORMAT=<ID=TR_PATTERN,Number=1,Type=String,Description="Decomposition of the TR allele pattern using uTR tool, format HP1|HP2">
-##FORMAT=<ID=TR_AM,Number=1,Type=Float,Description="Average methylation percentage for this individual at the TR region, format HP1|HP2">
-##FORMAT=<ID=TR_N_METH_VALID,Number=1,Type=Integer,Description="Number of valid CpG sites used for TR methylation calculation in this individual, format HP1|HP2">
-##FORMAT=<ID=UPSTREAM_TR_AM,Number=1,Type=Float,Description="Average methylation percentage upstream of TR for this individual, format HP1|HP2">
-##FORMAT=<ID=UPSTREAM_TR_N_METH_VALID,Number=1,Type=Integer,Description="Valid CpGs upstream of TR in this individual, format HP1|HP2">
-##FORMAT=<ID=DOWNSTREAM_TR_AM,Number=1,Type=Float,Description="Average methylation percentage downstream of TR for this individual, format HP1|HP2">
-##FORMAT=<ID=DOWNSTREAM_TR_N_METH_VALID,Number=1,Type=Integer,Description="Valid CpGs downstream of TR in this individual, format HP1|HP2">
+##FORMAT=<ID=TR_LEN,Number=G,Type=Integer,Description="Lengths of the tandem repeat alleles in bp, one per haplotype">
+##FORMAT=<ID=TR_N_CPG,Number=G,Type=Integer,Description="Number of CpG sites in the TR sequence, one per haplotype">
+##FORMAT=<ID=TR_PATTERN,Number=G,Type=String,Description="Decomposed TR allele pattern using uTR tool, one per haplotype">
+##FORMAT=<ID=TR_AM,Number=G,Type=Float,Description="Average methylation percentage at the TR region, one per haplotype">
+##FORMAT=<ID=TR_N_METH_VALID,Number=G,Type=Integer,Description="Number of valid CpG sites used for TR methylation, one per haplotype">
+##FORMAT=<ID=UPSTREAM_TR_AM,Number=G,Type=Float,Description="Average methylation percentage upstream of TR, one per haplotype">
+##FORMAT=<ID=UPSTREAM_TR_N_METH_VALID,Number=G,Type=Integer,Description="Number of valid CpGs upstream of TR, one per haplotype">
+##FORMAT=<ID=DOWNSTREAM_TR_AM,Number=G,Type=Float,Description="Average methylation percentage downstream of TR, one per haplotype">
+##FORMAT=<ID=DOWNSTREAM_TR_N_METH_VALID,Number=G,Type=Integer,Description="Number of valid CpGs downstream of TR, one per haplotype">
 EOF
 
 ##FORMAT=<ID=TR_CPG_METH,Number=1,Type=String,Description="Methylation percentage at CpG site level, format (CpG1_HP1, CpG2_HP1, CpGn_HP1|CpG1_HP2, CpG2_HP2, CpGn_HP2)">
@@ -246,13 +249,14 @@ bcftools view -H "$INPUT_VCF" | while read -r LINE; do
     HP2_upTR_NCOV="."
     HP2_AVG_downTR_VALUE="."
     HP2_downTR_NCOV="."
-    HP2_TR_LEN="."
-    HP2_TR_N_CPG="."
+    
     TR_LEN="."
     TR_N_CPG="."
     HP1_TR_LEN="."
     HP1_TR_N_CPG="."
     HP2_TR_LEN="."
+    HP2_TR_N_CPG="."
+
     HP1_TR_AVG_VALUE="."
     HP1_TR_NCOV="."
     HP1_upTR_AVG_VALUE="."
@@ -470,9 +474,9 @@ bcftools view -H "$INPUT_VCF" | while read -r LINE; do
     #Add information to the new VCF line 
     NEW_FORMAT="${OLD_FORMAT}:TR_LEN:TR_N_CPG:TR_PATTERN:TR_AM:TR_N_METH_VALID:UPSTREAM_TR_AM:UPSTREAM_TR_N_METH_VALID:DOWNSTREAM_TR_AM:DOWNSTREAM_TR_N_METH_VALID"
     if is_haploid "$CHROM"; then  
-        NEW_SAMPLE="${OLD_SAMPLE}:${TR_LEN}:${TR_N_CPG}:${TR_PATTERN}${TR_AVG_VALUE}:${TR_NCOV}:${upTR_AVG_VALUE}:${upTR_NCOV}:${downTR_AVG_VALUE}:${downTR_NCOV}"
+        NEW_SAMPLE="${OLD_SAMPLE}:${TR_LEN}:${TR_N_CPG}:${TR_PATTERN}:${TR_AVG_VALUE}:${TR_NCOV}:${upTR_AVG_VALUE}:${upTR_NCOV}:${downTR_AVG_VALUE}:${downTR_NCOV}"
     else
-        NEW_SAMPLE="${OLD_SAMPLE}:${HP1_TR_LEN}|${HP2_TR_LEN}:${HP1_TR_N_CPG}|${HP2_TR_N_CPG}:${HP1_TR_PATTERN}|${HP2_TR_PATTERN}:${HP1_TR_AVG_VALUE}|${HP2_TR_AVG_VALUE}:${HP1_TR_NCOV}|${HP2_TR_NCOV}:${HP1_upTR_AVG_VALUE}|${HP2_upTR_AVG_VALUE}:${HP1_upTR_NCOV}|${HP2_upTR_NCOV}:${HP1_downTR_AVG_VALUE}|${HP2_downTR_AVG_VALUE}:${HP1_downTR_NCOV}|${HP2_downTR_NCOV}"
+        NEW_SAMPLE="${OLD_SAMPLE}:${HP1_TR_LEN},${HP2_TR_LEN}:${HP1_TR_N_CPG},${HP2_TR_N_CPG}:${HP1_TR_PATTERN},${HP2_TR_PATTERN}:${HP1_TR_AVG_VALUE},${HP2_TR_AVG_VALUE}:${HP1_TR_NCOV},${HP2_TR_NCOV}:${HP1_upTR_AVG_VALUE},${HP2_upTR_AVG_VALUE}:${HP1_upTR_NCOV},${HP2_upTR_NCOV}:${HP1_downTR_AVG_VALUE},${HP2_downTR_AVG_VALUE}:${HP1_downTR_NCOV},${HP2_downTR_NCOV}"
     fi   
 
     # Rebuild the VCF line
@@ -485,6 +489,8 @@ done
     
 
 cat "${TMP_DIR}"/*.line.tsv >> "$OUTPUT_VCF"
+
+bcftools annotate   --remove 'INFO/NSKIP,INFO/NFILT,INFO/INEXACT_ALLELE,INFO/BPDIFFS,INFO/DP,INFO/DSNP,INFO/DFLANKINDEL,INFO/REFAC,INFO/AC' -Ov -o "$OUTPUT_VCF".vcf "$OUTPUT_VCF" 
 
 echo "Pipeline complete"
 
