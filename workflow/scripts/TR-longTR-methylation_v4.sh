@@ -177,6 +177,14 @@ CORRECT_HEADER_VCF_FILE="${OUTPUT_DIR}/${SAMPLE_ID}_corrected_header.vcf"
 #Create output directory
 mkdir -p "$OUTPUT_DIR" "$TMP_DIR" "$ALIGNMENTS" "$METH"
 
+#Checkif body of the vcf file is not empty.
+if ! zgrep -v '^#' "$VCF_FILE" | grep -q .; then
+    echo "Compressed VCF has no body — exiting."
+    exit 1
+fi
+
+
+
 #VCF file outputed by longTR has an issue in the header formatting so it is necessary to modify the header
 bcftools annotate   --header-lines <(echo '##FORMAT=<ID=DFLANKINDEL,Number=1,Type=Integer,Description="Total number of reads with an indel in the regions flanking the STR">') -Oz -o "$CORRECT_HEADER_VCF_FILE" "$VCF_FILE"
 
@@ -440,6 +448,8 @@ if bedtools intersect -a "${PILEUP_OUTPUT}.gz" -b "$REGION_BED" > "$PILEUP_TR_OU
         TR_CPG_METH=$(cut -f11 "$PILEUP_TR_OUTPUT" | paste -sd, -)
         TR_CPG_DEPTH=$(cut -f10 "$PILEUP_TR_OUTPUT" | paste -sd, -)
     else
+        TR_CPG_METH="."
+        TR_CPG_DEPTH="."
         echo "No CpG sites in the allele"
     fi
 fi
@@ -507,7 +517,7 @@ OLD_SAMPLE=$(echo "$MODIFIED_LINE" | cut -f10)
 #Add information to the new VCF line 
 NEW_FORMAT="${OLD_FORMAT}:TR_LEN:TR_N_CPG:TR_PATTERN:TR_AM:TR_N_METH_VALID:UPSTREAM_TR_AM:UPSTREAM_TR_N_METH_VALID:DOWNSTREAM_TR_AM:DOWNSTREAM_TR_N_METH_VALID:TR_CPG_METH_HP1:TR_CPG_DEPTH_HP1:TR_CPG_METH_HP2:TR_CPG_DEPTH_HP2"
 if is_haploid "$CHROM"; then  
-NEW_SAMPLE="${OLD_SAMPLE}:${TR_LEN}:${TR_N_CPG}:${TR_PATTERN}:${TR_AVG_VALUE}:${TR_NCOV}:${upTR_AVG_VALUE}:${upTR_NCOV}:${downTR_AVG_VALUE}:${downTR_NCOV}:${TR_CPG_METH_HP1}:${TR_CPG_DEPTH_HP1}:${TR_CPG_METH_HP2}:${TR_CPG_DEPTH_HP2}"
+NEW_SAMPLE="${OLD_SAMPLE}:${TR_LEN}:${TR_N_CPG}:${TR_PATTERN}:${TR_AVG_VALUE}:${TR_NCOV}:${upTR_AVG_VALUE}:${upTR_NCOV}:${downTR_AVG_VALUE}:${downTR_NCOV}:${TR_CPG_METH_HP1}:${TR_CPG_DEPTH_HP1}"
 else
 NEW_SAMPLE="${OLD_SAMPLE}:${HP1_TR_LEN},${HP2_TR_LEN}:${HP1_TR_N_CPG},${HP2_TR_N_CPG}:${HP1_TR_PATTERN},${HP2_TR_PATTERN}:${HP1_TR_AVG_VALUE},${HP2_TR_AVG_VALUE}:${HP1_TR_NCOV},${HP2_TR_NCOV}:${HP1_upTR_AVG_VALUE},${HP2_upTR_AVG_VALUE}:${HP1_upTR_NCOV},${HP2_upTR_NCOV}:${HP1_downTR_AVG_VALUE},${HP2_downTR_AVG_VALUE}:${HP1_downTR_NCOV},${HP2_downTR_NCOV}:${TR_CPG_METH_HP1}:${TR_CPG_DEPTH_HP1}:${TR_CPG_METH_HP2}:${TR_CPG_DEPTH_HP2}"
 fi   
