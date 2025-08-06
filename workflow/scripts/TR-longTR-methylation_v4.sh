@@ -405,6 +405,14 @@ REGION_REALIGNED_BAM="${ALIGNMENTS}/${CHROM}_${TR_ID}_${HAPLOTYPE}_mapped.sorted
 samtools view -bS "$REGION_SAM" | samtools sort -o "$REGION_REALIGNED_BAM" 2>/dev/null
 samtools index "$REGION_REALIGNED_BAM"
 
+#If bam file does not have any read stop the analysis of the allele
+if [[ $(samtools view -c "$REGION_REALIGNED_BAM") -eq 0 ]]; then
+    echo "Skipping $BAM_FILE: no reads"
+    continue
+fi
+
+
+
 # Perform modkit pileup on the generated BAM file
 echo "Running modkit pileup for ${HEADER}" >> "$LOG_file"
 PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_region_modkit_pileup.bed"
@@ -456,7 +464,8 @@ downTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OU
 echo "Extraction of CpG methylation values" >> "$LOG_file"
 PILEUP_TR_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_TR_modkit_pileup.bed"
 
-if bedtools intersect -a "${PILEUP_OUTPUT}.gz" -b "$REGION_BED" > "$PILEUP_TR_OUTPUT" 2>/dev/null; then
+
+if [[ -s "${PILEUP_OUTPUT}.gz" ]] &&  bedtools intersect -a "${PILEUP_OUTPUT}.gz" -b "$REGION_BED" > "$PILEUP_TR_OUTPUT" 2>/dev/null; then
     if [[ -s "$PILEUP_TR_OUTPUT" ]]; then
         echo "Intersect succeeded, continuing with next step..." >> "$LOG_file"
         TR_CPG_METH=$(cut -f11 "$PILEUP_TR_OUTPUT" | paste -sd, -)
@@ -466,8 +475,11 @@ if bedtools intersect -a "${PILEUP_OUTPUT}.gz" -b "$REGION_BED" > "$PILEUP_TR_OU
         TR_CPG_DEPTH="."
         echo "No CpG sites in the allele" >> "$LOG_file"
     fi
+else
+    TR_CPG_METH="."
+    TR_CPG_DEPTH="."
+    echo "No CpG sites in the region" >> "$LOG_file"
 fi
-
 
 if "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
     TR_PATTERN=$(extract_uTR_features "$uTR_out")
@@ -625,9 +637,9 @@ rm "$CORRECT_HEADER_VCF_FILE" "$OUTPUT_VCF" "$OUTPUT_VCF".gz
 
 
 #echo "GENERATE SUMMARY FILE"
-#echo -e "CHROM\tPOS\tID\tREF_MOTIF\tTR_REF_LENGTH\t${SAMPLE_ID}_GT\t${SAMPLE_ID}_TR_LEN\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID" > "$OUTPUT_SUMMARY"
+echo -e "CHROM\tPOS\tID\tREF_MOTIF\tTR_REF_LENGTH\tGT\t%TR_LEN\t%TR_N_CPG\t%TR_PATTERN\t%TR_AM\t%TR_N_METH_VALID\t%UPSTREAM_TR_AM\t%UPSTREAM_TR_N_METH_VALID\t%DOWNSTREAM_TR_AM\t%DOWNSTREAM_TR_N_METH_VALID\t%TR_CPG_METH_HP1\t%TR_CPG_DEPTH_HP1\t%TR_CPG_METH_HP2\t%TR_CPG_DEPTH_HP2" > "$OUTPUT_SUMMARY"
 
-#bcftools query -f '%CHROM\t%POS\t%ID\t%MOTIF\t[%GT\t%TR_LEN\t%TR_N_CPG\t%TR_PATTERN\t%TR_AM\t%TR_N_METH_VALID\t%UPSTREAM_TR_AM\t%UPSTREAM_TR_N_METH_VALID\t%DOWNSTREAM_TR_AM\t%DOWNSTREAM_TR_N_METH_VALID\t%TR_CPG_METH_HP1\t%TR_CPG_DEPTH_HP1\t%TR_CPG_METH_HP2\t%TR_CPG_DEPTH_HP2\n]' HG002_methylated_sorted.vcf.gz
+bcftools query -f '%CHROM\t%POS\t%ID\t%MOTIF\t[%GT\t%TR_LEN\t%TR_N_CPG\t%TR_PATTERN\t%TR_AM\t%TR_N_METH_VALID\t%UPSTREAM_TR_AM\t%UPSTREAM_TR_N_METH_VALID\t%DOWNSTREAM_TR_AM\t%DOWNSTREAM_TR_N_METH_VALID\t%TR_CPG_METH_HP1\t%TR_CPG_DEPTH_HP1\t%TR_CPG_METH_HP2\t%TR_CPG_DEPTH_HP2\n]' "$OUTPUT_SORTED_VCF" >> "$OUTPUT_SUMMARY"
 
 echo "Pipeline complete"
 
