@@ -25,6 +25,7 @@ usage() {
     echo "  -i <phased_bam>       Input phased BAM file"
     echo "  -o <output_dir>       Output directory for generated files"
     echo "  -s <sample_id>        SampleID to be used in file names"
+    echo "  -t <threads>          Number of threads (default: 8)"
     echo "  -e <extend>           Number of flanking bases to include for remapping reads (default: 1000)"
     echo "  -f <flanking_bases>   Number of flanking bases to include for up- and downstream methylation analysis (default: 250)"
     echo "  -h <haploid_chromosomes> Comma-separated list of haploid chromosomes (e.g. chrX,chrY)"
@@ -35,15 +36,17 @@ usage() {
 FLANKING_BASES=200
 HAPLOID_CHROMOSOMES=""
 EXTEND=1000
+THREADS=8
 
 # Parse command-line arguments
-while getopts "v:r:i:o:s:e:f:h:" opt; do
+while getopts "v:r:i:o:s:t:e:f:h:" opt; do
     case $opt in
         v) VCF_FILE="$OPTARG" ;;
         r) REFERENCE_FASTA="$OPTARG" ;;
         i) PHASED_BAM="$OPTARG" ;;
         o) OUTPUT_DIR="$OPTARG" ;;
         s) SAMPLE_ID="$OPTARG" ;;
+        t) THREADS="$OPTARG" ;;
         e) EXTEND="$OPTARG" ;;
         f) FLANKING_BASES="$OPTARG" ;;
         h) HAPLOID_CHROMOSOMES="$OPTARG" ;;
@@ -173,6 +176,7 @@ OUTPUT_SORTED_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_methylated_sorted.vcf.gz"
 TMP_DIR="${OUTPUT_DIR}/temp"
 ALIGNMENTS="${OUTPUT_DIR}/alignments"
 METH="${OUTPUT_DIR}/methylation"
+MAIN_LOG="${OUTPUT_DIR}/${SAMPLE_ID}.log"
 LOGS="${OUTPUT_DIR}/logs"
 OUTPUT_SUMMARY="${OUTPUT_DIR}/${SAMPLE_ID}_TR_summary.tsv"
 CORRECT_HEADER_VCF_FILE="${OUTPUT_DIR}/${SAMPLE_ID}_corrected_header.vcf"
@@ -299,8 +303,6 @@ HP2_downTR_AVG_VALUE="."
 HP2_downTR_NCOV="."
 
 TR_PATTERN="."
-HP1_TR_PATTERN="."
-HP2_TR_PATTERN="."
 
 
 # Determine repeat extension boundaries
@@ -360,7 +362,8 @@ echo "**** Start Analysis for: $HEADER ****" >> "$LOG_file"
 echo ">$HEADER" > "$REGION_FASTA"
 echo ">$HEADER" > "$STR_ALLELE_FASTA"
 echo "$SEQ" >> "$REGION_FASTA"
-echo "$allele_seq" >> "$STR_ALLELE_FASTA"
+echo "$allele_seq" | tr -d '\r' | tr -cd 'ACGTNacgtn' >> "$STR_ALLELE_FASTA"
+#echo "$allele_seq" >> "$STR_ALLELE_FASTA"
 samtools faidx "$REGION_FASTA"
  
 # Extract reads overlapping the region and convert to FASTQ
@@ -406,7 +409,8 @@ samtools index "$REGION_REALIGNED_BAM"
 echo "Running modkit pileup for ${HEADER}" >> "$LOG_file"
 PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_region_modkit_pileup.bed"
 modkit pileup "${REGION_REALIGNED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>/dev/null
-
+# Brief pause to ensure modkit output is fully written before bgzip
+timeout 10 bash -c "while [ ! -s '$PILEUP_OUTPUT' ]; do sleep 0.1; done"
 echo "Modkit pileup completed successfully" >> "$LOG_file"
 # Compress and index the phased pileup output
 bgzip "$PILEUP_OUTPUT"
@@ -465,6 +469,14 @@ if bedtools intersect -a "${PILEUP_OUTPUT}.gz" -b "$REGION_BED" > "$PILEUP_TR_OU
 fi
 
 
+if "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
+    TR_PATTERN=$(extract_uTR_features "$uTR_out")
+    echo -e "${TR_PATTERN}" >> "$LOG_file" 
+else
+    echo "uTR failed to decompose the DNA sequence. Continuing with the rest of the pipeline..."
+    echo "uTR failed to decompose the DNA sequence" >> "$LOG_file"
+fi
+
 
 if [[ "$HAPLOTYPE" == "haploid" ]]; then
     TR_AVG_VALUE="$TR_AVG_METHYLATION"
@@ -475,9 +487,7 @@ if [[ "$HAPLOTYPE" == "haploid" ]]; then
     downTR_NCOV="$downTR_COV_METH"
     TR_CPG_METH_HP1="$TR_CPG_METH"
     TR_CPG_DEPTH_HP1="$TR_CPG_DEPTH"
-    "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out"
-    TR_PATTERN=$(extract_uTR_features "$uTR_out")
-    echo -e "${TR_PATTERN}" >> "$LOG_file"
+    TR_PATTERN="$TR_PATTERN"
 elif [[ "$HAPLOTYPE" == 1 ]]; then
     HP1_TR_AVG_VALUE="$TR_AVG_METHYLATION"
     HP1_TR_NCOV="$TR_COV_METH"
@@ -487,9 +497,7 @@ elif [[ "$HAPLOTYPE" == 1 ]]; then
     HP1_downTR_NCOV="$downTR_COV_METH"
     TR_CPG_METH_HP1="$TR_CPG_METH"
     TR_CPG_DEPTH_HP1="$TR_CPG_DEPTH"
-    "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out"
-    HP1_TR_PATTERN=$(extract_uTR_features "$uTR_out")
-    echo -e "${HP1_TR_PATTERN}" >> "$LOG_file"
+    HP1_TR_PATTERN="$TR_PATTERN"
 elif [[ "$HAPLOTYPE" == 2 ]]; then
     HP2_TR_AVG_VALUE="$TR_AVG_METHYLATION"
     HP2_TR_NCOV="$TR_COV_METH"
@@ -499,19 +507,32 @@ elif [[ "$HAPLOTYPE" == 2 ]]; then
     HP2_downTR_NCOV="$downTR_COV_METH"
     TR_CPG_METH_HP2="$TR_CPG_METH"
     TR_CPG_DEPTH_HP2="$TR_CPG_DEPTH"
-    "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out"
-    HP2_TR_PATTERN=$(extract_uTR_features "$uTR_out")
-    echo -e "${HP2_TR_PATTERN}" >> "$LOG_file"
+    HP2_TR_PATTERN="$TR_PATTERN"
 fi
 
 
 # Cleanup temporary files
-#rm -f "$REGION_FASTQ"
-#rm -f "$REGION_SAM"
-#rm -f "$REGION_BAM"
-#rm -f "$REGION_BED"
-#rm -f "$REGION_BAM"
-#rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
+rm -f "$REGION_FASTA"
+rm -f "${REGION_FASTA}.fai"
+rm -f "$STR_ALLELE_FASTA"
+rm -f "$REGION_FASTQ"
+rm -f "$REGION_SAM"
+rm -f "$REGION_BAM"
+rm -f "$REGION_REALIGNED_BAM"
+rm -f "${REGION_REALIGNED_BAM}.bai"
+rm -f "$FILTERED_BAM"
+rm -f "$REGION_BED"
+rm -f "$REGION_UPSTREAM_BED"
+rm -f "$REGION_DOWNSTREAM_BED"
+rm -f "$GENOME_COORDINATES"
+
+rm -f "$STAT_OUTPUT_TR"
+rm -f "$STAT_OUTPUT_upTR"
+rm -f "$STAT_OUTPUT_downTR"
+rm -f "$uTR_out"
+
+rm -f "$PILEUP_TR_OUTPUT"
+rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
 
 
 done   
@@ -563,65 +584,50 @@ export LOGS
 #echo "Starting processing with ${NUM_JOBS} parallel jobs..."
 
 
-bcftools view -H "$INPUT_VCF" | xargs -P 8 -n 1 -d '\n' bash -c 'process_line "$0"' 
+CHUNK_SIZE=2500
+CHUNK_NUM=0
 
-cat "${TMP_DIR}"/*.line.tsv >> "$OUTPUT_VCF"
+# Extract body of VCF (no header)
+bcftools view -H "$INPUT_VCF" | split -l $CHUNK_SIZE - "$TMP_DIR/chunk_"
 
-bcftools annotate   --remove 'INFO/NSKIP,INFO/NFILT,INFO/INEXACT_ALLELE,INFO/BPDIFFS,INFO/DP,INFO/DSNP,INFO/DFLANKINDEL,INFO/REFAC,INFO/AC' -Oz -o "$OUTPUT_VCF".gz "$OUTPUT_VCF" 2>/dev/null
+# Loop over each chunk file
+for CHUNK_FILE in "$TMP_DIR"/chunk_*; do
+    echo "Processing chunk $CHUNK_NUM from file $CHUNK_FILE"
+
+    # Launch parallel processing using xargs -P
+    #cat "$CHUNK_FILE" | xargs -P "$THREADS" -n 1 -d '\n' bash -c 'process_line "$0"'
+    xargs -P "$THREADS" -n 1 -d '\n' bash -c 'process_line "$1"' _ < "$CHUNK_FILE"
+    wait
+    # Append results and clean up
+    cat "$TMP_DIR"/*.line.tsv >> "$OUTPUT_VCF"
+    cat "$LOGS"/*.log >> "$MAIN_LOG"
+    rm -f "$TMP_DIR"/*.line.tsv 
+    rm -f "$LOGS"/*.log 
+    
+    CHUNK_NUM=$((CHUNK_NUM + 1))
+done
+
+rm -f "$TMP_DIR"/chunk_*
+#bcftools view -H "$INPUT_VCF" | xargs -P "$THREADS" -n 1 -d '\n' bash -c 'process_line "$0"' 
+#cat "${TMP_DIR}"/*.line.tsv >> "$OUTPUT_VCF"
+
+bcftools annotate --remove 'INFO/NSKIP,INFO/NFILT,INFO/INEXACT_ALLELE,INFO/BPDIFFS,INFO/DP,INFO/DSNP,INFO/DFLANKINDEL,INFO/REFAC,INFO/AC' -Oz -o "$OUTPUT_VCF".gz "$OUTPUT_VCF" 2>/dev/null
 
 bcftools sort "$OUTPUT_VCF".gz -Oz -o "$OUTPUT_SORTED_VCF" 2>/dev/null
 
-rm "$OUTPUT_VCF" "$OUTPUT_VCF".gz
+rm -rf "${TMP_DIR}"
+rm -rf "${METH}"
+rm -rf "${ALIGNMENTS}"
+rm -rf "${LOGS}"
+
+rm "$CORRECT_HEADER_VCF_FILE" "$OUTPUT_VCF" "$OUTPUT_VCF".gz
+
+
+
+#echo "GENERATE SUMMARY FILE"
+#echo -e "CHROM\tPOS\tID\tREF_MOTIF\tTR_REF_LENGTH\t${SAMPLE_ID}_GT\t${SAMPLE_ID}_TR_LEN\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID" > "$OUTPUT_SUMMARY"
+
+#bcftools query -f '%CHROM\t%POS\t%ID\t%MOTIF\t[%GT\t%TR_LEN\t%TR_N_CPG\t%TR_PATTERN\t%TR_AM\t%TR_N_METH_VALID\t%UPSTREAM_TR_AM\t%UPSTREAM_TR_N_METH_VALID\t%DOWNSTREAM_TR_AM\t%DOWNSTREAM_TR_N_METH_VALID\t%TR_CPG_METH_HP1\t%TR_CPG_DEPTH_HP1\t%TR_CPG_METH_HP2\t%TR_CPG_DEPTH_HP2\n]' HG002_methylated_sorted.vcf.gz
+
 echo "Pipeline complete"
 
-
-#echo ""
-#echo "STEP5: GENERATE SUMMARY FILE"
-#echo ""
-#
-## Print header for summary file
-#echo -e "CHROM\tPOS\tID\tREF_MOTIF\tTR_REF_LENGTH\t${SAMPLE_ID}_GT\t${SAMPLE_ID}_TR_LEN\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID" > "$OUTPUT_SUMMARY"
-#
-## Process each non-header line in the output VCF
-#awk -F'\t' '
-#BEGIN { OFS="\t" }
-#!/^#/ {
-#    chrom=$1;
-#    pos=$2;
-#    id=$3;
-#    ref=$4;
-#    info=$8;
-#    tr_am=$12;
-#    tr_n_meth_valid=$13;
-#    upstream_tr_am=$14;
-#    upstream_tr_n_meth_valid=$15;
-#    downstream_tr_am=$16;
-#    downstream_tr_n_meth_valid=$17;
-#    tr_len=$18;
-#    tr_pat=$20;
-#
-#    # Compute REF allele length
-#    ref_length = length(ref);
-#
-#    # Extract values from INFO field
-#    motif = "."; 
-#    if (match(info, /MOTIF=([^;]+)/, arr)) motif = arr[1];
-#
-#    # Extract GT (first field of sample column)
-#    gt = $10;
-#    split(gt, gt_fields, ":");
-#    gt = gt_fields[1];
-#
-#    # Print extracted values
-#    print chrom, pos, id, motif, ref_length, gt, tr_len, tr_pat, tr_am, tr_n_meth_valid, upstream_tr_am, upstream_tr_n_meth_valid, downstream_tr_am, downstream_tr_n_meth_valid;
-#}' "$OUTPUT_VCF" >> "$OUTPUT_SUMMARY"
-#
-#echo ""
-#echo "Output files are in $OUTPUT_DIR. Remove temporary files stored in: $TMP_DIR"
-## Uncomment the following line to automatically remove temporary files after the run
-#rm -rf "$TMP_DIR"
-#echo ""
-#echo "--------------------------------"
-#echo "Pipeline completed successfully!"
-#echo "--------------------------------"
-#echo ""
