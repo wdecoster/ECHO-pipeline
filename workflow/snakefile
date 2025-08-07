@@ -28,7 +28,7 @@ os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
-TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v3.sh"
+TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v4.sh"
 REF_TE_METH_CPG_RES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_cpg_res.sh"
 REF_TE_METH_AVERAGES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_avg_meth.sh"
 TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
@@ -641,6 +641,7 @@ rule TR_methylation_calling:
         type_of_TR=TYPE_OF_TR
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}.log"
+    threads: 32
     conda:
         "envs/TR_longTR_methylation.yaml"
     shell:
@@ -652,6 +653,7 @@ rule TR_methylation_calling:
             -o {output.out_dir} \
             -s {wildcards.sample} \
             -e {params.extension} \
+            -t {threads} \
             -f {params.flanking_length_bp} \
             -h {params.haploid_chrs} \
             > {log} 2>&1
@@ -749,4 +751,3 @@ rule ref_TE_methylation_calling_averages:
             -f {params.flanking_length_bp} \
             > {log} 2>&1
         """
-
