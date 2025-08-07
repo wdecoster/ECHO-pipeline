@@ -79,7 +79,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed", sample=SAMPLES),
@@ -633,8 +633,9 @@ rule TR_methylation_calling:
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        out_dir=directory(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}")
+        out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv"
     params:
+        out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}",
         flanking_length_bp=FLANKING_LENGTH_BP,
         haploid_chrs=HAPLOID_CHRS,
         extension=CONSENSUS_EXTENSION,
@@ -650,7 +651,7 @@ rule TR_methylation_calling:
             -v {input.TR_vcf} \
             -r {input.reference} \
             -i {input.phased_bam} \
-            -o {output.out_dir} \
+            -o {params.out_dir} \
             -s {wildcards.sample} \
             -e {params.extension} \
             -t {threads} \

@@ -527,13 +527,13 @@ trap cleanup EXIT
 # Define paths inside the output directory
 INPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_input_sorted.vcf"
 OUTPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_methylated.vcf"
-OUTPUT_SORTED_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_methylated_sorted.vcf.gz"
+OUTPUT_SORTED_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_TR_methylation.vcf.gz"
 TMP_DIR="${OUTPUT_DIR}/temp"
 ALIGNMENTS="${OUTPUT_DIR}/alignments"
 METH="${OUTPUT_DIR}/methylation"
 MAIN_LOG="${OUTPUT_DIR}/${SAMPLE_ID}.log"
 LOGS="${OUTPUT_DIR}/logs"
-OUTPUT_SUMMARY="${OUTPUT_DIR}/${SAMPLE_ID}_TR_summary.tsv"
+OUTPUT_SUMMARY="${OUTPUT_DIR}/${SAMPLE_ID}_TR_methylation_summary.tsv"
 CORRECT_HEADER_VCF_FILE="${OUTPUT_DIR}/${SAMPLE_ID}_corrected_header.vcf"
 
 #Create output directories
