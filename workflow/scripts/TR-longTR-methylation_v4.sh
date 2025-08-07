@@ -198,7 +198,6 @@ process_line(){
     echo "" >> "$LOG_file"
     echo "Genotype of the locus: ${GENO_ARRAY[@]}" >> "$LOG_file"
     echo "List of all alleles: ${ALL_ALLELES[@]}"  >> "$LOG_file"
-    echo "" >> "$LOG_file"
     
     #Declare variables with empty values
     HP1_AVG_TR_VALUE="."
@@ -256,17 +255,27 @@ process_line(){
     
     
     for i in "${!GENO_ARRAY[@]}"; do #iterate over indices to work with haplotypes [0 is HP1 and 1 is HP2]
-        genotype=${GENO_ARRAY[${i}]}
+        allele=${GENO_ARRAY[${i}]}
         
-        if [[ "$genotype" == "." && "$i" == 0 ]]; then
-            echo "Haplotype 1 is not processed because allele is ." >> "$LOG_file"
+        if [[ "$allele" == "." ]]; then
+            if [[ "$i" == 0 ]]; then
+                echo "Haplotype 1 is not processed because allele is ." >> "$LOG_file"
+            elif [[ "$i" == 1 ]]; then
+                echo "Haplotype 2 is not processed because allele is ." >> "$LOG_file"
+            fi
             continue
-        elif [[ "$genotype" == "." &&  "$i" == 1 ]]; then
-            echo "Haplotype 2 is not processed because allele is ." >> "$LOG_file"
+        fi
+
+        allele_seq=${ALL_ALLELES[${allele}]}
+        
+        if [[ "$allele_seq" == "<DEL>" ]]; then
+            if [[ "$i" == 0 ]]; then
+                echo "Haplotype 1 is not processed because allele is <DEL>" >> "$LOG_file"
+            elif [[ "$i" == 1 ]]; then
+                echo "Haplotype 2 is not processed because allele is <DEL>" >> "$LOG_file"
+            fi
             continue
-    fi
-    
-        allele_seq=${ALL_ALLELES[${genotype}]}
+        fi 
         
         #Count length of allele, number of CpG sites (CG) in the allele sequence (a final C is not included in the count)
         if is_haploid "$CHROM"; then
@@ -274,19 +283,19 @@ process_line(){
             TR_LEN=${#allele_seq}
             TR_N_CPG=$(echo "${allele_seq}" | grep -o "CG" | wc -l)
             echo "Process allele: "${HAPLOTYPE}""  >> "$LOG_file"
-            echo -e "Allele ${genotype}: ${allele_seq} \n  with length: ${TR_LEN}" >> "$LOG_file"
+            echo -e "Allele ${allele}: ${allele_seq} \n  with length: ${TR_LEN}" >> "$LOG_file"
         elif [[ "$i" -eq 0 ]]; then
             HAPLOTYPE=1
             HP1_TR_LEN=${#allele_seq}
             HP1_TR_N_CPG=$(echo "${allele_seq}" | grep -o "CG" | wc -l)
             echo "Process allele: "${HAPLOTYPE}"" >> "$LOG_file"
-            echo -e "Allele ${genotype}: ${allele_seq} \n  with length: ${HP1_TR_LEN}" >> "$LOG_file"
+            echo -e "Allele ${allele}: ${allele_seq} \n  with length: ${HP1_TR_LEN}" >> "$LOG_file"
         elif [[ "$i" -eq 1 ]]; then
             HAPLOTYPE=2
             HP2_TR_LEN=${#allele_seq}
             HP2_TR_N_CPG=$(echo "${allele_seq}" | grep -o "CG" | wc -l)
             echo "Process allele: "${HAPLOTYPE}"" >> "$LOG_file"
-            echo -e "Allele ${genotype}: ${allele_seq} \n  with length: ${HP2_TR_LEN}" >> "$LOG_file"
+            echo -e "Allele ${allele}: ${allele_seq} \n  with length: ${HP2_TR_LEN}" >> "$LOG_file"
         fi
         
         #Create fasta file
@@ -363,8 +372,8 @@ process_line(){
         
         # Perform modkit stats for the TR region for each phased output
         TR_ALL_START=$((EXTEND + 1))
-        TR_ALL_END=$((EXTEND + ${#ALL_ALLELES[${genotype}]}))
-        TR_REGION_END=$((EXTEND + ${#ALL_ALLELES[${genotype}]} + ${EXTEND}))
+        TR_ALL_END=$((EXTEND + ${#ALL_ALLELES[${allele}]}))
+        TR_REGION_END=$((EXTEND + ${#ALL_ALLELES[${allele}]} + ${EXTEND}))
          
         REGION_BED="${TMP_DIR}/${HEADER}.bed"
         REGION_UPSTREAM_BED="${TMP_DIR}/${HEADER}_upstream.bed"
@@ -419,7 +428,7 @@ process_line(){
         
         if "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
             TR_PATTERN=$(extract_uTR_features "$uTR_out")
-            echo -e "${TR_PATTERN}" >> "$LOG_file" 
+            echo -e " Pattern: ${TR_PATTERN}" >> "$LOG_file" 
         else
             echo "uTR failed to decompose the DNA sequence. Continuing with the rest of the pipeline..."
             echo "uTR failed to decompose the DNA sequence" >> "$LOG_file"
