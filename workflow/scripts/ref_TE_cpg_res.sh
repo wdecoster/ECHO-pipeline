@@ -3,7 +3,7 @@
 # Script Name:    ref_TE_cpg_res.sh
 # Description:    Intersecting bed files containing methylation information of 
 #                 all cpg sites with TE catalogs. 
-# Author:         Leena Putzeys, Brando Poggiali
+# Author:         Brando Poggiali, Leena Putzey
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
 # Version:        2.0.0
