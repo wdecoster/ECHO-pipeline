@@ -242,6 +242,8 @@ process_line(){
     HP2_downTR_NCOV="."
     
     TR_PATTERN="."
+    HP1_TR_PATTERN="."
+    HP2_TR_PATTERN="."
     
     # Determine repeat extension boundaries
     UPSTREAM_START=$((TR_START - EXTEND))
