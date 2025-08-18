@@ -6,7 +6,7 @@
 # Author:         Brando Poggiali, Leena Putzey
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
-# Version:        2.0.0
+# Version:        1.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, bedtools, awk]
 # -----------------------------------------------------------------------------

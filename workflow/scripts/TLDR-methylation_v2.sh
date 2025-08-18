@@ -1,6 +1,6 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# Script Name:    ref_TE_cpg_res.sh
+# Script Name:    TLDR-methylation_v2.sh
 # Description:    This script
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02

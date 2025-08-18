@@ -1,12 +1,12 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# Script Name:    ref_TE_cpg_res.sh
+# Script Name:    TR-longTR-methylation_v4.sh
 # Description:    A script to analyse TRs genotyped using LongTR, adding
 #                 allele-specific methylation information.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
-# Version:        2.0.0
+# Version:        4.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, samtools, minimap2, bedtools, bcftools, awk]
 # Usage: ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 

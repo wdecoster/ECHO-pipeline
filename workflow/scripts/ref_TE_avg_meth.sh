@@ -1,12 +1,12 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# Script Name:    ref_TE_cpg_res.sh
+# Script Name:    ref_TE_avg_meth.sh
 # Description:    Intersecting bed files containing methylation information of
 #                 all cpg sites with TE catalogs.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
-# Version:        2.0.0
+# Version:        1.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, bedtools, bcftools, awk]
 # -----------------------------------------------------------------------------
