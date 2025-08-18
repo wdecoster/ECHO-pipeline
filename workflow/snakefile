@@ -38,7 +38,17 @@ TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
 LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
+# Check if filtering is on or off (if both MIN_READ_QUAL and MIN_READ_LENGTH variables are 0, filtering is skipped)
+DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
 
+def fastq_for_pipeline(wc):
+    if DO_FILTER:
+        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}_filtered.fastq"
+    else:
+        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}.fastq"
+
+
+#Define outputs files
 all_inputs = []
 
 if START_FROM == "pod5":
@@ -53,9 +63,9 @@ elif START_FROM == "ubam":
     ])
 elif START_FROM == "fastq":
     all_inputs.extend([
-        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq", sample=SAMPLES),
+        #expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq", sample=SAMPLES),
         expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_filtered_fastq.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
     ])
 elif START_FROM == "bam":
     # no basecalling or alignment outputs expected
@@ -63,7 +73,6 @@ elif START_FROM == "bam":
 else:
     print(f"ERROR: Invalid 'start_from' value in config.yaml: {START_FROM}")
     exit(1)
-    # This is redundant and will never be executed since you define the fallback value in config.get("start_from", "pod5")
 
 all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html", sample=SAMPLES),
@@ -79,7 +88,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed", sample=SAMPLES),
@@ -92,7 +101,7 @@ rule all:
 
 
 
-# Logfile 
+# Create a logfile 
 rule create_log:
     output:
         LOGFILE
@@ -170,7 +179,6 @@ rule QC_NanoP_unaligned:
 """
 
 
-
 #CONVERSION UBAM TO FASTQ
 rule ubam_to_fastq:
     input:
@@ -187,41 +195,34 @@ rule ubam_to_fastq:
         samtools fastq -@ {threads} -T 'MM,ML' {input.unaligned_bam} > {output.fastq} 2> {log}
         """
 
-
-        
-#FILTERING READS IN FASTQ
-rule filter_fastq:
-    input:
-        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
-    output:
-        filtered_fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/filter_fastq/{{sample}}.log"
-    threads: 24
-    conda:
-        "envs/chopper.yaml"
-    shell:
-        """
-        if [ {MIN_READ_QUAL} -gt 0 ] || [ {MIN_READ_LENGTH} -gt 0 ]; then
-            chopper -q {MIN_READ_QUAL} -l {MIN_READ_LENGTH} -i {input.fastq} -t {threads} > {output.filtered_fastq} 2> {log}
-        else
-            cp {input.fastq} {output.filtered_fastq}
-            echo "Filtering skipped (q=0, l=0)" > {log}
-        fi
-        """        
-
-
+ 
+#Filtering reads based on length and quality in fastq files
+if DO_FILTER:
+    rule filter_fastq:
+        input:
+            fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
+        output:
+            filtered_fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
+        log:
+            f"{OUTPUT_DIR}/logs/snakemake_rules/filter_fastq/{{sample}}.log"
+        threads: 24
+        conda: "envs/chopper.yaml"
+        shell:
+            """
+            chopper -q {MIN_READ_QUAL} -l {MIN_READ_LENGTH} \
+                    -i {input.fastq} -t {threads} > {output.filtered_fastq} 2> {log}
+            """
 
 
 rule QC_LRS_fastq:
     input:
-        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
+        fastq=fastq_for_pipeline
     output:
-        sum_report=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_filtered_fastq.html",
-        sum_txt=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_filtered_fastq_summary.txt"
+        sum_report=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html",
+        sum_txt=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_fastq_summary.txt"
     params:
         name_id=f"QC_LRS_{{sample}}_filtered_",
-        out_dir=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}"
+        out_dir=f"{OUTPUT_DIR}/qc/fastq/{{sample}}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_fastq/{{sample}}.log"
 
@@ -247,7 +248,7 @@ rule QC_LRS_fastq:
 # ALIGNMENT 
 rule alignment:
     input:
-        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq",
+        fastq=fastq_for_pipeline,
         reference=ancient(REFERENCE)
     output:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
@@ -633,9 +634,9 @@ rule TR_methylation_calling:
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv"
+        out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv"
     params:
-        out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}_{TYPE_OF_TR}",
+        out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{TYPE_OF_TR}",
         flanking_length_bp=FLANKING_LENGTH_BP,
         haploid_chrs=HAPLOID_CHRS,
         extension=CONSENSUS_EXTENSION,
