@@ -11,11 +11,12 @@ output_dir: "/ifs/data/research/unique/projects/test_config"
 #reference_TE: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
 
 reference: "/ifs/data/research/unique/leena/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta"
+reference_name: "GRCh38"     #"chm13v2" or "GRCh38"
 reference_TE: "/ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa"
 
 fastq_filtering:
-  min_read_quality: 0
-  min_read_length: 0
+  min_read_quality: 5
+  min_read_length: 300
 
 tr_catalog: "/ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed"
 te_catalog: "/ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_retroposon.bed"

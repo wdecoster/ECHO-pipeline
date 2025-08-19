@@ -6,6 +6,7 @@ START_FROM = config.get("start_from", "pod5")
 OUTPUT_DIR = config["output_dir"]
 INPUT_DIR = config["input_dir"]
 REFERENCE = config["reference"]
+REFERENCE_NAME = config["reference_name"]
 REFERENCE_TE = config["reference_TE"]
 MIN_READ_QUAL = config["fastq_filtering"]["min_read_quality"]
 MIN_READ_LENGTH = config["fastq_filtering"]["min_read_length"]
@@ -43,9 +44,9 @@ DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
 
 def fastq_for_pipeline(wc):
     if DO_FILTER:
-        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}_filtered.fastq"
+        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}_filtered.fastq"
     else:
-        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}.fastq"
+        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}.fastq"
 
 
 #Define outputs files
@@ -53,19 +54,19 @@ all_inputs = []
 
 if START_FROM == "pod5":
     all_inputs.extend([
-        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/basecalling/{{sample}}/{{sample}}_summary.tsv", sample=SAMPLES),
     ])
 elif START_FROM == "ubam":
     all_inputs.extend([
         expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}.fastq", sample=SAMPLES),
     ])
 elif START_FROM == "fastq":
     all_inputs.extend([
         #expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
     ])
 elif START_FROM == "bam":
     # no basecalling or alignment outputs expected
@@ -78,20 +79,20 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TR_methylation_summary.tsv", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed", sample=SAMPLES),
     REFERENCE
 ])
 
@@ -140,8 +141,8 @@ rule basecalling:
         pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
         model_dir=ancient("/ifs/software/research/unique/brando/dorado_models/")
     output:
-        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam",
-        summary_file=f"{OUTPUT_DIR}/qc/qc_basecalling/{{sample}}_summary.tsv"
+        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam",
+        summary_file=f"{OUTPUT_DIR}/qc/basecalling/{{sample}}/{{sample}}_summary.tsv"
     shell:
         """
         module load bioinf/dorado
@@ -154,7 +155,7 @@ rule basecalling:
 # QC for unaligned bam with -- NanoPlot --
 rule QC_NanoP_unaligned:
     input:
-        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam"
+        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam"
     params:
         results_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/",
         name_id="unaligned_bam"
@@ -182,9 +183,9 @@ rule QC_NanoP_unaligned:
 #CONVERSION UBAM TO FASTQ
 rule ubam_to_fastq:
     input:
-        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}_unaligned.bam"
+        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam"
     output:
-        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}.fastq"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ubam_to_fastq/{{sample}}.log"
     threads: 24
@@ -200,9 +201,9 @@ rule ubam_to_fastq:
 if DO_FILTER:
     rule filter_fastq:
         input:
-            fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}.fastq"
+            fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}.fastq"
         output:
-            filtered_fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq"
+            filtered_fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}_filtered.fastq"
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/filter_fastq/{{sample}}.log"
         threads: 24
@@ -218,10 +219,10 @@ rule QC_LRS_fastq:
     input:
         fastq=fastq_for_pipeline
     output:
-        sum_report=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html",
-        sum_txt=f"{OUTPUT_DIR}/qc/filtered_fastq/{{sample}}/QC_LRS_{{sample}}_fastq_summary.txt"
+        sum_report=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html",
+        sum_txt=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_summary.txt"
     params:
-        name_id=f"QC_LRS_{{sample}}_filtered_",
+        name_id=f"QC_LRS_{{sample}}_",
         out_dir=f"{OUTPUT_DIR}/qc/fastq/{{sample}}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_fastq/{{sample}}.log"
@@ -251,10 +252,10 @@ rule alignment:
         fastq=fastq_for_pipeline,
         reference=ancient(REFERENCE)
     output:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai"
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai"
     params:
-        temp_out_sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}.sam"
+        temp_out_sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/alignment/{{sample}}.log"
     threads:80
@@ -275,7 +276,7 @@ rule alignment:
 # QC for aligned bam with -- LongReadSum --
 rule QC_LRS_aligned:
     input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam"
     params:
         results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}", # not aligned/ that will fail the commandline separation in shell
         name_id=f"{{sample}}_LRS_aligned_"
@@ -300,7 +301,7 @@ rule QC_LRS_aligned:
 # QC for aligned bam with -- NanoPlot --
 rule QC_NanoP_aligned:
     input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam"
     params:
         results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/",
         name_id=f"aligned_bam"
@@ -326,7 +327,7 @@ rule QC_NanoP_aligned:
 # QC coverage calculation with -- PanDepth --
 rule coverage_calculation:
     input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam"
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam"
     output:
         coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
     params:
@@ -343,18 +344,18 @@ rule coverage_calculation:
             > {log} 2>&1
         """
 
-# Variant calling: SNPs and Indels
+# Variant calling: SNVs and Indels
 rule variant_calling_snps_indels:
     input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
         reference=ancient(REFERENCE),
         mode_path=ancient("/ifs/software/research/unique/leena/conda-envs/clair3/bin/models/r1041_e82_400bps_sup_v500")
     params:
-        out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}"
+        out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}"
     output:
-        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
-        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi"
+        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz",
+        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz.tbi"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_snps_indels/{{sample}}.log"
     threads: 48
@@ -379,12 +380,12 @@ rule variant_calling_snps_indels:
 # Variant calling: STRUCTURAL VARIANTS
 rule variant_calling_sv:
     input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
-        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi"
+        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
+        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_sv/{{sample}}.log"
     threads: 16
@@ -410,20 +411,20 @@ rule variant_calling_sv:
     # Phasing
 rule phasing:
     input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}_sorted.bam.bai",
-        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz",
-        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNPs_Indels/{{sample}}/phased_merge_output.vcf.gz.tbi",
-        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz",
-        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}_SV_unphased.vcf.gz.tbi",
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
+        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz",
+        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz.tbi",
+        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
+        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi",
         reference=ancient(REFERENCE)
     params:
-        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}"    
+        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"    
     output:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
-        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
-        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}.log"
     threads: 16
@@ -469,7 +470,7 @@ rule phasing:
 # Single Nucleotide Variants Phasing QC statistics
 rule SNV_phasing_QC:
     input:
-        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz",
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
     output:
         SNV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt",
         SNV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats.tsv"
@@ -488,7 +489,7 @@ rule SNV_phasing_QC:
 # Structural Variant Phasing QC statistics
 rule SV_phasing_QC:
     input:
-        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_SV.vcf.gz"
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz"
     output:
         SV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt",
         SV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats.tsv"
@@ -508,19 +509,20 @@ rule SV_phasing_QC:
 # Methylation calling
 rule methylation_calling:
     input:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
         reference=ancient(REFERENCE)
     params:
-        out_dir=f"{OUTPUT_DIR}/04_methylation_calling/",
-        hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed",
-        hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed",
-        ungrouped_bed=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_ungrouped.bed",
-        unphased_bed=f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed"
+        out_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/",
+        hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed",
+        hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed",
+        ungrouped_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_ungrouped.bed",
+        unphased_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed",
+        sample_name=f"{{sample}}_{REFERENCE_NAME}_haplotype"
     output:
-        hap1_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
-        hap2_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_2.bed.gz",
-        unphased_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/unphased/{{sample}}_unphased.bed.gz"
+        hap1_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
+        hap2_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed.gz",
+        unphased_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed.gz"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}.log"
     conda:
@@ -533,7 +535,7 @@ rule methylation_calling:
                 --combine-strands \
                 --cpg \
                 --partition-tag HP \
-                --prefix {wildcards.sample}_haplotype
+                --prefix {params.sample_name}
             
             modkit pileup {input.phased_bam} {params.unphased_bed} \
                 --ref {input.reference} \
@@ -555,15 +557,15 @@ rule methylation_calling:
 # TE calling
 rule TE_calling:
     input:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
         reference_TE=ancient(REFERENCE_TE),
         reference=ancient(REFERENCE)
     output:
-        chr_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}/chr.txt",
-        out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
+        chr_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_chr.txt",
+        out_file=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.txt"
     params:
-        out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}"),
+        out_dir=directory(f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}"),
         consensus_extension=CONSENSUS_EXTENSION
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TE_calling/{{sample}}.log"
@@ -598,15 +600,16 @@ rule TE_calling:
 # Tandem Repeats calling
 rule TR_calling:
     input:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
         TR_catalog=ancient(TR_CATALOG),
         reference=ancient(REFERENCE)
     output:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz"
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz"
     params:
         haploid_chrs=HAPLOID_CHRS,
-        type_of_tr=TYPE_OF_TR
+        type_of_tr=TYPE_OF_TR,
+        sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling/{{sample}}.log"
     container:
@@ -618,8 +621,8 @@ rule TR_calling:
             --regions {input.TR_catalog} \
             --fasta {input.reference} \
             --tr-vcf  {output.TR_vcf}\
-            --bam-samps {wildcards.sample} \
-            --bam-libs {wildcards.sample} \
+            --bam-samps {params.sample_name} \
+            --bam-libs {params.sample_name} \
             --haploid {params.haploid_chrs} \
             --phased-bam \
             > {log} 2>&1
@@ -629,18 +632,19 @@ rule TR_calling:
 # Tandem Repeats methylation calling
 rule TR_methylation_calling:
     input:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{{sample}}_TRs_{TYPE_OF_TR}.vcf.gz",
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased_alignment.bam.bai",
+        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz",
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{TYPE_OF_TR}/{{sample}}_TR_methylation_summary.tsv"
+        out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TR_methylation_summary.tsv"
     params:
-        out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{TYPE_OF_TR}",
+        out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}",
         flanking_length_bp=FLANKING_LENGTH_BP,
         haploid_chrs=HAPLOID_CHRS,
         extension=CONSENSUS_EXTENSION,
-        type_of_TR=TYPE_OF_TR
+        type_of_TR=TYPE_OF_TR,
+        sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}.log"
     threads: 32
@@ -653,7 +657,7 @@ rule TR_methylation_calling:
             -r {input.reference} \
             -i {input.phased_bam} \
             -o {params.out_dir} \
-            -s {wildcards.sample} \
+            -s {params.sample_name} \
             -e {params.extension} \
             -t {threads} \
             -f {params.flanking_length_bp} \
@@ -665,12 +669,13 @@ rule TR_methylation_calling:
 # Non reference TE methylation calling
 rule non_ref_TE_methylation_calling:
     input:
-        TLDR_txt_output=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/non_ref_TE/{{sample}}.table.txt"
+        TLDR_txt_output=f"{OUTPUT_DIR}/05_TE_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.txt"
     output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE/{{sample}}.table.pass.summary.meth.phased.txt"
+        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt"
     params:
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/non_ref_TE",
-        flanking_length_bp=FLANKING_LENGTH_BP
+        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE",
+        flanking_length_bp=FLANKING_LENGTH_BP,
+        sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
     threads: 32
@@ -681,29 +686,30 @@ rule non_ref_TE_methylation_calling:
         bash {TLDR_METH_SCRIPT_PATH} \
             -i {input.TLDR_txt_output} \
             -o {params.out_dir} \
-            -s {wildcards.sample} \
+            -s {params.sample_name} \
             -f {params.flanking_length_bp} \
             -t {threads} \
             > {log} 2>&1
         """
 
 
-# Reference TE methylation calling at cpg region level
+# Reference-TE methylation calling at cpg region level
 rule ref_TE_methylation_calling_cpg_res:
     input:
-        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
-        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
+        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
     output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{TYPE_OF_TE}_upstream_pileup_1.bed"
+        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_upstream_pileup_1.bed"
     params:
-        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/phased",
-        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/unphased",
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/cpg_resolution",
+        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased",
+        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased",
+        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/cpg_resolution",
         TE_catalog=TE_CATALOG, 
         type_of_TE=TYPE_OF_TE,
-        flanking_length_bp=FLANKING_LENGTH_BP
+        flanking_length_bp=FLANKING_LENGTH_BP, 
+        sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res/{{sample}}.log"
     conda:
         "envs/modkit.yaml"
     shell:
@@ -713,29 +719,31 @@ rule ref_TE_methylation_calling_cpg_res:
             -u {params.unphased_dir} \
             -c {params.TE_catalog} \
             -t {params.type_of_TE} \
-            -s {wildcards.sample} \
+            -s {params.sample_name} \
             -o {params.out_dir} \
             -f {params.flanking_length_bp} \
             > {log} 2>&1
         """
 
 
+# Reference-TE average methylation calculations
 rule ref_TE_methylation_calling_averages:
     input:
-        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/phased/{{sample}}_haplotype_1.bed.gz",
-        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{{sample}}_phased.vcf.gz"
+        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
+        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
     output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE/{{sample}}_{TYPE_OF_TE}_methylation_summary.bed"
+        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed"
     params:
-        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/phased",
-        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/unphased",
-        phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}",
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/ref_TE",
+        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased",
+        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased",
+        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE",
+        phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}",
         TE_catalog=TE_CATALOG,
         type_of_TE=TYPE_OF_TE,
-        flanking_length_bp=FLANKING_LENGTH_BP
+        flanking_length_bp=FLANKING_LENGTH_BP,
+        sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_averages/{{sample}}.log"
     threads: 96
     conda:
         "envs/modkit.yaml"
@@ -747,7 +755,7 @@ rule ref_TE_methylation_calling_averages:
             -v {params.phased_variation_dir} \
             -c {params.TE_catalog} \
             -t {params.type_of_TE} \
-            -s {wildcards.sample} \
+            -s {params.sample_name} \
             -x {threads} \
             -o {params.out_dir} \
             -f {params.flanking_length_bp} \
