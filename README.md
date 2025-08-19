@@ -1,4 +1,9 @@
-# Manual to Launch Snakemake Pipeline
+# ECHO pipeline
+
+## Introduction 
+
+
+## Manual to Launch Snakemake Pipeline
 
 ## 🧪 Environment Setup
 
