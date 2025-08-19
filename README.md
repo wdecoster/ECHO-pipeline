@@ -1,7 +1,13 @@
-# ECHO pipeline
+# ECHO: a nanopore sequencing-based workflow for (epi)genetic profiling of the human repeatome
 
 ## Introduction 
 
+Repetitive DNA elements make up more than half of the human genome and include both tandem repeats (TRs) and transposable elements (TEs). These elements are highly polymorphic and tightly regulated by epigenetic mechanisms such as DNA methylation. They play key roles in genome regulation, evolution, and disease. However, their repetitive nature has made them difficult to analyze with short-read sequencing approaches.
+Oxford Nanopore long-read sequencing provides the unique ability to span full-length repeat regions while simultaneously detecting native DNA methylation. This opens the door to comprehensive analyses of both the genetic and epigenetic landscape of the human repeatome in a single experiment.
+
+Here we introduce **ECHO**, a comprehensive Snakemake-based pipeline for the (**E**pi)genomic **C**haracterisation of **H**uman Repetitive Elements using **O**xford Nanopore Sequencing. It integrates state-of-the-art tools for mapping, variant detection, and methylation calling into a single reproducible workflow. With dedicated modules for both TRs and TEs, ECHO enables joint profiling of sequence variation and CpG methylation across the full spectrum of repetitive elements. 
+
+## Pipeline overview
 
 ## Manual to Launch Snakemake Pipeline
 
