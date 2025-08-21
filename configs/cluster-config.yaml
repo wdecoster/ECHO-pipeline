@@ -65,7 +65,6 @@ QC_fastq_post_filtering:
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 
-
 variant_calling_snps_indels:
   time: "06:00:00"
   partition: "research"
@@ -87,6 +86,14 @@ phasing:
   time: "20:00:00"
   mem: "200G"
   cpus: 32
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+QC_phased_bam:
+  time: "12:00:00"
+  partition: "research"
+  mem: "24G"
+  cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
