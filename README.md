@@ -69,10 +69,19 @@ The following catalogs are provided with the pipeline:
     - available for GRCh38
     - derived from the genome-wide panel above with additional filtering for TRs with motif lengths < 7bp and the occurance of CpG sites in their motifs 
 
-### **Transposable elements**
-- 
--
--
+### **Transposable elements** 
+TE catalogues are derived from RepeatMasker annotations, which were obtained from the UCSC Genome Browser:  
+
+- **GRCh38**: [hg38.fa.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.out.gz)  
+- **T2T-CHM13v2**: [hs1.repeatMasker.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.repeatMasker.out.gz)  
+
+The RepeatMasker (RM) outputs were filtered to retain only bona fide transposable elements (TEs) and uncertain classifications (entries containing “?”) were removed from the panel.
+
+ECHO provides:  
+- a **genome-wide TE catalog** covering all annotated TEs,  
+- class-specific catalogs for **DNA transposons, RC/Helitrons, LINEs, SINEs, LTR retrotransposons, and SVAs**, based on the RM classification.  
+
+In addition, we provide the file `reref.ont.human.fa`, a FASTA reference used by the TLDR tool to annotate the most relevant TE families in the human genome.
 
 ## Manual to Launch Snakemake Pipeline
 
