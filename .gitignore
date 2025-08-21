@@ -23,3 +23,6 @@ profiles/brando_profile
 !profiles/
 !profiles/slurm_profile/
 !profiles/slurm_profile/config.yaml
+
+# Ignore editor swap files
+workflow/*.swp
