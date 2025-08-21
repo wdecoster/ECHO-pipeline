@@ -48,37 +48,23 @@ alignment:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-coverage_calculation:
-  time: "00:45:00"
+QC_fastq_pre_filtering:
+  time: "12:00:00"
   partition: "research"
-  mem: "32G"
+  mem: "24G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-QC_LRS_fastq:
-  time: "10:00:00"
+QC_fastq_post_filtering:
+  time: "12:00:00"
   partition: "research"
-  mem: "32G"
-  cpus: 48
-  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
-
-QC_LRS_aligned:
-  time: "03:00:00"
-  partition: "research"
-  mem: "64G"
+  mem: "24G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-QC_NanoP_aligned:
-  time: "03:00:00"
-  partition: "research"
-  mem: "32G"
-  cpus: 24
-  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
-  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
 
 variant_calling_snps_indels:
   time: "06:00:00"

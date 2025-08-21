@@ -48,6 +48,13 @@ def fastq_for_pipeline(wc):
     else:
         return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}.fastq"
 
+def fastq_for_pipeline(wc):
+    if DO_FILTER:
+        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}_filtered.fastq"
+    else:
+        return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}.fastq"
+
+
 
 #Define outputs files
 all_inputs = []
@@ -59,14 +66,14 @@ if START_FROM == "pod5":
     ])
 elif START_FROM == "ubam":
     all_inputs.extend([
-        expand(f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html", sample=SAMPLES),
         expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}.fastq", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/{{sample}}_fastq_NanoPlot-report.html", sample=SAMPLES),
     ])
 elif START_FROM == "fastq":
     all_inputs.extend([
-        #expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}_filtered.fastq", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam", sample=SAMPLES),
-        expand(f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html", sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/{{sample}}_fastq_NanoPlot-report.html", sample=SAMPLES),
+        expand(fastq_for_pipeline, sample=SAMPLES),
+        expand(f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam", sample=SAMPLES)
     ])
 elif START_FROM == "bam":
     # no basecalling or alignment outputs expected
@@ -75,15 +82,18 @@ else:
     print(f"ERROR: Invalid 'start_from' value in config.yaml: {START_FROM}")
     exit(1)
 
+#Add QC for filtered fastq if filtering was applied 
+if (START_FROM == "ubam" or START_FROM == "fastq") and DO_FILTER:
+    all_inputs.extend([
+        expand(f"{OUTPUT_DIR}/qc/fastq/post_filtering/{{sample}}/{{sample}}_filtered_fastq_NanoPlot-report.html", sample=SAMPLES)
+    ])
+
+
+
 all_inputs.extend([
-    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed.gz", sample=SAMPLES),
@@ -151,36 +161,7 @@ rule basecalling:
         """
 
 
-    
-# QC for unaligned bam with -- NanoPlot --
-rule QC_NanoP_unaligned:
-    input:
-        unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam"
-    params:
-        results_dir=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/",
-        name_id="unaligned_bam"
-    output:
-        summary_stats=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoStats.txt",            
-        html_report=f"{OUTPUT_DIR}/qc/unaligned/{{sample}}/{{sample}}_unaligned_bam_NanoPlot-report.html"
-    threads:32
-    log:
-        f"{OUTPUT_DIR}/qc/log/NanoP_{{sample}}_unaligned.log"
-    conda:
-        "envs/Nanoplot_env.yaml"
-    shell:
-        """
-        NanoPlot -t {threads} \
-            --huge \
-            -o {params.results_dir} \
-            --dpi 250 -c green -f png --N50 \
-            --title {wildcards.sample}_{params.name_id} \
-            --prefix {wildcards.sample}_{params.name_id}_ \
-            --ubam {input.unaligned_bam} \
-            >& {log}
-"""
-
-
-#CONVERSION UBAM TO FASTQ
+#Conversion ubam to fastq
 rule ubam_to_fastq:
     input:
         unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam"
@@ -215,38 +196,58 @@ if DO_FILTER:
             """
 
 
-rule QC_LRS_fastq:
+rule QC_fastq_pre_filtering:
     input:
-        fastq=fastq_for_pipeline
+        fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}.fastq"
     output:
-        sum_report=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq.html",
-        sum_txt=f"{OUTPUT_DIR}/qc/fastq/{{sample}}/QC_LRS_{{sample}}_fastq_summary.txt"
+        summary_stats=f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/{{sample}}_fastq_NanoStats.txt",
+        html_report=f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/{{sample}}_fastq_NanoPlot-report.html"
     params:
-        name_id=f"QC_LRS_{{sample}}_",
-        out_dir=f"{OUTPUT_DIR}/qc/fastq/{{sample}}"
+        results_dir=f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/",
+        sample_name=f"{{sample}}_fastq_"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_fastq/{{sample}}.log"
-
+        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_fastq_pre_filtering/{{sample}}.log"
     threads: 48
     conda:
-        "envs/Longreadsum_env.yaml"
+        "envs/Nanoplot_env.yaml"
     shell:
         """
-        longreadsum fq \
-            -i {input.fastq} \
-            -o {params.out_dir} \
-            -t {threads} \
-            --outprefix {params.name_id} \
-            -u 33 \
-            2> {log}
-
-        mv {params.out_dir}/FASTQ_summary.txt {params.out_dir}/{params.name_id}fastq_summary.txt
-        mv {params.out_dir}/FASTQ_details.txt {params.out_dir}/{params.name_id}fastq_details.txt
+        NanoPlot -t {threads} \
+            -o {params.results_dir} \
+            --dpi 250 -c blue -f png --N50 \
+            --title {params.sample_name} \
+            --prefix {params.sample_name} \
+            --fastq {input.fastq} \
+            > {log} 2>&1
         """
 
+if DO_FILTER:
+    rule QC_fastq_post_filtering:
+        input:
+            fastq=f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}_filtered.fastq"
+        output:
+            summary_stats=f"{OUTPUT_DIR}/qc/fastq/post_filtering/{{sample}}/{{sample}}_filtered_fastq_NanoStats.txt",
+            html_report=f"{OUTPUT_DIR}/qc/fastq/post_filtering/{{sample}}/{{sample}}_filtered_fastq_NanoPlot-report.html"
+        params:
+            results_dir=f"{OUTPUT_DIR}/qc/fastq/post_filtering/{{sample}}/",
+            sample_name=f"{{sample}}_filtered_fastq_"
+        log:
+            f"{OUTPUT_DIR}/logs/snakemake_rules/QC_fastq_post_filtering/{{sample}}.log"
+        threads: 48
+        conda:
+            "envs/Nanoplot_env.yaml"
+        shell:
+            """
+            NanoPlot -t {threads} \
+                -o {params.results_dir} \
+                --dpi 250 -c blue -f png --N50 \
+                --title {params.sample_name} \
+                --prefix {params.sample_name} \
+                --fastq {input.fastq} \
+                > {log} 2>&1
+            """
 
-
-# ALIGNMENT 
+#Alignment 
 rule alignment:
     input:
         fastq=fastq_for_pipeline,
@@ -271,78 +272,6 @@ rule alignment:
         ) > {log} 2>&1 
         """
 
-
-    
-# QC for aligned bam with -- LongReadSum --
-rule QC_LRS_aligned:
-    input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam"
-    params:
-        results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}", # not aligned/ that will fail the commandline separation in shell
-        name_id=f"{{sample}}_LRS_aligned_"
-    output:
-        summary_bam=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam_summary.txt",
-        html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_LRS_aligned_bam.html"
-    threads: 24
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_LRS_aligned/{{sample}}_aligned.log"
-    conda:
-        "envs/Longreadsum_env.yaml"
-    shell:
-        """
-        longreadsum bam -i {input.aligned_bam} -o {params.results_dir} \
-            --log {log} \
-            -t {threads} \
-            --outprefix {params.name_id} \
-            >> {log} 2>&1
-        mv {params.results_dir}/bam_summary.txt {params.results_dir}/{params.name_id}bam_summary.txt
-        """
-
-# QC for aligned bam with -- NanoPlot --
-rule QC_NanoP_aligned:
-    input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam"
-    params:
-        results_dir=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/",
-        name_id=f"aligned_bam"
-    output:
-        summary_stats=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoStats.txt",
-        html_report=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_aligned_bam_NanoPlot-report.html"
-    threads: 24
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_NanoP_aligned/{{sample}}_aligned.log"
-    conda:
-        "envs/Nanoplot_env.yaml"
-    shell:
-        """
-        NanoPlot -t {threads} \
-            -o {params.results_dir} \
-            --dpi 250 -c blue -f png --N50 \
-            --title {wildcards.sample}_{params.name_id} \
-            --prefix {wildcards.sample}_{params.name_id}_ \
-            --bam {input.aligned_bam} \
-            > {log} 2>&1
-        """
-
-# QC coverage calculation with -- PanDepth --
-rule coverage_calculation:
-    input:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam"
-    output:
-        coverage_zip=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage.chr.stat.gz" # .chr.stat.gz als default suffix
-    params:
-        prefix=f"{OUTPUT_DIR}/qc/aligned/{{sample}}/{{sample}}_coverage"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/coverage_calculation/{{sample}}.log"
-    threads: 24
-    shell:
-        """
-        /ifs/software/research/unique/pipeline_tools/PanDepth/bin/pandepth \
-            -i {input} \
-            -t {threads} \
-            -o {params.prefix} \
-            > {log} 2>&1
-        """
 
 # Variant calling: SNVs and Indels
 rule variant_calling_snps_indels:
@@ -377,7 +306,7 @@ rule variant_calling_snps_indels:
         """
 
 
-# Variant calling: STRUCTURAL VARIANTS
+# Variant calling: Structural Variants
 rule variant_calling_sv:
     input:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
@@ -465,45 +394,6 @@ rule phasing:
         ) > {log} 2>&1 
         """
 
-
-
-# Single Nucleotide Variants Phasing QC statistics
-rule SNV_phasing_QC:
-    input:
-        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
-    output:
-        SNV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats_summary.txt",
-        SNV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SNV_phased_stats.tsv"
-    conda:
-        "envs/whatshap_env.yaml"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/SNV_phasing_QC/{{sample}}.log"
-    threads: 24
-    shell:
-        """
-        whatshap stats \
-            --tsv={output.SNV_phasing_tsv} {input} > {output.SNV_phasing_summary} \
-            > {log} 2>&1
-        """
-
-# Structural Variant Phasing QC statistics
-rule SV_phasing_QC:
-    input:
-        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz"
-    output:
-        SV_phasing_summary=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats_summary.txt",
-        SV_phasing_tsv=f"{OUTPUT_DIR}/qc/phasing/{{sample}}_SV_phased_stats.tsv"
-    conda:
-        "envs/whatshap_env.yaml"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/SV_phasing_QC/{{sample}}.log"
-    threads: 24
-    shell:
-        """
-        whatshap stats \
-            --tsv={output.SV_phasing_tsv} {input} > {output.SV_phasing_summary} \
-            > {log} 2>&1
-        """
 
 
 # Methylation calling
