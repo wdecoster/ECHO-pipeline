@@ -42,6 +42,37 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 - non-ref TE analysis: identification of TE insertions not present in the reference genome using [TLDR](https://github.com/adamewing/tldr), followed by methylation information extraction using [script](workflow/scripts/TLDR-methylation_v2.sh)  
 - ref TE analysis: [script](workflow/scripts/ref_TE_avg_meth.sh) to analyse and summarize sequence variants and methylation information across annotated TEs in the reference genome   
 
+## Repeat catalogs  
+The ECHO pipeline comes with multiple repeat catalogs tailored to the elements of interest and the chosen reference genome (GRCh38 or T2T-CHM13v2). These catalogs, sourced from published resources and adapted for compatibility with the pipeline, define the loci at which genotyping and/or methylation profiling is performed.
+
+### **Tandem repeats**
+For tandem repeat (TR) analysis, catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format.
+```bash
+chr  start  end  TRmotif  TR_ID
+```
+
+The following catalogs are provided with the pipeline:
+- **STRs associated with human diseases**:
+    - 73 loci
+    - available for GRCh38 and T2T-CHM13v2
+    - based on [STRchive](https://strchive.org/loci/) (v2.2.1)
+- **forensically relevant STRs**:
+    - 77 loci
+    - available for GRCh38
+    - based on [STRbase](https://strbase.nist.gov/Loci) (v2.0)
+- **genome-wide TR panel**:
+    - 1,177,430 loci
+    - available for GRCh38
+    - derived from ~1.8M TRs in the [project adotto catalog v1.2.1](https://zenodo.org/records/13987414), released as part of the GIAB tandem repeat benchmark variant set ([English et al. 2025](https://www.nature.com/articles/s41587-024-02225-z). This panel was filtered to remove homopolymers, repeats with motif lengths >100 bp (STRs and VNTRs), and regions containing multiple overlapping TRs, which cannot be robustly evaluated with Truvari (inspired by approach of [Loughleed et al., 2025](https://www.biorxiv.org/content/10.1101/2025.03.25.645269v1.full).
+- **STRs with CpG sites in their repeat motif (1-6 bp)**:
+    - 7,394 loci
+    - available for GRCh38
+    - derived from the genome-wide panel above with additional filtering for TRs with motif lengths < 7bp and the occurance of CpG sites in their motifs 
+
+### **Transposable elements**
+- 
+-
+-
 
 ## Manual to Launch Snakemake Pipeline
 
