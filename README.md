@@ -2,10 +2,10 @@
 
 ---
 ## TABLE OF CONTENTS
-- [Introduction](#INTRODUCTION)
-- [Pipeline overview](#PIPELINE-OVERVIEW)
-- [Repeat catalogs](#REPEATS-CATALOGS)
-- [Setting up](#setting-up)
+- [Introduction](#introduction)
+- [Pipeline overview](#pipeline-overview)
+- [Repeat catalogs](#repeat-catalogs)
+- [Setting up](#setting-up-the-pipeline)
   - [Installation](#installation)
   - [Input Files](#prepare-input-files)
   - [Directory Structure](#project-directory-structure)
