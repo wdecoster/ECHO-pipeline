@@ -1,13 +1,17 @@
 # ECHO: a nanopore sequencing-based workflow for (epi)genetic profiling of the human repeatome
 
-## Introduction 
+---
+
+## INTRODUCTION
 
 Repetitive DNA elements make up more than half of the human genome and include both tandem repeats (TRs) and transposable elements (TEs). These elements are highly polymorphic and tightly regulated by epigenetic mechanisms such as DNA methylation. They play key roles in genome regulation, evolution, and disease. However, their repetitive nature has made them difficult to analyze with short-read sequencing approaches.
 Oxford Nanopore long-read sequencing provides the unique ability to span full-length repeat regions while simultaneously detecting native DNA methylation. This opens the door to comprehensive analyses of both the genetic and epigenetic landscape of the human repeatome in a single experiment.
 
 Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readthedocs.io/en/stable/)-based pipeline for the (**E**pi)genomic **C**haracterisation of **H**uman Repetitive Elements using **O**xford Nanopore Sequencing. It integrates state-of-the-art tools for QC, mapping, variant detection, phasing and methylation calling into a single reproducible workflow. With dedicated modules for both TR and TE analysis, ECHO enables joint profiling of sequence variation and CpG methylation across the full spectrum of repetitive elements. 
 
-## Pipeline overview
+---
+
+## PIPELINE OVERVIEW
 ### **Schematic overview**
 ![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/blob/readme/docs/figures/DAG-pipeline.jpg)
 
@@ -40,10 +44,12 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 
 **TE characterization**  
 - non-ref TE analysis: identification of TE insertions not present in the reference genome using [TLDR](https://github.com/adamewing/tldr), followed by methylation information extraction using [script](workflow/scripts/TLDR-methylation_v2.sh)  
-- ref TE analysis: [script](workflow/scripts/ref_TE_avg_meth.sh) to analyse and summarize sequence variants and methylation information across annotated TEs in the reference genome   
+- ref TE analysis: [script](workflow/scripts/ref_TE_avg_meth.sh) to analyse and summarize sequence variants and methylation information across annotated TEs in the reference genome
 
-## Repeat catalogs  
-The ECHO pipeline comes with multiple repeat catalogs tailored to the elements of interest and the chosen reference genome (GRCh38 or T2T-CHM13v2). These catalogs, sourced from published resources and adapted for compatibility with the pipeline, define the loci at which genotyping and/or methylation profiling is performed.
+---
+
+## REPEAT CATALOGS
+The ECHO pipeline includes multiple repeat catalogs specifically designed to capture the repetitive elements of interest, both tandem repeats (TRs) and transposable elements (TEs), for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [zenodo repository](https://zenodo.org/records/16925640), are compiled from published resources and adapted to ensure compatibility with the pipeline. They define the genomic loci where genotyping and/or methylation profiling is performed, enabling analysis of the human repeatome. 
 
 ### **Tandem repeats**
 For tandem repeat (TR) analysis, catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format.
@@ -75,7 +81,7 @@ TE catalogues are derived from RepeatMasker annotations, which were obtained fro
 - **GRCh38**: [hg38.fa.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.out.gz)  
 - **T2T-CHM13v2**: [hs1.repeatMasker.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.repeatMasker.out.gz)  
 
-The RepeatMasker (RM) outputs were filtered to retain only bona fide transposable elements (TEs) and uncertain classifications (entries containing “?”) were removed from the panel.
+The RepeatMasker (RM) outputs were filtered to retain only bona fide TEs and uncertain classifications (entries containing “?”) were removed from the panel.
 
 ECHO provides:  
 - a **genome-wide TE catalog** covering all annotated TEs,  
@@ -83,9 +89,78 @@ ECHO provides:
 
 In addition, we provide the file `reref.ont.human.fa`, a FASTA reference used by the TLDR tool to annotate the most relevant TE families in the human genome.
 
-## Manual to Launch Snakemake Pipeline
+---
 
-## 🧪 Environment Setup
+## SETTING UP THE PIPELINE
+
+### **Installation**
+  
+To obtain the ECHO pipline, use:
+```bash
+git clone https://github.com/leenput/repeatome_pipeline.git # clone the repository
+cd repeatome_pipeline
+bash workflow/scripts/download_catalogs.sh # download the repeat catalogs
+```
+
+---
+  
+### **Prepare input files**  
+To run the pipeline, ONT input files must be in one of the following formats:  
+
+- `.pod5` : raw signal-level data, can only be analysed via the pipeline in case GPU resources are available
+  
+- `.ubam`: pre-basecalled, unaligned data generated from dorado basecalling using methylation-aware model (recommended model: sup,5mCG_5hmCG)
+    
+- `.bam`: pre-basecalled, pre-aligned ONT data. Data needs to be basecalled using dorado with methylation aware model (sup,5mCG_5hmCG) and aligned to the human reference genome (GRCh38 or T2T-CHM13v2)
+
+---
+  
+### **Project directory structure**
+
+Depending on start point of the pipeline, ensure that your input files are stored in the following data structures (paths are tailored to usage on our Abacus HPC system):
+
+- If you start the pipeline from `pod5`:  
+
+```
+/ifs/data/research/unique/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5>
+```
+
+- If you start the pipeline from `ubam`:
+
+```
+/ifs/data/research/unique/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>
+```
+
+- If you start the pipeline from `bam`, the `bam` and the index `bai` files should be in this directory:
+
+```
+/ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam>
+/ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam.bai>
+```
+
+Replace `{project_name}` and `{sample_name}` with your actual project and sample identifiers.
+  
+---
+
+### Set up configuration file
+Before running the pipeline, you need to create a `config.yaml` file that includes the following:
+
+- Sample ID
+- Input format (`.pod5`, `.ubam`, or `.bam`)
+- project input directory
+- project output directory (preferably the same of input directory)
+- reference genome path
+- TE catalog path
+- TR catalog path
+- length of flanking regions for TE and TR analysis
+
+> An example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copz the config.yaml there an customize it for your own analysis.
+
+---
+
+## RUNNING THE PIPELINE
+  
+### **Set up Abacus HPC environment**
 
 To run the Snakemake pipeline, first load the required Conda and Singularity environments:
 
@@ -95,65 +170,11 @@ module load bioinf/conda
 conda activate /ifs/software/research/unique/leena/conda-envs/snakemake-env
 module load bioinf/singularity
 ```
+  
 
----
-
-## 📥 Input File Requirements
-
-To run the pipeline, input files must be in one of the following formats:
-
-- `.pod5`
-- `.ubam`
-- `.bam`
-
----
-
-## 🗂 Project Directory Structure
-
-If you start the pipeline from `pod5`, ensure that the `pod5` files follow this directory structure:
-
-```
-/ifs/data/research/unique/projects/{project_name}/00_raw_data/pod5/{sample_name}
-```
-
-If you start the pipeline from `ubam`, the `ubam` file should be in this directory:
-
-```
-/ifs/data/research/unique/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}
-```
-
-If you start the pipeline from `bam`, the `bam` and the index `bai` files should be in this directory:
-
-```
-/ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}
-```
-
-
-
-Replace `{project_name}` and `{sample_name}` with your actual project and sample identifiers.
-
----
-
-## ⚙️ Configuration File
-
-Before running the pipeline, you need to create a `config.yaml` file that includes the following:
-
-- Sample ID
-- Input format (`.pod5`, `.ubam`, or `.bam`)
-- Input directory
-- Output directory (preferably the same of input directory)
-- Reference genome path
-- TE catalog path
-- TR catalog path
-- Length of flanking regions for TE and TR analysis
-
-> An example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copz the config.yaml there an customize it for your own analysis.
-
----
-
-## 🚀 Running the Pipeline
-
-To run the pipeline, use the following command:
+### **Running the pipeline**
+  
+Finally, To run the pipeline, use the following command:
 
 ```bash
 snakemake -s workflow/snakefile --profile profiles/slurm_profile 
@@ -161,3 +182,5 @@ snakemake -s workflow/snakefile --profile profiles/slurm_profile
 
 ---
 
+## QUESTIONS?
+Please leave any feedback, issue or question on the [Issues section](https://github.com/leenput/repeatome_pipeline/issues). 
