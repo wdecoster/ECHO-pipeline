@@ -1,8 +1,9 @@
-name: /ifs/software/research/unique/leonard/conda_envs/Nanoplot
+name: Nanoplot-Craminio
 channels:
   - bioconda
+  - conda-forge
   - defaults
 dependencies:
   - nanoplot
+  - cramino
   - seaborn==0.10.1
-prefix: /ifs/software/research/unique/leonard/conda_envs/Nanoplot

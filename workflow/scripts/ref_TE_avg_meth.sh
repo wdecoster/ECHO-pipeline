@@ -1,12 +1,12 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# Script Name:    ref_TE_cpg_res.sh
+# Script Name:    ref_TE_avg_meth.sh
 # Description:    Intersecting bed files containing methylation information of
 #                 all cpg sites with TE catalogs.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
-# Version:        2.0.0
+# Version:        1.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, bedtools, bcftools, awk]
 # -----------------------------------------------------------------------------
@@ -93,6 +93,7 @@ SV_data="${VARIATION}/${SAMPLE_ID}_phased_SV.vcf.gz"
 SNP_filt="${VARIATION}/${SAMPLE_ID}_SNP_filt.vcf"
 SV_filt="${VARIATION}/${SAMPLE_ID}_SV_filt.vcf"
 
+
 # ------------ (1) Generate shifted bed files --------------------------------------------------------------
 # Generate shifted bed file for upstream TE regions (default -250 bp, or number of bases specified by flank variable)
 
@@ -177,20 +178,20 @@ threads_per_job=$((TOTAL_THREADS / 2)) #8 for retroposon
 echo "-- Starting modkit stats calculation with $threads_per_job threads per jobs and $max_parallel_jobs maximal paralel executed jobs --"
 
 
-rm -f "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_stats_unphased.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_stats_unphased.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv"
+rm -f "${OUTDIR}/mod_phased/${SAMPLE_ID}_stats_2.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}__stats_1.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_stats_unphased.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_upstream_stats_2.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_upstream_stats_unphased.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_downstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_downstream_stats_2.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_downstream_stats_unphased.tsv"
 
 
 # including job array struccture
 cmds=(
-  "modkit stats -t $threads_per_job --regions \"$TE_CATALOG\"           -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv\"        \"$phased_pileup_1\""
-  "modkit stats -t $threads_per_job --regions \"$TE_CATALOG\"           -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv\"        \"$phased_pileup_2\""
-  "modkit stats -t $threads_per_job --regions \"$TE_CATALOG\"           -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_stats_unphased.tsv\" \"$unphased_pileup\""
-  "modkit stats -t $threads_per_job --regions \"$UPSTREAM_TE_CATALOG\"  -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv\"  \"$phased_pileup_1\""
-  "modkit stats -t $threads_per_job --regions \"$UPSTREAM_TE_CATALOG\"  -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv\"  \"$phased_pileup_2\""
-  "modkit stats -t $threads_per_job --regions \"$UPSTREAM_TE_CATALOG\"  -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_stats_unphased.tsv\" \"$unphased_pileup\""
-  "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv\" \"$phased_pileup_1\""
-  "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv\" \"$phased_pileup_2\""
-  "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv\" \"$unphased_pileup\""
+  "modkit stats -t $threads_per_job --regions \"$TE_CATALOG\"           -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_stats_1.tsv\"        \"$phased_pileup_1\""
+  "modkit stats -t $threads_per_job --regions \"$TE_CATALOG\"           -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_stats_2.tsv\"        \"$phased_pileup_2\""
+  "modkit stats -t $threads_per_job --regions \"$TE_CATALOG\"           -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_stats_unphased.tsv\" \"$unphased_pileup\""
+  "modkit stats -t $threads_per_job --regions \"$UPSTREAM_TE_CATALOG\"  -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_upstream_stats_1.tsv\"  \"$phased_pileup_1\""
+  "modkit stats -t $threads_per_job --regions \"$UPSTREAM_TE_CATALOG\"  -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_upstream_stats_2.tsv\"  \"$phased_pileup_2\""
+  "modkit stats -t $threads_per_job --regions \"$UPSTREAM_TE_CATALOG\"  -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_upstream_stats_unphased.tsv\" \"$unphased_pileup\""
+  "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_downstream_stats_1.tsv\" \"$phased_pileup_1\""
+  "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_phased/${SAMPLE_ID}_downstream_stats_2.tsv\" \"$phased_pileup_2\""
+  "modkit stats -t $threads_per_job --regions \"$DOWNSTREAM_TE_CATALOG\" -c m -o \"${OUTDIR}/mod_unphased/${SAMPLE_ID}_downstream_stats_unphased.tsv\" \"$unphased_pileup\""
 )
 
 # starting to loop thirough commands
@@ -222,10 +223,10 @@ echo "-- (4) -- : Running variant intersections..."
 
 # Report SNPs and SVs that intersect with TE elements of interest
 # define paths and max parallel jobs
-SNP_INTERSECT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SNPs_intersect.bed"
-SV_INTERSECT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SV_intersect.bed"
-SNP_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SNPs_intersect_count.bed"
-SV_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_${TE}_SV_intersect_count.bed"
+SNP_INTERSECT="${OUTDIR}/variants/${SAMPLE_ID}_SNPs_intersect.bed"
+SV_INTERSECT="${OUTDIR}/variants/${SAMPLE_ID}_SV_intersect.bed"
+SNP_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_SNPs_intersect_count.bed"
+SV_INTERSECT_COUNT="${OUTDIR}/variants/${SAMPLE_ID}_SV_intersect_count.bed"
 
 # execute them all parrallel in background
 max_parallel_jobs=3 #9 for retroposon
@@ -293,7 +294,7 @@ VARIANT_JOB=$!
 #- (4.2) Merge unphased methylation stats from TE, and upstream/downstrem regions -
 (
 
-paste "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_stats_unphased.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_upstream_stats_unphased.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_${TE}_downstream_stats_unphased.tsv" | awk 'BEGIN { OFS="\t" } $2 == $11 && $3 == $18 { print $1, $2, $3, $4, $5, $7, $8, $15, $16, $23, $24 }' > "${OUTDIR}/unphased_stats_TE_and_flanking.bed"
+paste "${OUTDIR}/mod_unphased/${SAMPLE_ID}_stats_unphased.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_upstream_stats_unphased.tsv" "${OUTDIR}/mod_unphased/${SAMPLE_ID}_downstream_stats_unphased.tsv" | awk 'BEGIN { OFS="\t" } $2 == $11 && $3 == $18 { print $1, $2, $3, $4, $5, $7, $8, $15, $16, $23, $24 }' > "${OUTDIR}/unphased_stats_TE_and_flanking.bed"
 
 ) &
 UNPHASED_JOB=$!
@@ -303,11 +304,11 @@ UNPHASED_JOB=$!
 (
 echo "Empty flanking" > "${OUTDIR}/phased_stats_upstream.bed"
 
-paste "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $3 == $11 { print $1, $2, $3, $4, $5, $7 "," $15, $8 "," $16 }' > "${OUTDIR}/phased_stats.bed"
+paste "${OUTDIR}/mod_phased/${SAMPLE_ID}_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $3 == $11 { print $1, $2, $3, $4, $5, $7 "," $15, $8 "," $16 }' > "${OUTDIR}/phased_stats.bed"
 
-paste "${OUTDIR}/phased_stats.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_upstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $2 == $18 { print $1, $2, $3, $4, $5, $6, $7, $14 "," $22, $15 "," $23 }' >> "${OUTDIR}/phased_stats_upstream.bed" 
+paste "${OUTDIR}/phased_stats.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_upstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_upstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $2 == $10 && $2 == $18 { print $1, $2, $3, $4, $5, $6, $7, $14 "," $22, $15 "," $23 }' >> "${OUTDIR}/phased_stats_upstream.bed" 
 
-paste "${OUTDIR}/phased_stats_upstream.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_${TE}_downstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $3 == $11 && $3 == $19 { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $16 "," $24, $17 "," $25 }' > "${OUTDIR}/phased_stats_TE_and_flanking.bed"
+paste "${OUTDIR}/phased_stats_upstream.bed" "${OUTDIR}/mod_phased/${SAMPLE_ID}_downstream_stats_1.tsv" "${OUTDIR}/mod_phased/${SAMPLE_ID}_downstream_stats_2.tsv" | awk 'BEGIN { OFS="\t" } $3 == $11 && $3 == $19 { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $16 "," $24, $17 "," $25 }' > "${OUTDIR}/phased_stats_TE_and_flanking.bed"
 
 rm "${OUTDIR}/phased_stats.bed" "${OUTDIR}/phased_stats_upstream.bed"
 ) &
@@ -319,10 +320,10 @@ wait ${VARIANT_JOB} ${UNPHASED_JOB} ${PHASED_JOB}
 bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed" -b "${OUTDIR}/unphased_stats_TE_and_flanking.bed" -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $16, $17,$18, $19,$20, $21 }' > "${OUTDIR}/summary_variants_unphased.tsv"
 
 #Print header summary file
-echo -e "#chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tdownstream_avgMeth_phased\tdownstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\tdownstream_avgMeth_unphased\tdownstream_Nvalid_unphased\ttotal_SNP\tSNP_count\tINDEL_count\tSV_count\tSV_types\tSV_IDs" > "${OUTDIR}/${SAMPLE_ID}_${TE}_methylation_summary.bed"
+echo -e "#chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tdownstream_avgMeth_phased\tdownstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\tdownstream_avgMeth_unphased\tdownstream_Nvalid_unphased\ttotal_SNP\tSNP_count\tINDEL_count\tSV_count\tSV_types\tSV_IDs" > "${OUTDIR}/${SAMPLE_ID}_methylation_summary.bed"
 
 #
-bedtools intersect -a "${OUTDIR}/summary_variants_unphased.tsv" -b "${OUTDIR}/phased_stats_TE_and_flanking.bed"  -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $3 - $2, $23, $22, $25, $24, $27, $26, $12, $11, $14, $13, $16, $15, $8, $9, $10 }' >> "${OUTDIR}/${SAMPLE_ID}_${TE}_methylation_summary.bed"
+bedtools intersect -a "${OUTDIR}/summary_variants_unphased.tsv" -b "${OUTDIR}/phased_stats_TE_and_flanking.bed"  -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $3 - $2, $23, $22, $25, $24, $27, $26, $12, $11, $14, $13, $16, $15, $8, $9, $10 }' >> "${OUTDIR}/${SAMPLE_ID}_methylation_summary.bed"
 
 #Remove intermediary files
 rm "${OUTDIR}/phased_stats_TE_and_flanking.bed" "${OUTDIR}/summary_variants_unphased.tsv" "${OUTDIR}/unphased_stats_TE_and_flanking.bed" "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed"

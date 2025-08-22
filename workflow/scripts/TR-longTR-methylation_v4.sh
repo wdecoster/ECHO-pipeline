@@ -1,12 +1,12 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
-# Script Name:    ref_TE_cpg_res.sh
+# Script Name:    TR-longTR-methylation_v4.sh
 # Description:    A script to analyse TRs genotyped using LongTR, adding
 #                 allele-specific methylation information.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
-# Version:        2.0.0
+# Version:        4.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, samtools, minimap2, bedtools, bcftools, awk]
 # Usage: ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 
@@ -544,7 +544,9 @@ mkdir -p "$OUTPUT_DIR" "$TMP_DIR" "$ALIGNMENTS" "$METH" "$LOGS"
 #Checkif body of the vcf file is not empty.
 if ! zgrep -v '^#' "$VCF_FILE" | grep -q .; then
     echo "Compressed VCF has no body — exiting."
-    exit 1
+    echo "Generate empty "$OUTPUT_SUMMARY""
+    echo -e "CHROM\tPOS\tID\tREF_ALLELE\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2" > "$OUTPUT_SUMMARY"
+    exit 0
 fi
 
 #VCF file outputed by longTR has an issue in the header formatting so it is necessary to modify the header

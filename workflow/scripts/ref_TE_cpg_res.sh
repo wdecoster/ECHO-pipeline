@@ -6,7 +6,7 @@
 # Author:         Brando Poggiali, Leena Putzey
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
-# Version:        2.0.0
+# Version:        1.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, bedtools, awk]
 # -----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ unphased_pileup="${UNPHASED_PILEUP}/${SAMPLE_ID}_unphased.bed.gz"
 mkdir -p "${OUTDIR}/TMP"
 UPSTREAM_TE_CATALOG="${OUTDIR}/TMP/${TE}_upstream.bed"
 DOWNSTREAM_TE_CATALOG="${OUTDIR}/TMP/${TE}_downstream.bed"
-# coarse-grained" parallelization for two separate output files. with the background parameter '&'
+#  parallelization for two separate output files. with the background parameter '&'
 awk -v flank="$FLANK" '{OFS="\t"} {start=$2-flank; if (start < 0) start=0; print $1, start, $2, $7}' "$TE_CATALOG" > "$UPSTREAM_TE_CATALOG" & 
 UPstream_PID=$!
 awk -v flank="$FLANK" '{OFS="\t"} {print $1, $3, $3+flank, $7}' "$TE_CATALOG" > "$DOWNSTREAM_TE_CATALOG" &
@@ -114,7 +114,7 @@ echo "Running bedtools intersect operations..."
 # 9 == Number of all commands, process them all in parallel
 max_parallel_jobs=9
 
-# starting to loop thourgh commands
+# starting to loop through commands
 for b_cmd in "${bedtools_intersect_cmds[@]}"; do
     # counting all background jobs in current shell
     while (( $(jobs | wc -l) >= max_parallel_jobs )); do
