@@ -1,6 +1,18 @@
 # ECHO: a nanopore sequencing-based workflow for (epi)genetic profiling of the human repeatome
 
 ---
+## TABLE OF CONTENTS
+- [Introduction](#INTRODUCTION)
+- [Pipeline overview](#PIPELINE-OVERVIEW)
+- [Repeat catalogs](#REPEATS-CATALOGS)
+- [Setting up](#setting-up)
+  - [Installation](#installation)
+  - [Input Files](#prepare-input-files)
+  - [Directory Structure](#project-directory-structure)
+  - [Configuration](#set-up-configuration-file)
+- [Running the pipeline](#running-the-pipeline)
+- [Outputs](#outputs)
+- [Questions](#questions)
 
 ## INTRODUCTION
 
@@ -51,7 +63,7 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 ## REPEAT CATALOGS
 The ECHO pipeline includes multiple repeat catalogs specifically designed to capture the repetitive elements of interest, both tandem repeats (TRs) and transposable elements (TEs), for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [zenodo repository](https://zenodo.org/records/16925640), are compiled from published resources and adapted to ensure compatibility with the pipeline. They define the genomic loci where genotyping and/or methylation profiling is performed, enabling analysis of the human repeatome. 
 
-### **Tandem repeats**
+### Tandem repeats
 For tandem repeat (TR) analysis, catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format.
 ```bash
 chr  start  end  TRmotif  TR_ID
@@ -75,7 +87,7 @@ The following catalogs are provided with the pipeline:
     - available for GRCh38
     - derived from the genome-wide panel above with additional filtering for TRs with motif lengths < 7bp and the occurance of CpG sites in their motifs 
 
-### **Transposable elements** 
+### Transposable elements
 TE catalogues are derived from RepeatMasker annotations, which were obtained from the UCSC Genome Browser:  
 
 - **GRCh38**: [hg38.fa.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.out.gz)  
@@ -93,7 +105,7 @@ In addition, we provide the file `reref.ont.human.fa`, a FASTA reference used by
 
 ## SETTING UP THE PIPELINE
 
-### **Installation**
+### Installation
   
 To obtain the ECHO pipline, use:
 ```bash
@@ -101,37 +113,34 @@ git clone https://github.com/leenput/repeatome_pipeline.git # clone the reposito
 cd repeatome_pipeline
 bash workflow/scripts/download_catalogs.sh # download the repeat catalogs
 ```
-
----
   
 ### **Prepare input files**  
 To run the pipeline, ONT input files must be in one of the following formats:  
 
-- `.pod5` : raw signal-level data, can only be analysed via the pipeline in case GPU resources are available
-  
-- `.ubam`: pre-basecalled, unaligned data generated from dorado basecalling using methylation-aware model (recommended model: sup,5mCG_5hmCG)
-    
-- `.bam`: pre-basecalled, pre-aligned ONT data. Data needs to be basecalled using dorado with methylation aware model (sup,5mCG_5hmCG) and aligned to the human reference genome (GRCh38 or T2T-CHM13v2)
+| Format  | Description                                                                       |
+| ------- | --------------------------------------------------------------------------------- |
+| `.pod5` | Raw signal-level data (GPU required for basecalling)                              |
+| `.ubam` | Pre-basecalled, unaligned data (dorado, methylation-aware model: sup,5mCG\_5hmCG) |
+| `.bam`  | Pre-basecalled (dorado) + aligned ONT data (aligned to GRCh38 or T2T-CHM13v2)              |
 
----
-  
-### **Project directory structure**
+
+### Project directory structure
 
 Depending on start point of the pipeline, ensure that your input files are stored in the following data structures (paths are tailored to usage on our Abacus HPC system):
 
-- If you start the pipeline from `pod5`:  
+- `pod5`:   
 
 ```
 /ifs/data/research/unique/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5>
 ```
 
-- If you start the pipeline from `ubam`:
+- `ubam`:  
 
 ```
 /ifs/data/research/unique/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>
 ```
 
-- If you start the pipeline from `bam`, the `bam` and the index `bai` files should be in this directory:
+- `bam` (with index `.bai`):  
 
 ```
 /ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam>
@@ -140,7 +149,6 @@ Depending on start point of the pipeline, ensure that your input files are store
 
 Replace `{project_name}` and `{sample_name}` with your actual project and sample identifiers.
   
----
 
 ### Set up configuration file
 Before running the pipeline, you need to create a `config.yaml` file that includes the following:
@@ -154,15 +162,15 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 - TR catalog path
 - length of flanking regions for TE and TR analysis
 
-> An example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copz the config.yaml there an customize it for your own analysis.
+*Note: an example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copz the config.yaml there an customize it for your own analysis.*
 
 ---
 
 ## RUNNING THE PIPELINE
   
-### **Set up Abacus HPC environment**
+### Abacus HPC environment
 
-To run the Snakemake pipeline, first load the required Conda and Singularity environments:
+In abacus, first load the required Conda and Singularity environments:
 
 ```bash
 module load bioinf/conda
@@ -171,10 +179,9 @@ conda activate /ifs/software/research/unique/leena/conda-envs/snakemake-env
 module load bioinf/singularity
 ```
   
-
-### **Running the pipeline**
+### Launch the pipeline
   
-Finally, To run the pipeline, use the following command:
+Finally, to launch the pipeline, use the following command:
 
 ```bash
 snakemake -s workflow/snakefile --profile profiles/slurm_profile 
@@ -183,4 +190,4 @@ snakemake -s workflow/snakefile --profile profiles/slurm_profile
 ---
 
 ## QUESTIONS?
-Please leave any feedback, issue or question on the [Issues section](https://github.com/leenput/repeatome_pipeline/issues). 
+Please leave any feedback, issue or question on the [Issues section](https://github.com/leenput/repeatome_pipeline/issues).   
