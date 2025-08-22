@@ -1,5 +1,8 @@
 # Ignore everything
 *
+configs/config_brando.yaml
+
+
 
 # But NOT these files
 !.gitignore

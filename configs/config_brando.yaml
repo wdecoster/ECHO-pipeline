@@ -2,7 +2,7 @@ samples:
 - HG001_subset
 #     - HG002
 
-start_from: "fastq" #Options: "pod5", "ubam", "fastq", "bam".
+start_from: "ubam" #Options: "pod5", "ubam", "fastq", "bam".
 
 input_dir: "/ifs/data/research/unique/projects/test_config"
 output_dir: "/ifs/data/research/unique/projects/test_config"
