@@ -25,7 +25,7 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 
 ## PIPELINE OVERVIEW
 ### **Schematic overview**
-![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/blob/readme/docs/figures/DAG-pipeline.jpg)
+![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/blob/readme/DAG-pipeline.jpg)
 
 ### **Overview of tools**
 **Raw read manipulation**  
@@ -111,7 +111,7 @@ To obtain the ECHO pipline, use:
 ```bash
 git clone https://github.com/leenput/repeatome_pipeline.git # clone the repository
 cd repeatome_pipeline
-bash workflow/scripts/download_catalogs.sh # download the repeat catalogs
+bash workflow/scripts/download_repeat_catalogs.sh # download the repeat catalogs in current directory
 ```
   
 ### **Prepare input files**  
@@ -187,6 +187,8 @@ Finally, to launch the pipeline, use the following command:
 snakemake -s workflow/snakefile --profile profiles/slurm_profile 
 ```
 
+---
+## OUTPUT
 ---
 
 ## QUESTIONS?
