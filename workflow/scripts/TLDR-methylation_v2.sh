@@ -5,8 +5,8 @@
 #                 in non reference Transposable Elements (TE). It uses as input the 
 #                 output of the tool TLDR. The script first tidy the output directory
 #                 of the TLDR tool, removing files not used. Then, the non reference
-#                 TE with a PASS label are kept and DNAm at cpg sited and average of 
-#                 the TE, upstream and downstream regions are calculated.
+#                 TE with a PASS label are kept and haplotype-specific DNAm at cpg sited 
+#                 and average of the TE, upstream and downstream regions are calculated.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
@@ -15,7 +15,6 @@
 # Dependencies:   [modkit, bgzip, tabix, samtools, awk]
 # -----------------------------------------------------------------------------
 
-# Script to analyse non-ref TEs called by TLDR, adding allele-specific methylation information
 
 
 # Print usage instructions 
