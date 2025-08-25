@@ -34,14 +34,14 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 - Read filtering using [chopper](https://github.com/wdecoster/chopper) (*optional*)   
 
 **QC**  
-- pre- and post-filtered read QC, evaluation of mapping metrics and phasing with [cramino](https://github.com/wdecoster/cramino) and [nanoplot](https://github.com/wdecoster/NanoPlot)  
+- Pre- and post-filtered read QC and evaluation of mapping and phasing metrics with [cramino](https://github.com/wdecoster/cramino) and [nanoplot](https://github.com/wdecoster/NanoPlot)  
 
 **Alignment**  
-- Read alignment to human genome reference ([GRCh38](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/)/[T2T-CHM13v2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_009914755.1/)) with [minimap2](https://github.com/lh3/minimap2)    
+- Read alignment to human reference genome ([GRCh38](https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/000/001/405/GCA_000001405.15_GRCh38/)/[T2T-CHM13v2](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_009914755.1/)) with [minimap2](https://github.com/lh3/minimap2)    
 
 **Variant calling**  
 - Small variant calling (SNVs and Indels) using [Clair3](https://github.com/HKU-BAL/Clair3)  
-- Structial variant (SV) calling using [Sniffles2](https://github.com/fritzsedlazeck/Sniffles)  
+- Structural variant (SV) calling using [Sniffles2](https://github.com/fritzsedlazeck/Sniffles)  
 - Filter variants with [BCFtools](https://samtools.github.io/bcftools/bcftools.html)  
 
 **Phasing**    
@@ -57,7 +57,7 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 
 **TE characterization**  
 - non-ref TE analysis: identification of TE insertions not present in the reference genome using [TLDR](https://github.com/adamewing/tldr), followed by methylation information extraction using [script](workflow/scripts/TLDR-methylation_v2.sh)  
-- ref TE analysis: [script](workflow/scripts/ref_TE_avg_meth.sh) to analyse and summarize sequence variants and methylation information across annotated TEs in the reference genome
+- ref TE analysis: two scripts ([script1](workflow/scripts/ref_TE_avg_meth.sh) and [script2](workflow/scripts/ref_TE_cpg_res.sh)) to analyse and summarize sequence variants and methylation information across annotated TEs in the reference genome
 
 ---
 
@@ -65,7 +65,7 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 The ECHO pipeline includes multiple repeat catalogs specifically designed to capture the repetitive elements of interest, both tandem repeats (TRs) and transposable elements (TEs), for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [zenodo repository](https://zenodo.org/records/16925640), are compiled from published resources and adapted to ensure compatibility with the pipeline. They define the genomic loci where genotyping and/or methylation profiling is performed, enabling analysis of the human repeatome. 
 
 ### Tandem repeats
-For tandem repeat (TR) analysis, catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format.
+For tandem repeat (TR) analysis, catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format:
 ```bash
 chr  start  end  TRmotif  TR_ID
 ```
@@ -82,11 +82,11 @@ The following catalogs are provided with the pipeline:
 - **genome-wide TR panel**:
     - 1,177,430 loci
     - available for GRCh38
-    - derived from ~1.8M TRs in the [project adotto catalog v1.2.1](https://zenodo.org/records/13987414), released as part of the GIAB tandem repeat benchmark variant set ([English et al. 2025](https://www.nature.com/articles/s41587-024-02225-z). This panel was filtered to remove homopolymers, repeats with motif lengths >100 bp (STRs and VNTRs), and regions containing multiple overlapping TRs, which cannot be robustly evaluated with Truvari (inspired by approach of [Loughleed et al., 2025](https://www.biorxiv.org/content/10.1101/2025.03.25.645269v1.full).
+    - derived from ~1.8M TRs in the [project adotto catalog v1.2.1](https://zenodo.org/records/13987414), released as part of the GIAB tandem repeat benchmark variant set ([English et al. 2025](https://www.nature.com/articles/s41587-024-02225-z)). This panel was filtered to remove homopolymers, repeats with motif lengths >100 bp (STRs and VNTRs), and regions containing multiple overlapping TRs, which cannot be robustly evaluated with Truvari (inspired by approach of [Loughleed et al., 2025](https://www.biorxiv.org/content/10.1101/2025.03.25.645269v1.full).
 - **STRs with CpG sites in their repeat motif (1-6 bp)**:
     - 7,394 loci
     - available for GRCh38
-    - derived from the genome-wide panel above with additional filtering for TRs with motif lengths < 7bp and the occurance of CpG sites in their motifs 
+    - derived from the genome-wide panel above with additional filtering for TRs with motif lengths < 7bp and the occurence of CpG sites in their motifs 
 
 ### Transposable elements
 TE catalogues are derived from RepeatMasker annotations, which were obtained from the UCSC Genome Browser:  
@@ -96,9 +96,9 @@ TE catalogues are derived from RepeatMasker annotations, which were obtained fro
 
 The RepeatMasker (RM) outputs were filtered to retain only bona fide TEs and uncertain classifications (entries containing “?”) were removed from the panel.
 
-ECHO provides:  
+ECHO can be configured to use different TE catalogs depending on the user's choice:  
+- class-specific catalogs for **DNA transposons, RC/Helitrons, LINEs, SINEs, LTR retrotransposons, and SVAs**, based on the RM classification.
 - a **genome-wide TE catalog** covering all annotated TEs,  
-- class-specific catalogs for **DNA transposons, RC/Helitrons, LINEs, SINEs, LTR retrotransposons, and SVAs**, based on the RM classification.  
 
 In addition, we provide the file `reref.ont.human.fa`, a FASTA reference used by the TLDR tool to annotate the most relevant TE families in the human genome.
 
@@ -108,7 +108,7 @@ In addition, we provide the file `reref.ont.human.fa`, a FASTA reference used by
 
 ### Installation
   
-To obtain the ECHO pipline, use:
+To install the ECHO pipline, use:
 ```bash
 git clone https://github.com/leenput/repeatome_pipeline.git # clone the repository
 cd repeatome_pipeline
@@ -226,7 +226,7 @@ projectID/
                 ├── sampleID_filtered.fastq # optional
 ```
 
-**1. aligment data**
+**1. alignment data**
 ```
 projectID/
 ├── 01_alignment/
@@ -275,9 +275,9 @@ projectID/
                 ├── phased/
                     ├── sampleID_RefGenome_haplotype_1.bed.gz(.tbi)           # CpG methylation pileup in bedmethyl format (and index) across the genome for HP:1
                     ├── sampleID_RefGenome_haplotype_2.bed.gz(.tbi)           # CpG methylation pileup in bedmethyl format (and index) across the genome for HP:2
-                    ├── sampleID_RefGenome_haplotype_ungrouped.bed.gz(.tbi)   # CpG methylation pileup in bedmethyl format (and index) across the genome for unassigned haplotype
+                    ├── sampleID_RefGenome_haplotype_ungrouped.bed.gz(.tbi)   # CpG methylation pileup in bedmethyl format (and index) across the genome for unphased data
                 ├── unphased/
-                    ├── sampleID_RefGenome_unphased.bed.gz(.tbi)               # Combined CpG methylation calls in bedmethylformat (and index) without haplotype phasing
+                    ├── sampleID_RefGenome_unphased.bed.gz(.tbi)              # haplotype-unaware CpG methylation calls in bedmethylformat (and index)
 
 ```
 
@@ -324,7 +324,7 @@ projectID/
                       ├─ sampleID.log                                   # log of analysis
 ````
 
-ADDITIONAL FIELDS: 
+- Additional fields in the methylation VCF file: 
 
 | Field          | Description                                                         |
 | ------------------- | ------------------------------------------------------------------- |
