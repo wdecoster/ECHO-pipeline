@@ -25,7 +25,7 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 
 ## PIPELINE OVERVIEW
 ### **Schematic overview**
-![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/blob/readme/DAG-pipeline.jpg)
+![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/blob/a607e743ae1e6a5f04cc4b91df79611345c5e504/DAG-pipeline.jpg)
 
 ### **Overview of tools**
 **Raw read manipulation**  
