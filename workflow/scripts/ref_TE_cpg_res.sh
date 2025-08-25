@@ -1,8 +1,8 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
 # Script Name:    ref_TE_cpg_res.sh
-# Description:    Intersecting bed files containing methylation information of 
-#                 all cpg sites with TE catalogs. 
+# Description:    This script performs the analysis of DNA methylation (DNAm) levels 
+#                 at cpg resolution for reference TE.
 # Author:         Brando Poggiali, Leena Putzey
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08

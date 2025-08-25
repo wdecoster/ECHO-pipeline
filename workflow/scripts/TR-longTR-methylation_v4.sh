@@ -1,15 +1,18 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
 # Script Name:    TR-longTR-methylation_v4.sh
-# Description:    A script to analyse TRs genotyped using LongTR, adding
-#                 allele-specific methylation information.
+# Description:    This script calculate DNA methylation (DNAm) levels at Tandem Repeats (TR) sites.
+#                 The script takes as input a vcf file obtained from LongTR tool. Then it 
+#                 calculates haplotype-specific DNAm level at cpg sites and averages 
+#                 for TR and their upstream and downstream region. Finally, it recreates 
+#                 a vcf file.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
 # Version:        4.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, samtools, minimap2, bedtools, bcftools, awk]
-# Usage: ./script.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 
+# Usage: ./TR-longTR-methylation_v4.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 
 #        -o <output_dir> -s <sample_id> -e <extend> -f <flanking_bases> 
 #        -h <haploid_chromosomes>
 # -----------------------------------------------------------------------------

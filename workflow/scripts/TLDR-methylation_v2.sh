@@ -1,7 +1,12 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
 # Script Name:    TLDR-methylation_v2.sh
-# Description:    This script
+# Description:    This script has the primary function of typing DNA methylation (DNAm)
+#                 in non reference Transposable Elements (TE). It uses as input the 
+#                 output of the tool TLDR. The script first tidy the output directory
+#                 of the TLDR tool, removing files not used. Then, the non reference
+#                 TE with a PASS label are kept and haplotype-specific DNAm at cpg sited 
+#                 and average of the TE, upstream and downstream regions are calculated.
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
@@ -10,7 +15,6 @@
 # Dependencies:   [modkit, bgzip, tabix, samtools, awk]
 # -----------------------------------------------------------------------------
 
-# Script to analyse non-ref TEs called by TLDR, adding allele-specific methylation information
 
 
 # Print usage instructions 
@@ -82,7 +86,7 @@ extract_methylation_stats() {
     fi
 }
 
-
+#Filter non reference TE which has PASS label 
 echo ""
 echo "STEP 1: Filter TLDR output: PASS only"
 echo " "
@@ -129,10 +133,11 @@ fi
 echo -e "$(head -n 1 "$TLDR_SUMMARY")\tTEAverageMeth\tTE_Nvalid\tUpstream_AverageMeth\tUpstream_Nvalid\tDownstream_AverageMeth\tDownstream_Nvalid" > "$METH_SUMMARY_PHASED"
 cp "$METH_SUMMARY_PHASED" "$METH_SUMMARY_UNPHASED"
 
-
+# Move failed TE call files in failed directory which will be delete
+# We initially kept these files, then we decided to eliminate them.
 echo ""
 echo "STEP 2: Move failed TE calls in failed directory"
-echo " "
+echo ""
 
 faileddir="${detailed_dir}/failed_UUIDs"
 mkdir -p "$faileddir"
@@ -150,7 +155,6 @@ done < "$uuid_file"
 if [ ! -f "$failed_file_list" ]; then
     touch "$failed_file_list"
 fi
-
 
 move_list=$(mktemp)
 
@@ -186,7 +190,7 @@ check_failed_file() {
     fi
 }
 
-# Start processing
+# Start processing and write failed uuid files in a txt file. We do it in parallel.
 while IFS= read -r -d '' file; do
     check_failed_file "$file" &
 
@@ -201,7 +205,7 @@ wait  # Final wait
 
 echo "Moving $(wc -l < "$move_list") unmatched files to $faileddir using $parallel_jobs parallel jobs..."
 
-# Step 4: Move in parallel
+# Step 4: Move files in parallel
 parallel_jobs=$(nproc)
 cat "$move_list" | xargs -I{} -P "$parallel_jobs" mv {} "$faileddir/"
 
@@ -249,7 +253,7 @@ process_uuid_file() {
     details_out="${detailed_dir}/${uuid}.details.out"
     te_bed=$(find "$detailed_dir" -type f -name "*.${uuid}.bed" | head -n 1)  # Match files with anything before UUID
     te_bam="${detailed_dir}/${filename}"  # Keep original filename
-    te_bam_bai="${te_bam}.bai"  # Index file follows .bai suffix
+    te_bam_bai="${te_bam}.bai"  # Index file 
 
     # Check for missing BED entry that can cause script to break
     if [[ ! -f "$te_bed" ]]; then
@@ -392,8 +396,7 @@ process_uuid_file() {
         meth_values_phased="${meth_TE_values}${TAB}${meth_TE_counts}${TAB}${meth_upTE_values}${TAB}${meth_upTE_counts}${TAB}${meth_downTE_values}${TAB}${meth_downTE_counts}"
         meth_values_unphased="${unphased_TE_percent_m}${TAB}${unphased_TE_count_valid_m}${TAB}${unphased_upTE_percent_m}${TAB}${unphased_upTE_count_valid_m}${TAB}${unphased_downTE_percent_m}${TAB}${unphased_downTE_count_valid_m}"
 
-        # Append values to the corresponding line in METH_SUMMARY files
-
+        # Print results for phased and unphased in a tmp file
         if [[ -n "$meth_values_phased" ]]; then
             if grep -q "^$uuid" "$TLDR_SUMMARY"; then
                 awk -v uuid="$uuid" -v values="$meth_values_phased" '
@@ -437,10 +440,10 @@ process_uuid_file() {
 }
 
 
-MAX_JOBS=$((THREADS ))  # or you can divide it for another safe value, e.g., 4 or 8
+MAX_JOBS=$((THREADS))  # or you can divide it for another safe value, e.g., 4 or 8
 count=0
 job_count=0
-# Launch processing of uuid in backgrounds
+# Launch parallel processing of uuid in backgrounds
 for file in $(find "$detailed_dir" -type f -name "*.te.bam"); do
     ((count++))
 
@@ -496,7 +499,7 @@ rm ${outbase}/*_downstream.bed &
 rm  -rf "$faileddir" &
 
 wait
-
+#Merge bed files containing all cpg DNAm levels in one single bed files for hap1, hap2, ungrouped, and unphased
 (zcat ${outbase}/pileup_*_1.bed.gz > ${outbase}/all_uuids_pileup_haplotype_1.bed && rm ${outbase}/pileup_*_1.bed.gz*) &
 (zcat ${outbase}/pileup_*_2.bed.gz > ${outbase}/all_uuids_pileup_haplotype_2.bed && rm ${outbase}/pileup_*_2.bed.gz*) &
 (cat ${outbase}/pileup_*_ungrouped.bed > ${outbase}/all_uuids_pileup_ungrouped.bed && rm ${outbase}/pileup_*_ungrouped.bed) &

@@ -1,8 +1,9 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
 # Script Name:    ref_TE_avg_meth.sh
-# Description:    Intersecting bed files containing methylation information of
-#                 all cpg sites with TE catalogs.
+# Description:    This script performs the analysis of haplotype-specific average 
+#                 DNA methylation (DNAm) levels at reference Transposable Elements (TE)
+#                 and their upstream and downstream regions. 
 # Author:         Leena Putzeys, Brando Poggiali
 # Date Created:   2025-03-02
 # Last Modified:  2025-07-08
