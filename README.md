@@ -126,6 +126,22 @@ To run the pipeline, ONT input files must be in one of the following formats:
 
 ### Project directory structure
 
+The project directory will be organized in the following way:
+```
+projectID/                
+├── 00_raw_data/          
+├── 01_alignment/           
+├── 02_variant_calling/    
+├── 03_phasing/
+├── 04_methylation_calling/
+├── 05_non_ref_TE_calling/
+├── 06_TR_calling/
+├── 07_TR_methylation_calling/
+├── 08_TE_methylation_calling/
+├── logs/
+├── qc
+```
+
 Depending on start point of the pipeline, ensure that your input files are stored in the following data structures (paths are tailored to usage on our Abacus HPC system):
 
 - `pod5`:   
