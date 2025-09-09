@@ -342,6 +342,26 @@ projectID/
 | `TR_CPG_METH_HP2`            | Methylation percentages of individual CpGs in TR region of HP2, ordered by CpG position within the allele                                            |
 | `TR_CPG_DEPTH_HP2`  | Read depths for individual CpG positions in TR region of HP2, ordered by CpG position within the allele            |
 
+  
+  
+  
+**Note:** for detailed analysis of selected TRs, you can use a follow-up script [recreate-selected-TR-alignments.sh](workflow/scripts/recreate-selected-TR-alignments.sh), which will generate a local alignment file, fasta file and bed file of the TR alleles of interest, which you can use for IGV visualisation.
+
+Details on how to use that script:  
+```
+Usage: bash recreate-selected-TR-alignments.sh -v <methylated.vcf.gz> -r <reference.fa> -i <phased.bam> -o <output_dir> -s <sample_id> [-e <extend>] [-h <haploid_chroms>] (-d <id1,id2,...> | -l <id_list.txt>)
+  -v  VCF file (LongTR or methylated), bgzipped and indexed (.tbi)
+  -r  Reference FASTA (indexed with .fai)
+  -i  Phased BAM (indexed with .bai), contains HP tags
+  -o  Output base directory
+  -s  Sample ID (used in filenames)
+  -e  Flank size to extend around TR allele when building mini-reference (default: 1000)
+  -h  Comma-separated haploid chromosomes (e.g. "chrX,chrY,chrY") (default: none)
+  -d  Comma-separated TR IDs to process (e.g. "chr1_15235-15322,chr7_
+  -l  File with TR IDs (one per line)
+```
+  
+
 **8. TE methylation analysis**
 ```
 projectID/
