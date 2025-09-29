@@ -171,8 +171,10 @@ rule ubam_to_fastq:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ubam_to_fastq/{{sample}}.log"
     threads: 24
-    conda:
-        "envs/minimap2.yaml"
+#   conda:
+#       "envs/minimap2.yaml"
+    singularity:
+        "docker://staphb/samtools:1.22"
     shell:
         """
         samtools fastq -@ {threads} -T 'MM,ML' {input.unaligned_bam} > {output.fastq} 2> {log}
@@ -189,7 +191,9 @@ if DO_FILTER:
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/filter_fastq/{{sample}}.log"
         threads: 24
-        conda: "envs/chopper.yaml"
+#       conda: "envs/chopper.yaml"
+        singularity:
+            "docker://quay.io/biocontainers/chopper:0.11.0--hcdda2d0_0"
         shell:
             """
             chopper -q {MIN_READ_QUAL} -l {MIN_READ_LENGTH} \
@@ -209,8 +213,10 @@ rule QC_fastq_pre_filtering:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/QC_fastq_pre_filtering/{{sample}}.log"
     threads: 48
-    conda:
-        "envs/Nanoplot_env.yaml"
+#    conda:
+#        "envs/Nanoplot_env.yaml"
+    singularity:
+       "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
     shell:
         """
         NanoPlot -t {threads} \
@@ -235,8 +241,10 @@ if DO_FILTER:
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/QC_fastq_post_filtering/{{sample}}.log"
         threads: 48
-        conda:
-            "envs/Nanoplot_env.yaml"
+#        conda:
+#            "envs/Nanoplot_env.yaml"
+        singularity:
+            "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
         shell:
             """
             NanoPlot -t {threads} \
@@ -254,23 +262,37 @@ rule alignment:
         fastq=fastq_for_pipeline,
         reference=ancient(REFERENCE)
     output:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai"
-    params:
-        temp_out_sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam"
+        sam=temp(f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam")
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/alignment/{{sample}}.log"
     threads:80
-    conda:
-        "envs/minimap2.yaml"
+#   conda:
+#       "envs/minimap2.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/minimap2:2.30--h577a1d6_0"     
+    shell:
+        """
+         minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {output.sam} 2> {log}
+        """
+
+# SAM convert, sort and index
+rule bam_sort_index:
+    input:
+        sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam"
+    output:
+        bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bai=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai"
+    threads: 24
+    singularity:
+        "docker://staphb/samtools:1.22"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/sort_index/{{sample}}.log"
     shell:
         """
         (
-            minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {params.temp_out_sam} 
-            samtools sort -@ 24 {params.temp_out_sam} > {output.aligned_bam}
-            samtools index -o {output.bam_index} {output.aligned_bam}
-            rm {params.temp_out_sam}
-        ) > {log} 2>&1 
+            samtools sort -@ {threads} {input.sam} > {output.bam} 
+            samtools index {output.bam}
+        ) > {log} 2>&1
         """
 
 
@@ -314,31 +336,45 @@ rule variant_calling_sv:
         bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
-        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi"
+        sv_vcf=temp(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf")
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_sv/{{sample}}.log"
     threads: 16
-    conda:
-        "envs/sniffles2.yaml"
+#    conda:
+#        "envs/sniffles2.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/sniffles:2.6.3--pyhdfd78af_0"
+    shell:
+        """
+        sniffles \
+            --input {input.aligned_bam} \
+            --reference {input.reference} \
+            --vcf {output.sv_vcf} \
+            --threads {threads} \
+            --output-rnames \
+        > {log} 2>&1
+        """
+
+# SV vcf compress and index
+rule sv_vcf_compress_index:
+    input:
+        sv_vcf=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf" 
+    output:
+        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
+        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/SV_vcf_compress_index/{{sample}}.log"
+    singularity:
+        "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
     shell:
         """
         (
-            sniffles \
-                --input {input.aligned_bam} \
-                --reference {input.reference} \
-                --vcf {output.sv_vcf_gz}.tmp \
-                --threads {threads} \
-                --output-rnames
-    
-            bgzip -@ 8 -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz}
+            bgzip -@ 8 -c {input.sv_vcf} > {output.sv_vcf_gz}
             tabix -f -p vcf {output.sv_vcf_gz}
-            rm -f {output.sv_vcf_gz}.tmp
         ) > {log} 2>&1
         """
 
-
-    # Phasing
+# Phasing
 rule phasing:
     input:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
@@ -673,7 +709,7 @@ rule ref_TE_methylation_calling_averages:
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_averages/{{sample}}.log"
-    threads: 96
+    threads: 64
     conda:
         "envs/modkit.yaml"
     shell:
