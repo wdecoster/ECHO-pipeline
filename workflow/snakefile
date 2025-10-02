@@ -28,19 +28,6 @@ import os
 # Create directory to store slurm outputs
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
-# container info
-from snakemake.shell import shell
-CONT_DIR = f"{OUTPUT_DIR}/logs/containers"
-CONT = f"{CONT_DIR}/containers.tsv"
-
-shell.prefix("""
-set -euo pipefail
-mkdir -p {CONT_DIR}
-IMG="${{{{SINGULARITY_CONTAINER:-unknown}}}}"
-printf "%s\\%ts\\t%s\\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "{{{{rule}}}}" "$IMG" >> {CONT}
-""".format(CONT_DIR=CONT_DIR, CONT=CONT))
-
-
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
 TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v4.sh"
@@ -118,7 +105,6 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_upstream_pileup_1.bed", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/logs/MANIFEST.txt"),
     REFERENCE
 ])
 
@@ -158,15 +144,6 @@ rule create_log:
         echo "CPUs on this node: $(nproc)" >> {output}
         echo "RAM for this node $(free -h | grep Mem | awk '{{print "total: " $2, "free: " $7}}')" >> {output}
         echo "=========================================================" >> {output}
-        """
-
-# container info
-rule init_container_log: 
-    output: CONT
-    shell: 
-        """
-        mkdir -p "{CONT_DIR}"
-        : > "{output}" # create/empty the file
         """
 
 #Basecalling 
@@ -928,87 +905,3 @@ rule ref_TE_methylation_calling_averages:
             -f {params.flanking_length_bp} \
             > {log} 2>&1
         """
-
-# Write MANIFEST.txt file to get tool versions in containers
-# Write MANIFEST.txt file to get tool versions
-rule write_manifest:
-    input:
-        CONT
-    output:
-        f"{OUTPUT_DIR}/logs/MANIFEST.txt"
-    shell:
-        r'''
-        set -euo pipefail
-
-        USED="{input}"
-        OUT="{output}"
-
-        # Collect unique images actually used in this run
-        mapfile -t IMAGES < <(awk -F'\t' '{print $3}' "$USED" | grep -v '^$' | sort -u)
-
-        {
-          echo "DATE: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          echo "ENGINE: $(
-            (command -v apptainer >/dev/null 2>&1 && echo apptainer) ||
-            (command -v singularity >/dev/null 2>&1 && echo singularity) ||
-            echo unknown
-          )"
-          echo
-          echo "=== containers used ==="
-          awk -F'\t' '{printf "- %s (rule: %s)\n", $3, $2}' "$USED" | sort -u
-          echo
-        } > "$OUT"
-
-        # For each image, exec once and probe tool versions (skip 'unknown')
-        for IMG in "${IMAGES[@]}"; do
-          [ "$IMG" = "unknown" ] && continue
-          {
-            echo "----------------------------------------"
-            echo "IMAGE: $IMG"
-
-            if command -v apptainer >/dev/null 2>&1; then
-              ENG=apptainer
-            elif command -v singularity >/dev/null 2>&1; then
-              ENG=singularity
-            else
-              echo "ENGINE: none (cannot exec to probe)"
-              continue
-            fi
-
-            $ENG exec "$IMG" bash -lc '
-              set -euo pipefail
-              TOOLS=(
-                "samtools --version | head -n1"
-                "bcftools --version | head -n1"
-                "htsfile --version | head -n1"     # htslib binary is htsfile
-                "bedtools --version | head -n1"
-                "minimap2 --version | head -n1"
-                "NanoPlot --version | head -n1 || nanoplot --version | head -n1"
-                "multiqc --version | head -n1"
-                "python --version | head -n1"
-                "pip --version | head -n1"
-                "tldr --version | head -n1"
-                "longphase --version | head -n1"
-                "clair3 --version | head -n1 || clair3.py --version | head -n1 || echo clair3 present"
-                "sniffles --version | head -n1"
-                "modkit --version | head -n1"
-                "LongTR --version | head -n1 || longTR --version | head -n1"
-                "cramino --version | head -n1"
-              )
-              echo "TOOLS:"
-              for cmd in "${TOOLS[@]}"; do
-                BIN=$(echo "$cmd" | awk "{print \$1}")
-                if command -v "$BIN" >/dev/null 2>&1; then
-                  printf "  - %s: " "$BIN"
-                  bash -lc "$cmd" 2>/dev/null | tr -d "\r" | head -n1
-                fi
-              done
-            ' || echo "  (probe failed for $IMG)"
-            echo
-          } >> "$OUT"
-        done
-        '''
-
-
-
-      
