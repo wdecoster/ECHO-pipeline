@@ -92,6 +92,7 @@ if (START_FROM == "ubam" or START_FROM == "fastq") and DO_FILTER:
 all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_cramino_output.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam", sample=SAMPLES),
@@ -577,7 +578,32 @@ rule cramino_nanoplot:
                 --arrow {input.arrow} \
                 --no_static \
         )  > {log} 2>&1
+        """ 
+
+# MultiQC
+rule multiqc:
+    input:
+        fastq_report=f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/{{sample}}_fastq_NanoPlot-report.html",
+        phased_bam_report=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html"
+    output:
+        multiqc_out=f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html"
+    singularity:
+        "docker://quay.io/biocontainers/multiqc:1.31--pyhdfd78af_0"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/multiqc/{{sample}}.log" 
+    shell:
         """
+        outdir=$(dirname {output.multiqc_out})
+        mkdir -p "$outdir"
+
+        multiqc \
+          --force \
+          -n multiqc_report.html \
+          -o "$outdir" \
+          {OUTPUT_DIR}/qc/fastq/pre_filtering/{wildcards.sample} \
+          {OUTPUT_DIR}/qc/phased_bam/{wildcards.sample}/{REFERENCE_NAME}/nanoplot \
+          > {log} 2>&1
+        """ 
 
 # Methylation calling
 rule methylation_calling_phased:
@@ -689,8 +715,10 @@ rule TE_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TE_calling/{{sample}}.log"
     threads: 48
-    conda:
-        "envs/tldr.yaml"
+    singularity:
+        "docker://leenaputzeys/tldr:v1.2.2-7c6dfda"
+#    conda:
+#        "envs/tldr.yaml"
     shell:
         """
         # Generate chromosome list file
@@ -699,7 +727,7 @@ rule TE_calling:
             echo "chr${{chr}}" >> {params.chr_file}
         done
 
-        /ifs/software/research/unique/pipeline_tools/tldr/tldr \
+        tldr \
             -b {input.phased_bam} \
             -e {input.reference_TE} \
             -r {input.reference} \
@@ -712,7 +740,6 @@ rule TE_calling:
             --max_cluster_size 500 \
             --extend_consensus {params.consensus_extension}
         ) > {log} 2>&1
-        rm -f {params.chr_file}
         """
 
 
@@ -732,11 +759,11 @@ rule TR_calling:
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling/{{sample}}.log"
-    container:
-        "/ifs/software/research/unique/containers/longtr_2025_11_03.sif"
+    singularity:
+        "docker://quay.io/biocontainers/longtr:1.2--h077b44d_1"
     shell:
         """
-        /bin/LongTR \
+        LongTR \
             --bams {input.phased_bam} \
             --regions {input.TR_catalog} \
             --fasta {input.reference} \
