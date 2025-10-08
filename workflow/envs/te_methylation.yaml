@@ -1,0 +1,14 @@
+name: te_methylation
+
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+
+dependencies:
+  - ont-modkit=0.5.0
+  - samtools=1.22.1
+  - htslib
+  - awk
+  - bedtools=2.31.1
+  - bcftools=1.22
