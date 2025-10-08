@@ -149,15 +149,17 @@ rule create_log:
 #Basecalling 
 rule basecalling:
     input:
-        pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
-        model_dir=ancient("/ifs/software/research/unique/brando/dorado_models/")
+        pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/"
     output:
         unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam",
-        summary_file=f"{OUTPUT_DIR}/qc/basecalling/{{sample}}/{{sample}}_summary.tsv"
+        summary_file=f"{OUTPUT_DIR}/qc/basecalling/{{sample}}/{{sample}}_summary.tsv" 
+    singularity:
+        "docker://nanoporetech/dorado:shae423e761540b9d08b526a1eb32faf498f32e8f22"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/basecalling/{{sample}}.log"
     shell:
         """
-        module load bioinf/dorado
-        dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
+        dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim > {output.unaligned_bam}
         dorado summary {output.unaligned_bam} > {output.summary_file}
         """
 
@@ -792,8 +794,10 @@ rule TR_methylation_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}.log"
     threads: 32
-    conda:
-        "envs/TR_longTR_methylation.yaml"
+#    conda:
+#        "envs/TR_longTR_methylation.yaml"
+    singularity:
+         "docker://leenaputzeys/tr_methylation:v1.0"
     shell:
         """
         bash {TR_LONGTR_METH_SCRIPT_PATH} \
@@ -823,8 +827,10 @@ rule non_ref_TE_methylation_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
     threads: 32
+#    singularity:
+#        "docker://leenaputzeys/te_methylation:v1.0"
     conda:
-        "envs/modkit.yaml"
+        "envs/te_methylation.yaml"
     shell:
         """
         bash {TLDR_METH_SCRIPT_PATH} \
@@ -854,8 +860,10 @@ rule ref_TE_methylation_calling_cpg_res:
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res/{{sample}}.log"
-    conda:
-        "envs/modkit.yaml"
+    singularity:
+        "docker://leenaputzeys/te_methylation:v1.0" 
+#    conda:
+#        "envs/modkit.yaml"
     shell:
         """
         bash {REF_TE_METH_CPG_RES_SCRIPT_PATH} \
@@ -889,8 +897,10 @@ rule ref_TE_methylation_calling_averages:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_averages/{{sample}}.log"
     threads: 64
-    conda:
-        "envs/modkit.yaml"
+    singularity:
+        "docker://leenaputzeys/te_methylation:v1.0"
+#    conda:
+#        "envs/modkit.yaml"
     shell:
         """
         bash {REF_TE_METH_AVERAGES_SCRIPT_PATH} \
