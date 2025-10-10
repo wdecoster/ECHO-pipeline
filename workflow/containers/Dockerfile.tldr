@@ -4,7 +4,8 @@ FROM mambaorg/micromamba:1.5.8
 # Set working directory inside container
 WORKDIR /opt/tldr
 
-# Copy local tldr repo (https://github.com/adamewing/tldr, including tldr.yml, setup.py, source code) into image
+# Copy local tldr repo (https://github.com/adamewing/tldr (commit 7c6dfdaa1ce5a7dece159d6c72d80feb5a79944b) into image
+# repo includes tldr.yml, setup.py, source code
 COPY . /opt/tldr/
 
 # Create environment from repo's YAML
