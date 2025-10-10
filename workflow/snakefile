@@ -159,8 +159,10 @@ rule basecalling:
         f"{OUTPUT_DIR}/logs/snakemake_rules/basecalling/{{sample}}.log"
     shell:
         """
-        dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim > {output.unaligned_bam}
-        dorado summary {output.unaligned_bam} > {output.summary_file}
+        (
+            dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim > {output.unaligned_bam}
+            dorado summary {output.unaligned_bam} > {output.summary_file}
+        ) > {log} 2>&1 
         """
 
 
@@ -450,8 +452,8 @@ rule longphase_haplotag:
     input:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
         bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
-        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf",
-        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf",
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz",
         modcall_vcf_phased=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_mod.vcf",
         reference=ancient(REFERENCE)
     params:
