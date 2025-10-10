@@ -1,8 +1,0 @@
-name: /ifs/software/research/unique/pipeline_tools/whatshap
-channels:
-  - conda-forge
-  - bioconda
-  - defaults
-dependencies:
-  - whatshap
-prefix: /ifs/software/research/unique/pipeline_tools/whatshap

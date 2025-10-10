@@ -1,6 +1,0 @@
-name: chopper_env
-channels:
-  - bioconda
-  - conda-forge
-dependencies:
-  - chopper
