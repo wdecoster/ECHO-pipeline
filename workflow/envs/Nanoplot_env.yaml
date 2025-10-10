@@ -1,9 +1,0 @@
-name: Nanoplot-Craminio
-channels:
-  - bioconda
-  - conda-forge
-  - defaults
-dependencies:
-  - nanoplot
-  - cramino
-  - seaborn==0.10.1

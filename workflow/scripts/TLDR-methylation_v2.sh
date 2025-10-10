@@ -85,7 +85,7 @@ extract_methylation_stats() {
         eval "${var_prefix}_count_valid_m=\"$count\""
     fi
 }
-
+#---------------------STEP 1: FILTERING--------------------------
 #Filter non reference TE which has PASS label 
 echo ""
 echo "STEP 1: Filter TLDR output: PASS only"
@@ -102,12 +102,12 @@ BEGIN {
 }
 NR == 1 {
     # Dynamically create the summary file header using actual input
-    print $1, $2, $3, $4, $5, $6 ":" $7, $10, $22, $23 > summary
+    print $1, $2, $3, $4, $5, $6 ":" $7, $10, $23, $24 > summary
     next
 }
-$25 == "PASS" {
+$26 == "PASS" {
     # Write filtered row to summary (selected columns)
-    print $1, $2, $3, $4, $5, $6 ":" $7, $10, $22, $23 >> summary
+    print $1, $2, $3, $4, $5, $6 ":" $7, $10, $23, $24 >> summary
     # Write UUID (column 1) to a temp file
     print $1 >> uuid_out
     summary_found = 1
@@ -133,6 +133,7 @@ fi
 echo -e "$(head -n 1 "$TLDR_SUMMARY")\tTEAverageMeth\tTE_Nvalid\tUpstream_AverageMeth\tUpstream_Nvalid\tDownstream_AverageMeth\tDownstream_Nvalid" > "$METH_SUMMARY_PHASED"
 cp "$METH_SUMMARY_PHASED" "$METH_SUMMARY_UNPHASED"
 
+#----------------------STEP 2: MOVE FAILED FILES-------------------
 # Move failed TE call files in failed directory which will be delete
 # We initially kept these files, then we decided to eliminate them.
 echo ""
@@ -215,6 +216,7 @@ rm "$move_list"
 
 echo "✅ Done."
 
+#-------------------STEP 3: METHYLATION ANALYSIS--------------------
 # Calculate methylation values for retained TE insertions
 echo "" 
 echo "STEP 3: Executing modkit for passed samples in $detailed_dir..."
@@ -430,7 +432,7 @@ process_uuid_file() {
         else
             echo "Skipping update for UUID: $uuid (no valid methylation data found)"
         fi
-    echo "✓ Done with: $file"
+    echo "Done with: $file"
     echo 
     
     else
@@ -496,7 +498,7 @@ rm ${outbase}/*.tsv &
 rm ${outbase}/*_te_modified.bed &
 rm ${outbase}/*_upstream.bed &
 rm ${outbase}/*_downstream.bed &
-rm  -rf "$faileddir" &
+#rm  -rf "$faileddir" &
 
 wait
 #Merge bed files containing all cpg DNAm levels in one single bed files for hap1, hap2, ungrouped, and unphased

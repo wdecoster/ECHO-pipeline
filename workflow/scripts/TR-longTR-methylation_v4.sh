@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+#
 # -----------------------------------------------------------------------------
 # Script Name:    TR-longTR-methylation_v4.sh
 # Description:    This script calculate DNA methylation (DNAm) levels at Tandem Repeats (TR) sites.
@@ -19,6 +20,7 @@
 
 
 set -e
+set -o pipefail
 
 # Print usage instructions
 usage() {
@@ -64,14 +66,15 @@ fi
 
 # Verify tools are installed
 MISSING_TOOLS=()
-for tool in samtools minimap2 awk modkit bgzip tabix bedtools bcftools; do
+for tool in samtools minimap2 awk modkit bgzip tabix bedtools bcftools uTR; do
     if ! command -v "$tool" &> /dev/null; then
         MISSING_TOOLS+=("$tool")
     fi
 done
 
 # Define uTR tool path
-UTR_TOOL_DIR="/ifs/software/research/unique/pipeline_tools/uTR/uTR"
+# UTR_TOOL_DIR="/ifs/software/research/unique/pipeline_tools/uTR/uTR"
+UTR_EXE="${UTR_EXE:-uTR}" 
 
 if [ ${#MISSING_TOOLS[@]} -ne 0 ]; then
     echo "Error: The following required tools are not installed: ${MISSING_TOOLS[*]}"
@@ -431,7 +434,7 @@ process_line(){
             echo "No CpG sites in the region" >> "$LOG_file"
         fi
         
-        if "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
+        if "$UTR_EXE" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
             TR_PATTERN=$(extract_uTR_features "$uTR_out")
             echo -e " Pattern: ${TR_PATTERN}" >> "$LOG_file" 
         else
@@ -544,12 +547,17 @@ CORRECT_HEADER_VCF_FILE="${OUTPUT_DIR}/${SAMPLE_ID}_corrected_header.vcf"
 #Create output directories
 mkdir -p "$OUTPUT_DIR" "$TMP_DIR" "$ALIGNMENTS" "$METH" "$LOGS"
 
-#Checkif body of the vcf file is not empty.
-if ! zgrep -v '^#' "$VCF_FILE" | grep -q .; then
-    echo "Compressed VCF has no body — exiting."
-    echo "Generate empty "$OUTPUT_SUMMARY""
-    echo -e "CHROM\tPOS\tID\tREF_ALLELE\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2" > "$OUTPUT_SUMMARY"
-    exit 0
+#Robust vcf input check
+if [ ! -r "$VCF_FILE" ]; then
+    echo "ERROR: VCF not readable: $VCF_FILE" 
+    exit 2
+fi
+BODY_N=$(bcftools view -H "$VCF_FILE" | wc -l || echo 0)
+echo "VCF body rows: ${BODY_N}"
+if [ "${BODY_N}" -eq 0 ]; then
+   echo "VCF has no variant rows: $VCF_FILE"
+   printf "CHROM\tPOS\tID\tREF_ALLELES\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2\n" > "$OUTPUT_SUMMARY"
+   exit 0
 fi
 
 #VCF file outputed by longTR has an issue in the header formatting so it is necessary to modify the header
@@ -563,15 +571,15 @@ zgrep '^##' "$CORRECT_HEADER_VCF_FILE" | grep -v '^##bcftools'> "$OUTPUT_VCF"
 
 # Add new FORMAT fields for allele and haplotype-specific methylation info in vcf file
 cat <<EOF >> "$OUTPUT_VCF"
-##FORMAT=<ID=TR_LEN,Number=G,Type=Integer,Description="Lengths of the tandem repeat alleles in bp, one per haplotype">
-##FORMAT=<ID=TR_N_CPG,Number=G,Type=Integer,Description="Number of CpG sites in the TR sequence, one per haplotype">
-##FORMAT=<ID=TR_PATTERN,Number=G,Type=String,Description="Decomposed TR allele pattern using uTR tool, one per haplotype">
-##FORMAT=<ID=TR_AM,Number=G,Type=Float,Description="Average methylation percentage at the TR region, one per haplotype">
-##FORMAT=<ID=TR_N_METH_VALID,Number=G,Type=Integer,Description="Number of valid CpG sites used for TR methylation, one per haplotype">
-##FORMAT=<ID=UPSTREAM_TR_AM,Number=G,Type=Float,Description="Average methylation percentage upstream of TR, one per haplotype">
-##FORMAT=<ID=UPSTREAM_TR_N_METH_VALID,Number=G,Type=Integer,Description="Number of valid CpGs upstream of TR, one per haplotype">
-##FORMAT=<ID=DOWNSTREAM_TR_AM,Number=G,Type=Float,Description="Average methylation percentage downstream of TR, one per haplotype">
-##FORMAT=<ID=DOWNSTREAM_TR_N_METH_VALID,Number=G,Type=Integer,Description="Number of valid CpGs downstream of TR, one per haplotype">
+##FORMAT=<ID=TR_LEN,Number=2,Type=Integer,Description="Lengths of the tandem repeat alleles in bp, one per haplotype">
+##FORMAT=<ID=TR_N_CPG,Number=2,Type=Integer,Description="Number of CpG sites in the TR sequence, one per haplotype">
+##FORMAT=<ID=TR_PATTERN,Number=2,Type=String,Description="Decomposed TR allele pattern using uTR tool, one per haplotype">
+##FORMAT=<ID=TR_AM,Number=2,Type=Float,Description="Average methylation percentage at the TR region, one per haplotype">
+##FORMAT=<ID=TR_N_METH_VALID,Number=2,Type=Integer,Description="Number of valid CpG sites used for TR methylation, one per haplotype">
+##FORMAT=<ID=UPSTREAM_TR_AM,Number=2,Type=Float,Description="Average methylation percentage upstream of TR, one per haplotype">
+##FORMAT=<ID=UPSTREAM_TR_N_METH_VALID,Number=2,Type=Integer,Description="Number of valid CpGs upstream of TR, one per haplotype">
+##FORMAT=<ID=DOWNSTREAM_TR_AM,Number=2,Type=Float,Description="Average methylation percentage downstream of TR, one per haplotype">
+##FORMAT=<ID=DOWNSTREAM_TR_N_METH_VALID,Number=2,Type=Integer,Description="Number of valid CpGs downstream of TR, one per haplotype">
 ##FORMAT=<ID=TR_CPG_METH_HP1,Number=.,Type=Float,Description="CpG methylation percentages for haplotype 1, ordered by CpG position within the allele">
 ##FORMAT=<ID=TR_CPG_DEPTH_HP1,Number=.,Type=Integer,Description="CpG coverage depths for haplotype 1, ordered by CpG position within the allele">
 ##FORMAT=<ID=TR_CPG_METH_HP2,Number=.,Type=Float,Description="CpG methylation percentages for haplotype 2, ordered by CpG position within the allele">
@@ -597,7 +605,7 @@ export HAPLOID_CHROMOSOMES
 export TMP_DIR
 export ALIGNMENTS
 export METH
-export UTR_TOOL_DIR
+export UTR_EXE
 export LOGS
 
 CHUNK_SIZE=5000

@@ -1,0 +1,19 @@
+# Start from micromamba base (lightweight conda)
+FROM mambaorg/micromamba:1.5.8
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+
+# Install exact tool versions in container using micromamba
+RUN micromamba create -y -n trmeth -c conda-forge -c bioconda \
+    samtools=1.22 minimap2=2.30 ont-modkit=0.5.0 bedtools=2.31 bcftools=1.22 \
+    && micromamba clean -a -y
+
+# Add env/bin to PATH so we don’t need to activate
+ENV PATH=/opt/conda/envs/trmeth/bin:$PATH
+# Make conda’s C/C++ runtimes visible to non-conda binaries like uTR
+ENV LD_LIBRARY_PATH=/opt/conda/envs/trmeth/lib:${LD_LIBRARY_PATH}
+
+# Put prebuilt uTR binary (from https://github.com/morisUtokyo/uTR commit e36871b) in the image
+COPY uTR /usr/local/bin/uTR 
+
+WORKDIR /data
+
