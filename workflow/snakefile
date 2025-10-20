@@ -61,224 +61,25 @@ include: "rules/methylation_bgzip_index.smk"
 
 # -------  STEP 5 : NON-REF TE CALLING -------
 
+include: "rules/TE_calling.smk"
+
+# -------  STEP 6 : TR CALLING -------
+
+include: "rules/TR_calling.smk"
+
+# -------  STEP 7 : TR METHYLATION CALLING -------
+
+include: "rules/TR_methylation_calling.smk"
+
+# -------  STEP 8 : TE METHYLATION CALLING -------
+
+# non-ref TEs
+include: "rules/non_ref_TE_methylation_calling.smk"
+
+# ref TEs
+include: "rules/ref_TE_methylation_calling_cpg_res.smk"
+include: "rules/ref_TE_methylation_calling_averages.smk"
 
 rule all:
     input:
-        all_inputs 
-
-# TE calling
-rule TE_calling:
-    input:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
-        reference_TE=ancient(REFERENCE_TE),
-        reference=ancient(REFERENCE)
-    output:
-        out_file=f"{OUTPUT_DIR}/05_non_ref_TE_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}.table.txt"
-    params:
-        chr_file=f"{OUTPUT_DIR}/05_non_ref_TE_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_chr.txt",
-        out_dir=directory(f"{OUTPUT_DIR}/05_non_ref_TE_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"),
-        consensus_extension=CONSENSUS_EXTENSION
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/TE_calling/{{sample}}.log"
-    threads: 48
-    singularity:
-        "docker://leenaputzeys/tldr:v1.2.2-7c6dfda"
-#    conda:
-#        "envs/tldr.yaml"
-    shell:
-        """
-        (
-        for chr in {{1..22}} M X Y; do
-            echo "chr${{chr}}" >> {params.chr_file}
-        done
-
-        tldr \
-            -b {input.phased_bam} \
-            -e {input.reference_TE} \
-            -r {input.reference} \
-            -p {threads} \
-            -c {params.chr_file} \
-            --outbase {params.out_dir} \
-            --detail_output \
-            --embed_minreads 3 \
-            --methylartist \
-            --max_cluster_size 500 \
-            --extend_consensus {params.consensus_extension}
-        ) > {log} 2>&1
-
-        rm {params.chr_file}
-        """
-
-# Tandem Repeats calling
-rule TR_calling:
-    input:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
-        TR_catalog=ancient(TR_CATALOG),
-        reference=ancient(REFERENCE)
-    output:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz"
-    params:
-        haploid_chrs=HAPLOID_CHRS,
-        type_of_tr=TYPE_OF_TR,
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling/{{sample}}.log"
-    singularity:
-        "docker://quay.io/biocontainers/longtr:1.2--h077b44d_1"
-    shell:
-        """
-        LongTR \
-            --bams {input.phased_bam} \
-            --regions {input.TR_catalog} \
-            --fasta {input.reference} \
-            --tr-vcf  {output.TR_vcf}\
-            --bam-samps {params.sample_name} \
-            --bam-libs {params.sample_name} \
-            --haploid {params.haploid_chrs} \
-            --phased-bam \
-            > {log} 2>&1
-        """
-
-
-# Tandem Repeats methylation calling
-rule TR_methylation_calling:
-    input:
-        TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz",
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
-        reference=ancient(REFERENCE)
-    output:
-        out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TR_methylation_summary.tsv"
-    params:
-        out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}",
-        flanking_length_bp=FLANKING_LENGTH_BP,
-        haploid_chrs=HAPLOID_CHRS,
-        extension=CONSENSUS_EXTENSION,
-        type_of_TR=TYPE_OF_TR,
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}.log"
-    threads: 32
-#    conda:
-#        "envs/TR_longTR_methylation.yaml"
-    singularity:
-         "docker://leenaputzeys/tr_methylation:v1.0"
-    shell:
-        """
-        bash {TR_LONGTR_METH_SCRIPT_PATH} \
-            -v {input.TR_vcf} \
-            -r {input.reference} \
-            -i {input.phased_bam} \
-            -o {params.out_dir} \
-            -s {params.sample_name} \
-            -e {params.extension} \
-            -t {threads} \
-            -f {params.flanking_length_bp} \
-            -h {params.haploid_chrs} \
-            > {log} 2>&1
-        """
-
-
-# Non reference TE methylation calling
-rule non_ref_TE_methylation_calling:
-    input:
-        TLDR_txt_output=f"{OUTPUT_DIR}/05_non_ref_TE_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}.table.txt"
-    output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt"
-    params:
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE",
-        flanking_length_bp=FLANKING_LENGTH_BP,
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
-    threads: 32
-#    singularity:
-#        "docker://leenaputzeys/te_methylation:v1.0"
-    conda:
-        "envs/te_methylation.yaml"
-    shell:
-        """
-        bash {TLDR_METH_SCRIPT_PATH} \
-            -i {input.TLDR_txt_output} \
-            -o {params.out_dir} \
-            -s {params.sample_name} \
-            -f {params.flanking_length_bp} \
-            -t {threads} \
-            > {log} 2>&1
-        """
-
-
-# Reference-TE methylation calling at cpg region level
-rule ref_TE_methylation_calling_cpg_res:
-    input:
-        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
-        SNV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
-    output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_upstream_pileup_1.bed"
-    params:
-        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased",
-        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased",
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/cpg_resolution",
-        TE_catalog=TE_CATALOG, 
-        type_of_TE=TYPE_OF_TE,
-        flanking_length_bp=FLANKING_LENGTH_BP, 
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res/{{sample}}.log"
-    singularity:
-        "docker://leenaputzeys/te_methylation:v1.0" 
-#    conda:
-#        "envs/modkit.yaml"
-    shell:
-        """
-        bash {REF_TE_METH_CPG_RES_SCRIPT_PATH} \
-            -p {params.phased_dir} \
-            -u {params.unphased_dir} \
-            -c {params.TE_catalog} \
-            -t {params.type_of_TE} \
-            -s {params.sample_name} \
-            -o {params.out_dir} \
-            -f {params.flanking_length_bp} \
-            > {log} 2>&1
-        """
-
-
-# Reference-TE average methylation calculations
-rule ref_TE_methylation_calling_averages:
-    input:
-        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
-        SNV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
-    output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed"
-    params:
-        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased",
-        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased",
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}",
-        phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}",
-        TE_catalog=TE_CATALOG,
-        type_of_TE=TYPE_OF_TE,
-        flanking_length_bp=FLANKING_LENGTH_BP,
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
-    log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_averages/{{sample}}.log"
-    threads: 64
-    singularity:
-        "docker://leenaputzeys/te_methylation:v1.0"
-#    conda:
-#        "envs/modkit.yaml"
-    shell:
-        """
-        bash {REF_TE_METH_AVERAGES_SCRIPT_PATH} \
-            -p {params.phased_dir} \
-            -u {params.unphased_dir} \
-            -v {params.phased_variation_dir} \
-            -c {params.TE_catalog} \
-            -t {params.type_of_TE} \
-            -s {params.sample_name} \
-            -x {threads} \
-            -o {params.out_dir} \
-            -f {params.flanking_length_bp} \
-            > {log} 2>&1
-        """
+        all_inputs
