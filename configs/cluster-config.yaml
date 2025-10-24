@@ -49,16 +49,16 @@ alignment:
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_fastq_pre_filtering:
-  time: "12:00:00"
   partition: "research"
+  time: "12:00:00"
   mem: "24G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_fastq_post_filtering:
-  time: "12:00:00"
   partition: "research"
+  time: "12:00:00"
   mem: "24G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -66,16 +66,16 @@ QC_fastq_post_filtering:
 
 
 variant_calling_snps_indels:
-  time: "06:00:00"
   partition: "research"
+  time: "06:00:00"
   mem: "96G"
   cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 variant_calling_sv:
-  time: "00:45:00"
   partition: "research"
+  time: "02:00:00"
   mem: "32G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -90,8 +90,8 @@ phasing:
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 QC_phased_bam:
-  time: "12:00:00"
   partition: "research"
+  time: "12:00:00"
   mem: "24G"
   cpus: 24
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -99,6 +99,7 @@ QC_phased_bam:
 
 methylation_calling:
   partition: "research"
+  time: "15:00:00"
   mem: "64G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -114,6 +115,7 @@ TE_calling:
 
 TR_calling:
   partition: "research"
+  time: "10:00:00"
   mem: "28G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -121,6 +123,7 @@ TR_calling:
 
 TR_methylation_calling:
   partition: "research"
+  time: "10:00:00"
   mem: "28G"
   cpus: 8
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -128,6 +131,7 @@ TR_methylation_calling:
 
 non_ref_TE_methylation_calling:
   partition: "research"
+  time: "03:00:00"
   mem: "24G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -135,6 +139,7 @@ non_ref_TE_methylation_calling:
 
 ref_TE_methylation_calling_cpg_res:
   partition: "research"
+  time: "6:00:00"
   mem: "32G"
   cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -142,6 +147,7 @@ ref_TE_methylation_calling_cpg_res:
 
 ref_TE_methylation_calling_averages:
   partition: "research"
+  time: "24:00:00"
   mem: "32G"
   cpus: 96
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"

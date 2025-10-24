@@ -83,7 +83,6 @@ fi
 [[ ! -f "$REFERENCE_FASTA" ]] && echo "Reference FASTA not found!" && exit 1
 [[ ! -f "$PHASED_BAM" ]] && echo "Phased BAM not found!" && exit 1
 
-
 #++++ Define functions ++++
 #Clean up when exit script
 cleanup() {
@@ -430,8 +429,8 @@ process_line(){
             TR_CPG_DEPTH="."
             echo "No CpG sites in the region" >> "$LOG_file"
         fi
-        
-        if "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
+		
+        if "$UTR_TOOL_DIR" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" ; then #2>/dev/null; then
             TR_PATTERN=$(extract_uTR_features "$uTR_out")
             echo -e " Pattern: ${TR_PATTERN}" >> "$LOG_file" 
         else
@@ -618,7 +617,9 @@ for CHUNK_FILE in "$TMP_DIR"/chunk_*; do
     cat "$LOGS"/*.log >> "$MAIN_LOG"
     rm -f "$TMP_DIR"/*.line.tsv "$CHUNK_FILE" 
     rm -f "$LOGS"/*.log 
-    
+    rm -f "${METH}"/*
+    rm -f "${ALIGNMENTS}"/*
+ 
     CHUNK_NUM=$((CHUNK_NUM + 1))
 done
 
