@@ -10,8 +10,8 @@ rule variant_calling_snps_indels:
         out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}",
         model_path="/usr/local/bin/models/r1041_e82_400bps_sup_v500"
     output:
-        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/merge_output.vcf.gz",
-        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/merge_output.vcf.gz.tbi"
+        snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz",
+        snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz.tbi"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_snps_indels/{{sample}}.log"
     threads: 48
@@ -26,6 +26,10 @@ rule variant_calling_snps_indels:
             --output {params.out_dir} \
             --threads {threads} \
             --platform="ont" \
+            --enable_phasing \
+            --longphase_for_phasing \
+            --use_longphase_for_final_output_phasing \
             --model_path {params.model_path} \
+            --remove_intermediate_dir \
             > {log} 2>&1
         """

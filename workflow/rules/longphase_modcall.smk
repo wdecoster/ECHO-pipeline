@@ -13,7 +13,7 @@ rule longphase_modcall:
         out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"
     threads: 16
     singularity:
-        "docker://quay.io/biocontainers/longphase:2.0--h13024bc_0"
+        "docker://quay.io/biocontainers/longphase:1.7.3--hf5e1c6e_0"
     shell:
         """
         (

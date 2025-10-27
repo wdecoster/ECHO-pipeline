@@ -27,6 +27,7 @@ rule methylation_calling_phased:
             modkit pileup {input.phased_bam} {params.out_dir}/phased/ \
                 --threads {threads} \
                 --ref {input.reference} \
+                --ignore h \
                 --combine-strands \
                 --cpg \
                 --partition-tag HP \

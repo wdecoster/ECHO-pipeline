@@ -21,6 +21,7 @@ rule methylation_calling_unphased:
             modkit pileup {input.phased_bam} {params.unphased_bed} \
                 --threads {threads} \
                 --ref {input.reference} \
+                --ignore h \
                 --combine-strands \
                 --cpg
         ) > {log} 2>&1
