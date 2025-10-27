@@ -276,7 +276,11 @@ start_t=$(date +%s)
     chr[$1,$2,$3] = $1;
     start[$1,$2,$3] = $2;
     end[$1,$2,$3] = $3;
-    sv[key] = (key in sv ? sv[key] "," $10 : $10);
+
+    id = $10;
+    if (id != "" && id != ".") {
+        sv[key] = (key in sv ? sv[key] "," id : id);
+    }
   } END {
     for (k in sv) {
       split(k, fields, FS);
@@ -284,7 +288,7 @@ start_t=$(date +%s)
     }
   }' OFS="\t" "${SV_INTERSECT}" > "${OUTDIR}/interesected_SV_collapsed.bed"
   
-  sort -k1,1 -k2,2n -k3,3n "${OUTDIR}/interesected_SV_collapsed.bed" > "${OUTDIR}/interesected_SV_collapsed_sorted.bed"
+  sort -k1,1V -k2,2n -k3,3n "${OUTDIR}/interesected_SV_collapsed.bed" > "${OUTDIR}/interesected_SV_collapsed_sorted.bed"
   
   bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count.bed" -b "${OUTDIR}/interesected_SV_collapsed_sorted.bed"  -wao -f 1.0 -r | cut -f1-9,13 > "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed"
   
@@ -321,7 +325,7 @@ wait ${VARIANT_JOB} ${UNPHASED_JOB} ${PHASED_JOB}
 bedtools intersect -a "${OUTDIR}/TE_cat_SNP_SV_count_SV_code.bed" -b "${OUTDIR}/unphased_stats_TE_and_flanking.bed" -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $16, $17,$18, $19,$20, $21 }' > "${OUTDIR}/summary_variants_unphased.tsv"
 
 #Print header summary file
-echo -e "#chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tdownstream_avgMeth_phased\tdownstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\tdownstream_avgMeth_unphased\tdownstream_Nvalid_unphased\ttotal_SNP\tSNP_count\tINDEL_count\tSV_count\tSV_types\tSV_IDs" > "${OUTDIR}/${SAMPLE_ID}_methylation_summary.bed"
+echo -e "#chr\tstart\tend\tfamily\t.\tstrand\tID\tTE_length\tTE_avgMeth_phased\tTE_Nvalid_phased\tupstream_avgMeth_phased\tupstream_Nvalid_phased\tdownstream_avgMeth_phased\tdownstream_Nvalid_phased\tTE_avgMeth_unphased\tTE_Nvalid_unphased\tupstream_avgMeth_unphased\tupstream_Nvalid_unphased\tdownstream_avgMeth_unphased\tdownstream_Nvalid_unphased\ttotal_SNV\tSV_count\tSV_IDs" > "${OUTDIR}/${SAMPLE_ID}_methylation_summary.bed"
 
 #
 bedtools intersect -a "${OUTDIR}/summary_variants_unphased.tsv" -b "${OUTDIR}/phased_stats_TE_and_flanking.bed"  -wao -f 1.0 -r | awk 'BEGIN { OFS="\t" } { print $1, $2, $3, $4, $5, $6, $7, $3 - $2, $23, $22, $25, $24, $27, $26, $12, $11, $14, $13, $16, $15, $8, $9, $10 }' >> "${OUTDIR}/${SAMPLE_ID}_methylation_summary.bed"
