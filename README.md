@@ -185,17 +185,24 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
 
 ## RUNNING THE PIPELINE
   
-### Abacus HPC environment
+### *Abacus* HPC environment
 
 In abacus, first load the required Conda and Singularity environments:
 
 ```bash
 module load bioinf/conda
 . /cm/shared/apps/bioinf/conda/23.10.0/etc/profile.d/conda.sh
-conda activate /ifs/software/research/unique/leena/conda-envs/snakemake-env
+conda activate /ifs/software/research/unique/leena/conda-envs/snakemake-env  # contains snakemake v7.32.4
 module load bioinf/singularity
 ```
-  
+
+### *Other* HPC environment
+For other HPC systems, ensure that the following are installed and available in your environment:
+
+- Conda (version ≥23.3, tested on 23.10.0)
+- Singularity (version ≥3.7 and <4.0, tested on 3.7.0)
+- Snakemake (version ≥7.0 and <9.0, tested on 7.32.4)
+ 
 ### Launch the pipeline
   
 Finally, to launch the pipeline, use the following command:

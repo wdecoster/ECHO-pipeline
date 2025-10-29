@@ -64,9 +64,8 @@ QC_fastq_post_filtering:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-
 variant_calling_snps_indels:
-  time: "10:00:00"
+  time: "20:00:00"
   partition: "research"
   mem: "96G"
   cpus: 48
@@ -81,11 +80,27 @@ variant_calling_sv:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-phasing:
+longphase_modcall:
   partition: "research"
-  time: "20:00:00"
+  time: "10:00:00"
+  mem: "64G"
+  cpus: 16
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+longphase_phase:
+  partition: "research"
+  time: "10:00:00"
   mem: "200G"
   cpus: 32
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"  
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+longphase_haplotag:
+  partition: "research"
+  time: "10:00:00"
+  mem: "64G"
+  cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
