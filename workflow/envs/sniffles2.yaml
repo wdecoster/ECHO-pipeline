@@ -1,9 +1,0 @@
-name: sniffles2_env
-channels:
-  - bioconda
-  - conda-forge
-  - defaults
-dependencies:
-  - sniffles=2.4
-  - samtools=1.21
-  - htslib=1.21

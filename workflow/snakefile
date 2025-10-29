@@ -23,6 +23,7 @@ TYPE_OF_TR = config["type_of_tr"]
 from datetime import datetime
 from pathlib import Path
 import os
+ 
 
 # Create directory to store slurm outputs
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
@@ -47,7 +48,6 @@ def fastq_for_pipeline(wc):
         return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}_filtered.fastq"
     else:
         return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}.fastq"
-
 
 #Define outputs files
 all_inputs = []
@@ -92,6 +92,7 @@ if (START_FROM == "ubam" or START_FROM == "fastq") and DO_FILTER:
 all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_cramino_output.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam", sample=SAMPLES),
@@ -145,20 +146,23 @@ rule create_log:
         echo "=========================================================" >> {output}
         """
 
-
 #Basecalling 
 rule basecalling:
     input:
-        pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/",
-        model_dir=ancient("/ifs/software/research/unique/brando/dorado_models/")
+        pod5_dir=f"{INPUT_DIR}/00_raw_data/pod5/{{sample}}/"
     output:
         unaligned_bam=f"{OUTPUT_DIR}/00_raw_data/basecalled/ubam/{{sample}}/{{sample}}_unaligned.bam",
-        summary_file=f"{OUTPUT_DIR}/qc/basecalling/{{sample}}/{{sample}}_summary.tsv"
+        summary_file=f"{OUTPUT_DIR}/qc/basecalling/{{sample}}/{{sample}}_summary.tsv" 
+    singularity:
+        "docker://nanoporetech/dorado:shae423e761540b9d08b526a1eb32faf498f32e8f22"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/basecalling/{{sample}}.log"
     shell:
         """
-        module load bioinf/dorado
-        dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim --models-directory {input.model_dir} > {output.unaligned_bam}
-        dorado summary {output.unaligned_bam} > {output.summary_file}
+        (
+            dorado basecaller sup,5mCG_5hmCG {input.pod5_dir} --trim > {output.unaligned_bam}
+            dorado summary {output.unaligned_bam} > {output.summary_file}
+        ) > {log} 2>&1 
         """
 
 
@@ -171,8 +175,10 @@ rule ubam_to_fastq:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ubam_to_fastq/{{sample}}.log"
     threads: 24
-    conda:
-        "envs/minimap2.yaml"
+#   conda:
+#       "envs/minimap2.yaml"
+    singularity:
+        "docker://staphb/samtools:1.22"
     shell:
         """
         samtools fastq -@ {threads} -T 'MM,ML' {input.unaligned_bam} > {output.fastq} 2> {log}
@@ -189,7 +195,9 @@ if DO_FILTER:
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/filter_fastq/{{sample}}.log"
         threads: 24
-        conda: "envs/chopper.yaml"
+#       conda: "envs/chopper.yaml"
+        singularity:
+            "docker://quay.io/biocontainers/chopper:0.11.0--hcdda2d0_0"
         shell:
             """
             chopper -q {MIN_READ_QUAL} -l {MIN_READ_LENGTH} \
@@ -209,8 +217,10 @@ rule QC_fastq_pre_filtering:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/QC_fastq_pre_filtering/{{sample}}.log"
     threads: 48
-    conda:
-        "envs/Nanoplot_env.yaml"
+#    conda:
+#        "envs/Nanoplot_env.yaml"
+    singularity:
+       "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
     shell:
         """
         NanoPlot -t {threads} \
@@ -235,8 +245,10 @@ if DO_FILTER:
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/QC_fastq_post_filtering/{{sample}}.log"
         threads: 48
-        conda:
-            "envs/Nanoplot_env.yaml"
+#        conda:
+#            "envs/Nanoplot_env.yaml"
+        singularity:
+            "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
         shell:
             """
             NanoPlot -t {threads} \
@@ -254,23 +266,37 @@ rule alignment:
         fastq=fastq_for_pipeline,
         reference=ancient(REFERENCE)
     output:
-        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
-        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai"
-    params:
-        temp_out_sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam"
+        sam=temp(f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam")
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/alignment/{{sample}}.log"
     threads:80
-    conda:
-        "envs/minimap2.yaml"
+#   conda:
+#       "envs/minimap2.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/minimap2:2.30--h577a1d6_0"     
+    shell:
+        """
+         minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {output.sam} 2> {log}
+        """
+
+# SAM convert, sort and index
+rule bam_sort_index:
+    input:
+        sam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}.sam"
+    output:
+        bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bai=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai"
+    threads: 24
+    singularity:
+        "docker://staphb/samtools:1.22"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/sort_index/{{sample}}.log"
     shell:
         """
         (
-            minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {params.temp_out_sam} 
-            samtools sort -@ 24 {params.temp_out_sam} > {output.aligned_bam}
-            samtools index -o {output.bam_index} {output.aligned_bam}
-            rm {params.temp_out_sam}
-        ) > {log} 2>&1 
+            samtools sort -@ {threads} {input.sam} > {output.bam} 
+            samtools index {output.bam}
+        ) > {log} 2>&1
         """
 
 
@@ -289,8 +315,10 @@ rule variant_calling_snps_indels:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_snps_indels/{{sample}}.log"
     threads: 48
-    conda:
-        "envs/clair3.yaml"
+#    conda:
+#        "envs/clair3.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/clair3:1.2.0--py310h779eee5_0"  
     shell:
         """
         export OMP_NUM_THREADS={threads}
@@ -314,32 +342,73 @@ rule variant_calling_sv:
         bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
-        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi"
+        sv_vcf=temp(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf")
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_sv/{{sample}}.log"
     threads: 16
-    conda:
-        "envs/sniffles2.yaml"
+#    conda:
+#        "envs/sniffles2.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/sniffles:2.6.3--pyhdfd78af_0"
+    shell:
+        """
+        sniffles \
+            --input {input.aligned_bam} \
+            --reference {input.reference} \
+            --vcf {output.sv_vcf} \
+            --threads {threads} \
+            --output-rnames \
+        > {log} 2>&1
+        """
+
+# SV vcf compress and index
+rule sv_vcf_compress_index:
+    input:
+        sv_vcf=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf" 
+    output:
+        sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
+        sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/SV_vcf_compress_index/{{sample}}.log"
+    singularity:
+        "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
     shell:
         """
         (
-            sniffles \
-                --input {input.aligned_bam} \
-                --reference {input.reference} \
-                --vcf {output.sv_vcf_gz}.tmp \
-                --threads {threads} \
-                --output-rnames
-    
-            bgzip -@ 8 -c {output.sv_vcf_gz}.tmp > {output.sv_vcf_gz}
+            bgzip -@ 8 -c {input.sv_vcf} > {output.sv_vcf_gz}
             tabix -f -p vcf {output.sv_vcf_gz}
-            rm -f {output.sv_vcf_gz}.tmp
         ) > {log} 2>&1
         """
 
+# Phasing: longphase modcall
+rule longphase_modcall:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        reference=ancient(REFERENCE)
+    output:
+        modcall_vcf=temp(f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_modcall.vcf")
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}_modcall.log"
+    params:
+        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"    
+    threads: 16
+#    conda:
+#        "envs/longphase.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/longphase:2.0--h13024bc_0"
+    shell:
+        """
+        (
+            longphase modcall \
+                -b {input.aligned_bam} \
+                -r {input.reference} \
+                -o {params.out_prefix}_modcall \
+                -t {threads}
+        ) > {log} 2>&1
+        """
 
-    # Phasing
-rule phasing:
+# Phasing: co-phasing SNP, SV and methylation
+rule longphase_phase: 
     input:
         aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
         bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
@@ -347,29 +416,25 @@ rule phasing:
         snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz.tbi",
         sv_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz",
         sv_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz.tbi",
+        modcall_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_modcall.vcf",
         reference=ancient(REFERENCE)
     params:
         out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"    
     output:
-        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
-        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
-        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
-        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz"
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf",
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf",
+        modcall_vcf_phased=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_mod.vcf"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}_phase.log"
     threads: 16
-    conda:
-        "envs/longphase.yaml"
+#    conda:
+#        "envs/longphase.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/longphase:2.0--h13024bc_0"  
     shell:
         """
         (
-            /ifs/software/research/unique/pipeline_tools/longphase/longphase modcall \
-                -b {input.aligned_bam} \
-                -r {input.reference} \
-                -o {params.out_prefix}_modcall \
-                -t {threads}
-    
-            /ifs/software/research/unique/pipeline_tools/longphase/longphase phase \
+            longphase phase \
                 --snp-file {input.snp_vcf_gz} \
                 --mod-file {params.out_prefix}_modcall.vcf \
                 --sv-file {input.sv_vcf_gz} \
@@ -378,64 +443,173 @@ rule phasing:
                 -o {params.out_prefix}_phased \
                 -t {threads} \
                 --ont
-    
-            /ifs/software/research/unique/pipeline_tools/longphase/longphase haplotag \
-                -b {input.aligned_bam} \
-                -r {input.reference} \
-                -s {params.out_prefix}_phased.vcf \
-                --sv-file {params.out_prefix}_phased_SV.vcf \
-                --mod-file {params.out_prefix}_phased_mod.vcf \
-                -o {params.out_prefix}_phased_alignment 
-                
-            samtools index -o {output.phased_bam_index} {output.phased_bam} 
-            bgzip -@ 8 {params.out_prefix}_phased.vcf
-            bgzip -@ 8 {params.out_prefix}_phased_SV.vcf 
-            tabix {params.out_prefix}_phased.vcf.gz
-            tabix {params.out_prefix}_phased_SV.vcf.gz
-        ) > {log} 2>&1 
+
+        ) > {log} 2>&1
         """
 
+# phasing: haplotagging
+rule longphase_haplotag:
+    input:
+        aligned_bam=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam",
+        bam_index=f"{OUTPUT_DIR}/01_alignment/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_sorted.bam.bai",
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz",
+        modcall_vcf_phased=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_mod.vcf",
+        reference=ancient(REFERENCE)
+    params:
+        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"
+    output:
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam" 
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}_haplotagging.log"
+    threads: 16
+#    conda:
+#        "envs/longphase.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/longphase:2.0--h13024bc_0"
+    shell:
+        """
+        (
+            longphase haplotag \
+                -b {input.aligned_bam} \
+                -r {input.reference} \
+                -s {input.SNV_vcf} \
+                --sv-file {input.SV_vcf} \
+                --mod-file {input.modcall_vcf_phased} \
+                -o {params.out_prefix}_phased_alignment
+        ) > {log} 2>&1
+        """
 
+# Phasing: bgzip and index files 
+rule phased_bam_index:
+    input:
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam"
+    output:
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}_index_bam.log"
+    threads: 16
+#    conda:
+#        "envs/longphase.yaml"
+    singularity:
+        "docker://staphb/samtools:1.22"
+    shell:
+        """
+        (
+            samtools index {input.phased_bam}
+        ) > {log} 2>&1
+        """
 
-rule QC_phased_bam:
+rule phased_bgzip:
+    input:
+        SNV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf",
+        SV_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf"
+    params:
+        out_prefix=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}"
+    output:
+        SNV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
+        SNV_vcf_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz.tbi",
+        SV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz",
+        SV_vcf_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz.tbi",
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/phasing/{{sample}}_bgzip_phased_vcf.log"
+    threads: 16
+#    conda:
+#        "envs/longphase.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
+    shell:
+        """
+        (
+            bgzip -@ 8 {params.out_prefix}_phased.vcf
+            bgzip -@ 8 {params.out_prefix}_phased_SV.vcf
+            tabix {params.out_prefix}_phased.vcf.gz
+            tabix {params.out_prefix}_phased_SV.vcf.gz
+        ) > {log} 2>&1
+        """
+# QC of phased bam file
+rule QC_phased_bam_cramino:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam"
     output:
         cramino_output=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_cramino_output.txt",
-        nanoplot_output=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html"
+        arrow_output=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_out.arrow"
     params:
         output_dir=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}",
         hist_output=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_histogram.out",
-        arrow_output=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_out.arrow",
         sample_name=f"{{sample}}_{REFERENCE_NAME}_phased_bam_"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_phased_bam/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_phased_bam/{{sample}}_cramino.log"
     threads: 16
-    conda:
-        "envs/Nanoplot_env.yaml"
+#    conda:
+#        "envs/Nanoplot_env.yaml"
+    singularity:
+        "docker://quay.io/biocontainers/cramino:1.1.0--h3dc2dae_0" 
     shell:
         """
         cramino \
             --hist {params.hist_output} \
-            --arrow {params.arrow_output} \
+            --arrow {output.arrow_output} \
             --karyotype \
             --phased \
             --format text \
-            {input.phased_bam} > {output.cramino_output}
-
-        NanoPlot \
-            --threads {threads} \
-            --title {params.sample_name} \
-            --prefix {params.sample_name} \
-            --outdir {params.output_dir}/nanoplot \
-            --arrow {params.arrow_output} \
-            --no_static \ 
+            {input.phased_bam} > {output.cramino_output} 2> {log}
         """
 
+# QC of phased bam file from cramino output
+rule cramino_nanoplot:
+    input:
+        arrow=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_out.arrow"
+    output:
+        nanoplot_output=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html"
+    params:
+        output_dir=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}",
+        sample_name=f"{{sample}}_{REFERENCE_NAME}_phased_bam_"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/QC_phased_bam/{{sample}}_nanoplot.log"
+    threads: 16
+    singularity:
+        "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
+    shell:
+        """
+        (    
+            NanoPlot \
+                --threads {threads} \
+                --title {params.sample_name} \
+                --prefix {params.sample_name} \
+                --outdir {params.output_dir}/nanoplot \
+                --arrow {input.arrow} \
+                --no_static \
+        )  > {log} 2>&1
+        """ 
 
+# MultiQC
+rule multiqc:
+    input:
+        fastq_report=f"{OUTPUT_DIR}/qc/fastq/pre_filtering/{{sample}}/{{sample}}_fastq_NanoPlot-report.html",
+        phased_bam_report=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html"
+    output:
+        multiqc_out=f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html"
+    singularity:
+        "docker://quay.io/biocontainers/multiqc:1.31--pyhdfd78af_0"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/multiqc/{{sample}}.log" 
+    shell:
+        """
+        outdir=$(dirname {output.multiqc_out})
+        mkdir -p "$outdir"
+
+        multiqc \
+          --force \
+          -n multiqc_report.html \
+          -o "$outdir" \
+          {OUTPUT_DIR}/qc/fastq/pre_filtering/{wildcards.sample} \
+          {OUTPUT_DIR}/qc/phased_bam/{wildcards.sample}/{REFERENCE_NAME}/nanoplot \
+          > {log} 2>&1
+        """ 
 
 # Methylation calling
-rule methylation_calling:
+rule methylation_calling_phased:
     input:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
@@ -445,39 +619,85 @@ rule methylation_calling:
         hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed",
         hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed",
         ungrouped_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_ungrouped.bed",
-        unphased_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed",
         sample_name=f"{{sample}}_{REFERENCE_NAME}_haplotype"
+    threads: 16
     output:
-        hap1_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
-        hap2_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed.gz",
-        unphased_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed.gz"
+        hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed",
+        hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed",
+        ungrouped_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_ungrouped.bed"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}.log"
-    conda:
-        "envs/modkit.yaml"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}_pileup_phased.log"
+    singularity:
+        "docker://quay.io/biocontainers/ont-modkit:0.5.0--hcdda2d0_2" 
     shell:
         """
         (
             modkit pileup {input.phased_bam} {params.out_dir}/phased/ \
+                --threads {threads} \
                 --ref {input.reference} \
                 --combine-strands \
                 --cpg \
                 --partition-tag HP \
                 --prefix {params.sample_name}
-            
+        ) > {log} 2>&1
+        """
+
+rule methylation_calling_unphased:
+    input:
+        phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
+        phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
+        reference=ancient(REFERENCE)
+    params:
+        unphased_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed"
+    output:
+        unphased_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}_pileup_unphased.log"
+    threads: 16
+    singularity:
+        "docker://quay.io/biocontainers/ont-modkit:0.5.0--hcdda2d0_2"
+    shell:
+        """
+        (    
             modkit pileup {input.phased_bam} {params.unphased_bed} \
+                --threads {threads} \
                 --ref {input.reference} \
                 --combine-strands \
-                --cpg 
-               
-            bgzip -@ 8 {params.hap1_bed}
-            bgzip -@ 8 {params.hap2_bed}
-            bgzip -@ 8 {params.ungrouped_bed}
-            bgzip -@ 8 {params.unphased_bed}
-            tabix {params.hap1_bed}.gz
-            tabix {params.hap2_bed}.gz
-            tabix {params.ungrouped_bed}.gz
-            tabix {params.unphased_bed}.gz
+                --cpg
+        ) > {log} 2>&1
+        """
+
+rule methylation_bgzip_index:
+    input:
+        hap1_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed",
+        hap2_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed",
+        ungrouped_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_ungrouped.bed",
+        unphased_bed=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed"
+    output:
+        hap1_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
+        hap1_bed_tbi=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz.tbi",
+        hap2_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed.gz",
+        hap2_bed_tbi=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed.gz.tbi",
+        ungrouped_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_ungrouped.bed.gz",
+        ungrouped_bed_tbi=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_ungrouped.bed.gz.tbi",
+        unphased_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed.gz",
+        unphased_bed_tbi=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed.gz.tbi"
+    threads: 8
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}_bgzip_tabix.log"
+    singularity:
+        "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
+    shell:
+        """
+        (       
+            bgzip -@ {threads} {input.hap1_bed}
+            bgzip -@ {threads} {input.hap2_bed}
+            bgzip -@ {threads} {input.ungrouped_bed}
+            bgzip -@ {threads} {input.unphased_bed}
+            tabix {output.hap1_bed_gz}
+            tabix {output.hap2_bed_gz}
+            tabix {output.ungrouped_bed_gz}
+            tabix {output.unphased_bed_gz}
         ) > {log} 2>&1
         """
 
@@ -498,8 +718,10 @@ rule TE_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TE_calling/{{sample}}.log"
     threads: 48
-    conda:
-        "envs/tldr.yaml"
+    singularity:
+        "docker://leenaputzeys/tldr:v1.2.2-7c6dfda"
+#    conda:
+#        "envs/tldr.yaml"
     shell:
         """
         # Generate chromosome list file
@@ -508,7 +730,7 @@ rule TE_calling:
             echo "chr${{chr}}" >> {params.chr_file}
         done
 
-        /ifs/software/research/unique/pipeline_tools/tldr/tldr \
+        tldr \
             -b {input.phased_bam} \
             -e {input.reference_TE} \
             -r {input.reference} \
@@ -521,10 +743,7 @@ rule TE_calling:
             --max_cluster_size 500 \
             --extend_consensus {params.consensus_extension}
         ) > {log} 2>&1
-        rm -f {params.chr_file}
         """
-
-
 
 # Tandem Repeats calling
 rule TR_calling:
@@ -541,11 +760,11 @@ rule TR_calling:
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling/{{sample}}.log"
-    container:
-        "/ifs/software/research/unique/containers/longtr_2025_11_03.sif"
+    singularity:
+        "docker://quay.io/biocontainers/longtr:1.2--h077b44d_1"
     shell:
         """
-        /bin/LongTR \
+        LongTR \
             --bams {input.phased_bam} \
             --regions {input.TR_catalog} \
             --fasta {input.reference} \
@@ -577,8 +796,10 @@ rule TR_methylation_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}.log"
     threads: 32
-    conda:
-        "envs/TR_longTR_methylation.yaml"
+#    conda:
+#        "envs/TR_longTR_methylation.yaml"
+    singularity:
+         "docker://leenaputzeys/tr_methylation:v1.0"
     shell:
         """
         bash {TR_LONGTR_METH_SCRIPT_PATH} \
@@ -608,8 +829,10 @@ rule non_ref_TE_methylation_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
     threads: 32
+#    singularity:
+#        "docker://leenaputzeys/te_methylation:v1.0"
     conda:
-        "envs/modkit.yaml"
+        "envs/te_methylation.yaml"
     shell:
         """
         bash {TLDR_METH_SCRIPT_PATH} \
@@ -626,7 +849,7 @@ rule non_ref_TE_methylation_calling:
 rule ref_TE_methylation_calling_cpg_res:
     input:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
-        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
+        SNV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
     output:
         output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_upstream_pileup_1.bed"
     params:
@@ -639,8 +862,10 @@ rule ref_TE_methylation_calling_cpg_res:
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res/{{sample}}.log"
-    conda:
-        "envs/modkit.yaml"
+    singularity:
+        "docker://leenaputzeys/te_methylation:v1.0" 
+#    conda:
+#        "envs/modkit.yaml"
     shell:
         """
         bash {REF_TE_METH_CPG_RES_SCRIPT_PATH} \
@@ -659,7 +884,7 @@ rule ref_TE_methylation_calling_cpg_res:
 rule ref_TE_methylation_calling_averages:
     input:
         phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
-        snp_vcf=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
+        SNV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
     output:
         output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed"
     params:
@@ -673,9 +898,11 @@ rule ref_TE_methylation_calling_averages:
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_averages/{{sample}}.log"
-    threads: 96
-    conda:
-        "envs/modkit.yaml"
+    threads: 64
+    singularity:
+        "docker://leenaputzeys/te_methylation:v1.0"
+#    conda:
+#        "envs/modkit.yaml"
     shell:
         """
         bash {REF_TE_METH_AVERAGES_SCRIPT_PATH} \

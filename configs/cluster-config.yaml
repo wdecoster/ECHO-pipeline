@@ -66,8 +66,8 @@ QC_fastq_post_filtering:
 
 
 variant_calling_snps_indels:
+  time: "10:00:00"
   partition: "research"
-  time: "06:00:00"
   mem: "96G"
   cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
@@ -149,7 +149,7 @@ ref_TE_methylation_calling_averages:
   partition: "research"
   time: "24:00:00"
   mem: "32G"
-  cpus: 96
+  cpus: 64
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 

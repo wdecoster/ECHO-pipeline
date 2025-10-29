@@ -1,0 +1,29 @@
+# Start from micromamba base
+FROM mambaorg/micromamba:1.5.8
+
+# Set working directory inside container
+WORKDIR /opt/tldr
+
+# Copy local tldr repo (https://github.com/adamewing/tldr (commit 7c6dfdaa1ce5a7dece159d6c72d80feb5a79944b) into image
+# repo includes tldr.yml, setup.py, source code
+COPY . /opt/tldr/
+
+# Create environment from repo's YAML
+RUN micromamba env create -y -f tldr.yml -n tldr && micromamba clean -a -y
+
+# Install TLDR into that env (so CLI scripts gets created)
+RUN bash -lc "\
+    micromamba run -n tldr pip install -e . && \
+    # fallback symlink if CLI not created
+    [ -x /opt/conda/envs/tldr/bin/tldr ] || ln -s /opt/tldr/tldr/tldr /opt/conda/envs/tldr/bin/tldr && \
+    # smoke test to make sure it works
+    micromamba run -n tldr tldr -h >/dev/null \
+"
+
+# Add env/bin to PATH so we dont need to activate
+ENV PATH=/opt/conda/envs/tldr/bin:$PATH
+
+# Default workdir when container starts
+WORKDIR /data
+
+
