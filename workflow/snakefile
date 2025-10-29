@@ -8,7 +8,7 @@ include: "rules/common.smk"
 # ----- GENERAL LOG -----
 
 # Create a logfile 
-include: "rules/logging.smk"
+include: "rules/log_generation.smk"
 
 # -------  STEP 0: PREPROCESSING  -------
 
@@ -83,3 +83,4 @@ include: "rules/ref_TE_methylation_calling_averages.smk"
 rule all:
     input:
         all_inputs
+

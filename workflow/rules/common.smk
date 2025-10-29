@@ -22,7 +22,6 @@ TYPE_OF_TR = config["type_of_tr"]
 
 
 # Load packages
-from datetime import datetime
 from pathlib import Path
 import os
 
@@ -36,10 +35,6 @@ REF_TE_METH_CPG_RES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_cpg_res.sh"
 REF_TE_METH_AVERAGES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_avg_meth.sh"
 TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
 
-
-# Create timestamp for log file
-LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
-LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
 # Check if filtering is on or off (if both MIN_READ_QUAL and MIN_READ_LENGTH variables are 0, filtering is skipped)
 DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
