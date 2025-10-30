@@ -33,3 +33,4 @@ rule variant_calling_snps_indels:
             --remove_intermediate_dir \
             > {log} 2>&1
         """
+

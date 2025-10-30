@@ -3,7 +3,7 @@
 # ----- PREPARATION -----
 
 # pull in shared config, variables, paths, helpers and all_inputs
-include: "rules/common.smk"
+include: "rules/setup_and_targets.smk"
 
 # ----- GENERAL LOG -----
 
@@ -21,17 +21,13 @@ if START_FROM == "pod5":
 elif START_FROM == "ubam":
     include: "rules/ubam_to_fastq.smk"
 
-# fastq filtering based on read length and quality 
-include: "rules/filter_fastq.smk"
 
-# fastq QC 
-include: "rules/QC_fastq_pre_filtering.smk"
-include: "rules/QC_fastq_post_filtering.smk"
+# fastq QC: quality control and read filtering 
+include: "rules/QC_fastq.smk"
 
 # -------  STEP 1: ALIGNMENT -------
 
 include: "rules/alignment.smk"
-include: "rules/bam_sort_index.smk"
 
 # -------  STEP 2: VARIANT CALLING -------
 
@@ -40,24 +36,19 @@ include: "rules/variant_calling_snps_indels.smk"
 
 # SVs
 include: "rules/variant_calling_sv.smk"
-include: "rules/sv_vcf_compress_index.smk" 
 
 # -------  STEP 3: PHASING AND HAPLOTAGGING -------
- 
-include: "rules/longphase_modcall.smk"
-include: "rules/longphase_phase.smk"
-include: "rules/longphase_haplotag.smk"
-include: "rules/phased_bam_index.smk"
-include: "rules/phased_bgzip.smk"
-include: "rules/QC_phased_bam_cramino.smk"
-include: "rules/QC_cramino_nanoplot.smk"
+
+#Phasing 
+include: "rules/phasing.smk"
+
+# QC phasing
+include: "rules/QC_phasing.smk"
 include: "rules/multiqc.smk"
 
 # -------  STEP 4 : METHYLATION CALLING -------
 
-include: "rules/methylation_calling_phased.smk"
-include: "rules/methylation_calling_unphased.smk"
-include: "rules/methylation_bgzip_index.smk"
+include: "rules/methylation_calling.smk"
 
 # -------  STEP 5 : NON-REF TE CALLING -------
 
