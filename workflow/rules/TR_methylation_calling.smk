@@ -21,6 +21,8 @@ rule TR_methylation_calling:
     threads: 32
     singularity:
          "docker://leenaputzeys/tr_methylation:v1.0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/TR_methylation_calling/{{sample}}_TR_methylation_calling.tsv"
     shell:
         """
         bash {TR_LONGTR_METH_SCRIPT_PATH} \

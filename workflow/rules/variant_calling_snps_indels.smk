@@ -17,6 +17,8 @@ rule variant_calling_snps_indels:
     threads: 48
     singularity:
         "docker://quay.io/biocontainers/clair3:1.2.0--py310h779eee5_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/variant_calling_snps_indels/{{sample}}_variant_calling_snps_indels.tsv"
     shell:
         """
         export OMP_NUM_THREADS={threads}

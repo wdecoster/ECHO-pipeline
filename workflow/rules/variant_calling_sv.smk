@@ -13,6 +13,8 @@ rule variant_calling_sv:
     threads: 16
     singularity:
         "docker://quay.io/biocontainers/sniffles:2.6.3--pyhdfd78af_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/variant_calling_sv/{{sample}}_variant_calling_sv.tsv"
     shell:
         """
         sniffles \
@@ -35,6 +37,8 @@ rule sv_vcf_compress_index:
         f"{OUTPUT_DIR}/logs/snakemake_rules/SV_vcf_compress_index/{{sample}}.log"
     singularity:
         "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/variant_calling_sv/{{sample}}_sv_vcf_compress_index.tsv"
     shell:
         """
         (

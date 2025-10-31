@@ -18,6 +18,8 @@ rule non_ref_TE_methylation_calling:
 #        "docker://leenaputzeys/te_methylation:v1.0"
     conda:
         "../envs/te_methylation.yaml"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/non_ref_TE_methylation_calling/{{sample}}_non_ref_TE_methylation_calling.tsv"
     shell:
         """
         bash {TLDR_METH_SCRIPT_PATH} \

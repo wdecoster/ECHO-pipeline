@@ -16,6 +16,8 @@ rule QC_phased_bam_cramino:
     threads: 16
     singularity:
         "docker://quay.io/biocontainers/cramino:1.1.0--h3dc2dae_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/QC_phasing/{{sample}}_QC_phased_bam_cramino.tsv"
     shell:
         """
         cramino \
@@ -41,6 +43,8 @@ rule QC_cramino_nanoplot:
     threads: 16
     singularity:
         "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/QC_phasing/{{sample}}_QC_cramino_nanoplot.tsv"
     shell:
         """
         (

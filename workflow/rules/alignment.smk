@@ -12,6 +12,8 @@ rule alignment:
     threads: 80
     singularity:
         "docker://quay.io/biocontainers/minimap2:2.30--h577a1d6_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/alignment/{{sample}}_alignment.tsv"
     shell:
         """
          minimap2 -ax map-ont -y -2 -t {threads} {input.reference} {input.fastq} > {output.sam} 2> {log}
@@ -29,6 +31,8 @@ rule bam_sort_index:
         "docker://staphb/samtools:1.22"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/sort_index/{{sample}}.log"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/alignment/{{sample}}_bam_sort_index.tsv"
     shell:
         """
         (

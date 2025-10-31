@@ -10,6 +10,8 @@ rule basecalling:
         "docker://nanoporetech/dorado:shae423e761540b9d08b526a1eb32faf498f32e8f22"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/basecalling/{{sample}}.log"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/basecalling/{{sample}}_basecalling.tsv"
     shell:
         """
         (

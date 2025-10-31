@@ -11,6 +11,8 @@ rule ubam_to_fastq:
     threads: 24
     singularity:
         "docker://staphb/samtools:1.22"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/ubam_to_fastq/{{sample}}_ubam_to_fastq.tsv"
     shell:
         """
         samtools fastq -@ {threads} -T 'MM,ML' {input.unaligned_bam} > {output.fastq} 2> {log}

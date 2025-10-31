@@ -21,6 +21,8 @@ rule methylation_calling_phased:
         f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}_pileup_phased.log"
     singularity:
         "docker://quay.io/biocontainers/ont-modkit:0.5.0--hcdda2d0_2"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/methylation_calling_phased/{{sample}}_methylation_calling_phased.tsv"
     shell:
         """
         (
@@ -50,6 +52,8 @@ rule methylation_calling_unphased:
     threads: 16
     singularity:
         "docker://quay.io/biocontainers/ont-modkit:0.5.0--hcdda2d0_2"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/methylation_calling_phased/{{sample}}_methylation_calling_unphased.tsv"
     shell:
         """
         (
@@ -83,6 +87,8 @@ rule methylation_bgzip_index:
         f"{OUTPUT_DIR}/logs/snakemake_rules/methylation_calling/{{sample}}_bgzip_tabix.log"
     singularity:
         "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/methylation_calling_phased/{{sample}}_methylation_bgzip_index.tsv"
     shell:
         """
         (

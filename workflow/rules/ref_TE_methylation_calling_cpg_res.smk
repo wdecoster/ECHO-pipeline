@@ -19,6 +19,8 @@ rule ref_TE_methylation_calling_cpg_res:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res/{{sample}}.log"
     singularity:
         "docker://leenaputzeys/te_methylation:v1.0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/ref_TE_methylation_calling/{{sample}}_ref_TE_methylation_calling_cpg_res.tsv"
     shell:
         """
         bash {REF_TE_METH_CPG_RES_SCRIPT_PATH} \

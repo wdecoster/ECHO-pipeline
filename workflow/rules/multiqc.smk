@@ -12,6 +12,8 @@ if DO_FILTER:
             "docker://quay.io/biocontainers/multiqc:1.31--pyhdfd78af_0"
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/multiqc/{{sample}}.log"
+        benchmark:
+            f"{OUTPUT_DIR}/benchmarks/multiqc/{{sample}}_multiqc.tsv"
         shell:
             """
             outdir=$(dirname {output.multiqc_out})
@@ -37,6 +39,8 @@ else:
             "docker://quay.io/biocontainers/multiqc:1.31--pyhdfd78af_0"
         log:
             f"{OUTPUT_DIR}/logs/snakemake_rules/multiqc/{{sample}}.log"
+        benchmark:
+            f"{OUTPUT_DIR}/benchmarks/multiqc/{{sample}}_multiqc.tsv"
         shell:
             """
             outdir=$(dirname {output.multiqc_out})

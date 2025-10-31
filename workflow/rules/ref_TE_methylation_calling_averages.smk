@@ -21,6 +21,8 @@ rule ref_TE_methylation_calling_averages:
     threads: 64
     singularity:
         "docker://leenaputzeys/te_methylation:v1.0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/ref_TE_methylation_calling/{{sample}}_ref_TE_methylation_calling_averages.tsv"
     shell:
         """
         bash {REF_TE_METH_AVERAGES_SCRIPT_PATH} \

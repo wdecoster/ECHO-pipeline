@@ -14,6 +14,8 @@ rule longphase_modcall:
     threads: 16
     singularity:
         "docker://quay.io/biocontainers/longphase:1.7.3--hf5e1c6e_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/phasing/{{sample}}_longphase_modcall.tsv"
     shell:
         """
         (
@@ -47,6 +49,8 @@ rule longphase_phase:
     threads: 32
     singularity:
         "docker://quay.io/biocontainers/longphase:1.7.3--hf5e1c6e_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/phasing/{{sample}}_longphase_phase.tsv"
     shell:
         """
         (
@@ -81,6 +85,8 @@ rule longphase_haplotag:
     threads: 48
     singularity:
         "docker://quay.io/biocontainers/longphase:1.7.3--hf5e1c6e_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/phasing/{{sample}}_longphase_haplotag.tsv"
     shell:
         """
         (
@@ -105,6 +111,8 @@ rule phased_bam_index:
     threads: 16
     singularity:
         "docker://staphb/samtools:1.22"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/phasing/{{sample}}_phased_bam_index.tsv"
     shell:
         """
         (
@@ -129,6 +137,8 @@ rule phased_bgzip:
     threads: 16
     singularity:
         "docker://quay.io/biocontainers/htslib:1.22.1--h566b1c6_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/phasing/{{sample}}_phased_bgzip.tsv"
     shell:
         """
         (

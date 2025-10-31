@@ -17,6 +17,8 @@ rule TR_calling:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling/{{sample}}.log"
     singularity:
         "docker://quay.io/biocontainers/longtr:1.2--h077b44d_1"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/TR_calling/{{sample}}_TR_calling.tsv"
     shell:
         """
         LongTR \

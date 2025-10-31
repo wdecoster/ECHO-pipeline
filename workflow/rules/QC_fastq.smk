@@ -1,4 +1,4 @@
-# rules/fastq_QC.smk
+# rules/QC_fastq.smk
 
 rule QC_fastq_pre_filtering:
     input:
@@ -14,6 +14,8 @@ rule QC_fastq_pre_filtering:
     threads: 48
     singularity:
        "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/QC_fastq/{{sample}}_QC_fastq_pre_filtering.tsv"
     shell:
         """
         NanoPlot -t {threads} \
@@ -38,6 +40,8 @@ if DO_FILTER:
         threads: 24
         singularity:
             "docker://quay.io/biocontainers/chopper:0.11.0--hcdda2d0_0"
+        benchmark:
+            f"{OUTPUT_DIR}/benchmarks/QC_fastq/{{sample}}_filter_fastq.tsv"
         shell:
             """
             chopper -q {MIN_READ_QUAL} -l {MIN_READ_LENGTH} \
@@ -58,6 +62,8 @@ if DO_FILTER:
         threads: 48
         singularity:
             "docker://quay.io/biocontainers/nanoplot:1.46.1--pyhdfd78af_0"
+        benchmark:
+            f"{OUTPUT_DIR}/benchmarks/QC_fastq/{{sample}}_QC_fastq_post_filtering.tsv"
         shell:
             """
             NanoPlot -t {threads} \

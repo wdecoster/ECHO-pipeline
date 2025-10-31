@@ -18,6 +18,8 @@ rule TE_calling:
     threads: 48
     singularity:
         "docker://leenaputzeys/tldr:v1.2.2-7c6dfda"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/TE_calling/{{sample}}_TE_calling.tsv"
     shell:
         """
         (

@@ -43,8 +43,8 @@ filter_fastq:
 alignment:
   partition: "research"
   time: "20:00:00"
-  mem: "32G" #132G
-  cpus: 16 #80
+  mem: "132G"
+  cpus: 80
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
@@ -83,7 +83,7 @@ variant_calling_sv:
 longphase_modcall:
   partition: "research"
   time: "10:00:00"
-  mem: "24G" #64G
+  mem: "64G"
   cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
@@ -91,16 +91,16 @@ longphase_modcall:
 longphase_phase:
   partition: "research"
   time: "10:00:00"
-  mem: "32G" #200G
-  cpus: 16 # 32
+  mem: "200G"
+  cpus: 32
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"  
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
 longphase_haplotag:
   partition: "research"
   time: "10:00:00"
-  mem: "24G" #64G
-  cpus: 16 # 48
+  mem: "64G"
+  cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
@@ -123,8 +123,8 @@ methylation_calling:
 TE_calling:
   partition: "research"
   time: "12:00:00"
-  mem: "32G" #128G
-  cpus: 24 #48
+  mem: "128G"
+  cpus: 48
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
@@ -164,7 +164,7 @@ ref_TE_methylation_calling_averages:
   partition: "research"
   time: "24:00:00"
   mem: "32G"
-  cpus: 16 # 64
+  cpus: 64
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
