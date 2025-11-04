@@ -68,7 +68,7 @@ variant_calling_snps_indels:
   time: "20:00:00"
   partition: "research"
   mem: "96G"
-  cpus: 48
+  cpus: 16
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 

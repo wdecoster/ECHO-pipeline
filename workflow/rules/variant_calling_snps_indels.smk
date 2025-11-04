@@ -14,7 +14,7 @@ rule variant_calling_snps_indels:
         snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz.tbi"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/variant_calling_snps_indels/{{sample}}.log"
-    threads: 48
+    threads: 16
     singularity:
         "docker://quay.io/biocontainers/clair3:1.2.0--py310h779eee5_0"
     benchmark:
