@@ -34,7 +34,6 @@ LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
 
-
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
 TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v4.sh"
