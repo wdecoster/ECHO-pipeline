@@ -33,7 +33,8 @@ os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
-
+# local rules
+localrules: cp_catalogue
 
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
