@@ -16,13 +16,10 @@ python make_config.py init \
   --reference-TE /ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa \
   --tr-catalog /ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed \
   --te-catalog /ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_retroposon.bed \
-  --type-of-te retroposon \
-  --type-of-tr pathogenic \
   --min-read-quality 7 \
   --min-read-length 500 \
   --flanking-length-bp 250 \
-  --extension-repeat-consensus 1000 \
-  --haploid-chrs chrM chrX chrY
+  --extension-repeat-consensus 1000
 
 # 2) Validate an existing config (prints a summary or errors)
 python make_config.py validate config.yaml
@@ -35,6 +32,7 @@ python make_config.py validate config.yaml
 import argparse
 import sys
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 
@@ -86,6 +84,35 @@ def _comma_or_list_to_list(values: Any) -> List[str]:
             items = [x.strip() for x in s.split()]
     return [x for x in items if x]
 
+def _infer_te_type_from_path(te_catalog: str) -> Optional[str]:
+    """
+    Infer TE type from filename.
+    Expected pattern: ... TE_XXX.bed or TEs_XXX.bed; capture XXX (may include _cpg).
+    """
+    if not te_catalog:
+        return None
+    name = Path(te_catalog).name
+    # Try 'TE_' first
+    m = re.search(r"(?:^|[_-])TE_([^./]+)\.bed$", name)
+    if not m:
+        # Support 'TEs_'
+        m = re.search(r"(?:^|[_-])TEs_([^./]+)\.bed$", name)
+    if m:
+        return m.group(1)
+    return None
+
+def _infer_tr_type_from_path(tr_catalog: str) -> Optional[str]:
+    """
+    Infer TR type by scanning the full path for one of the allowed strings.
+    """
+    if not tr_catalog:
+        return None
+    s = str(tr_catalog).lower()
+    for k in ("genome-wide", "pathogenic", "forensic"):
+        if k in s:
+            return k
+    return None
+
 def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     errors: List[str] = []
 
@@ -131,7 +158,7 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     if te_catalog and not _file_exists(te_catalog):
         errors.append(f"'te_catalog' file not found: {te_catalog!r}")
 
-    # types
+    # types (must be present and allowed)
     type_of_te = cfg.get("type_of_te")
     if type_of_te not in ALLOWED_TYPE_OF_TE:
         errors.append(f"'type_of_te' must be one of {sorted(ALLOWED_TYPE_OF_TE)}, got {type_of_te!r}")
@@ -155,18 +182,6 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     ext, e4 = _as_int("extension_repeat_consensus", cfg.get("extension_repeat_consensus"), min_val=0)
     if e3: errors.append(e3)
     if e4: errors.append(e4)
-
-    # haploid_chrs
-    hap = cfg.get("haploid_chrs")
-    if hap is None:
-        errors.append("'haploid_chrs' must be provided (e.g., 'chrM,chrX,chrY').")
-    else:
-        hap_list = _comma_or_list_to_list(hap)
-        if not hap_list:
-            errors.append("'haploid_chrs' must list one or more chromosome names.")
-        # could add optional known names check here if desired
-        # normalize back to comma-separated string
-        cfg["haploid_chrs"] = ",".join(hap_list)
 
     return errors
 
@@ -197,11 +212,11 @@ def _template_config() -> Dict[str, Any]:
         },
         "tr_catalog": "/path/to/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed",
         "te_catalog": "/path/to/GRCh38_TEs_retroposon.bed",
+        # auto-filled during init; kept here to show expected fields:
         "type_of_te": "retroposon",
         "type_of_tr": "pathogenic",
         "flanking_length_bp": 250,
         "extension_repeat_consensus": 1000,
-        "haploid_chrs": "chrM,chrX,chrY",
     }
 
 def cmd_template(args: argparse.Namespace) -> int:
@@ -253,11 +268,28 @@ def cmd_init(args: argparse.Namespace) -> int:
     }
     cfg["tr_catalog"] = args.tr_catalog
     cfg["te_catalog"] = args.te_catalog
-    cfg["type_of_te"] = args.type_of_te
-    cfg["type_of_tr"] = args.type_of_tr
+
+    # Infer types
+    inferred_te = _infer_te_type_from_path(args.te_catalog)
+    if not inferred_te:
+        print("ERROR: Could not infer 'type_of_te' from TE catalog filename. "
+              "Expected pattern like '*TE_<TYPE>.bed' or '*TEs_<TYPE>.bed'.", file=sys.stderr)
+        return 1
+    if inferred_te not in ALLOWED_TYPE_OF_TE:
+        print(f"ERROR: Inferred 'type_of_te'='{inferred_te}' is not one of allowed values: "
+              f"{sorted(ALLOWED_TYPE_OF_TE)}", file=sys.stderr)
+        return 1
+    cfg["type_of_te"] = inferred_te
+
+    inferred_tr = _infer_tr_type_from_path(args.tr_catalog)
+    if not inferred_tr:
+        print("ERROR: Could not infer 'type_of_tr' from TR catalog path. "
+              "None of the patterns ['genome-wide','pathogenic','forensic'] were found in the path.", file=sys.stderr)
+        return 1
+    cfg["type_of_tr"] = inferred_tr
+
     cfg["flanking_length_bp"] = args.flanking_length_bp
     cfg["extension_repeat_consensus"] = args.extension_repeat_consensus
-    cfg["haploid_chrs"] = ",".join(_comma_or_list_to_list(args.haploid_chrs))
 
     errors = _validate_config(cfg)
     if errors:
@@ -310,11 +342,6 @@ def build_parser() -> argparse.ArgumentParser:
     g_cat.add_argument("--tr-catalog", required=True, dest="tr_catalog")
     g_cat.add_argument("--te-catalog", required=True, dest="te_catalog")
 
-    # types
-    g_t = p_i.add_argument_group("Types")
-    g_t.add_argument("--type-of-te", choices=sorted(ALLOWED_TYPE_OF_TE), required=True, dest="type_of_te")
-    g_t.add_argument("--type-of-tr", choices=sorted(ALLOWED_TYPE_OF_TR), required=True, dest="type_of_tr")
-
     # filtering + params
     g_f = p_i.add_argument_group("Read filtering")
     g_f.add_argument("--min-read-quality", type=int, default=7)
@@ -323,8 +350,6 @@ def build_parser() -> argparse.ArgumentParser:
     g_p = p_i.add_argument_group("Analysis parameters")
     g_p.add_argument("--flanking-length-bp", type=int, default=250, dest="flanking_length_bp")
     g_p.add_argument("--extension-repeat-consensus", type=int, default=1000, dest="extension_repeat_consensus")
-    g_p.add_argument("--haploid-chrs", nargs="+", default=["chrM","chrX","chrY"],
-                     help="List of haploid chromosomes (space- or comma-separated).")
 
     p_i.set_defaults(func=cmd_init)
 
