@@ -139,7 +139,7 @@ TR_calling:
 TR_methylation_calling:
   partition: "research"
   time: "10:00:00"
-  mem: "28G"
+  mem: "36G"
   cpus: 8
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
