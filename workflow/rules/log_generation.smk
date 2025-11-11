@@ -1,5 +1,17 @@
 # rules/log_generation.smk
 
+# Load packages
+from datetime import datetime
+ 
+#Create timestamp for log file
+if "LOGTIMESTAMP" not in globals():
+    LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+
+#LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
+
+all_inputs.append(LOGFILE)
+
 rule create_log:
     output:
         LOGFILE

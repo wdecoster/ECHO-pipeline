@@ -30,8 +30,8 @@ import os
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
 #Create timestamp for log file
-LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
-LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
+#LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+#LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
 
 # Get the absolute path to the Snakefile's directory for launching custom scripts
@@ -61,7 +61,7 @@ def fastq_for_pipeline(wc):
 #Define outputs files
 all_inputs = []
 
-all_inputs.append(LOGFILE)
+#all_inputs.append(LOGFILE)
 
 if START_FROM == "pod5":
     all_inputs.extend([
