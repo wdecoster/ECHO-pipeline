@@ -45,6 +45,7 @@ include: "rules/phasing.smk"
 # QC phasing
 include: "rules/QC_phasing.smk"
 include: "rules/multiqc.smk"
+include: "rules/sex_from_cramino.smk"
 
 # -------  STEP 4 : METHYLATION CALLING -------
 
