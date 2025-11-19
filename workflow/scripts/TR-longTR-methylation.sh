@@ -498,7 +498,7 @@ echo "Processing lines in ${INPUT_VCF}"
 # set -x  # trace commands
 # exec 3>&1 4>&2   # save stdout/stderr
 
-# sequential version (no chunk loop) - xargs could be dropped entirely here so speed up is adjusted in snakemake with chunking
+# xargs could be dropped entirely here (could avoid writting so many tmp files) and speed could be adjusted in snakemake with chunking
 xargs -P "$THREADS" -n 1 -d '\n' bash -c 'set -e; process_line "$1"' _ < <(bcftools view -H "$INPUT_VCF")
 wait
 # Append results and clean up
