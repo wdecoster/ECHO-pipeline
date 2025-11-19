@@ -1,6 +1,6 @@
 # rules/TR_methylation_calling.smk
 
-# TR meth pep
+# TR meth pep - fixes header
 rule TR_methyl_call_vcf_prep:
     input:
         tr_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz"
@@ -23,6 +23,7 @@ rule TR_methyl_call_vcf_prep:
             bcftools sort - -Oz -o {output.out_vcf}
         """
 
+# splits vcf into N vcfs for parallel rules - chunk size set by var in setup
 rule TR_methyl_call_vcf_chunking:
     input: 
         fixed_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_input_sorted.vcf.gz"
@@ -47,9 +48,7 @@ rule TR_methyl_call_vcf_chunking:
         bcftools +scatter {input.fixed_vcf} -Oz -n $CHUNK_VARS -o {params.out_dir} -p {params.out_pre}
         """
 
-
 # tandem repeats methylation calling
-#expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TR_methylation_summary.tsv", sample=SAMPLES),
 rule TR_methylation_calling:
     input:
         chunk_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}.vcf.gz",
@@ -57,14 +56,15 @@ rule TR_methylation_calling:
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
         reference=ancient(REFERENCE)
     output:
-        out_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf"
+        out_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf.gz"
     params:
         out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/methyl_call_chunk{{chunk}}",
         flanking_length_bp=FLANKING_LENGTH_BP,
         haploid_chrs=HAPLOID_CHRS,
         extension=CONSENSUS_EXTENSION,
         type_of_TR=TYPE_OF_TR,
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
+        sample_name=f"{{sample}}_{REFERENCE_NAME}",
+        unsorted_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methylation_calling/{{sample}}_chunk{{chunk}}.log"
     threads: 8
@@ -85,8 +85,31 @@ rule TR_methylation_calling:
             -f {params.flanking_length_bp} \
             -h {params.haploid_chrs} \
             > {log} 2>&1
+        bcftools sort -Oz -o {output.out_vcf} {params.unsorted_vcf}
+        tabix {output.out_vcf}
+        rm {params.unsorted_vcf}
         """
 
-# merge rule
-
-# summarise rule
+# merges the chunked vcfs and creates the summary tsv
+rule TR_methyl_cat_vcfs:
+    input: 
+        vcf_list=[f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk" + str(chunk) + "_methylated.vcf.gz" for chunk in range(0, N_VCF_CHUNKS)] 
+    output:
+        out_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_TR_methylation.vcf.gz",
+        out_tsv=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_TR_methylation_summary.tsv"
+    log: 
+        f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methyl_cat_vcfs/{{sample}}.log"
+    threads: 1
+    singularity:
+        "docker://staphb/bcftools:1.22"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/TR_methyl_cat_vcfs/{{sample}}_TR_methyl_cat_vcfs.tsv"
+    shell:
+        """
+        bcftools concat -a {input.vcf_list} | \
+            bcftools annotate --remove 'INFO/NSKIP,INFO/NFILT,INFO/INEXACT_ALLELE,INFO/BPDIFFS,INFO/DP,INFO/DSNP,INFO/DFLANKINDEL,INFO/REFAC,INFO/AC' -Ov | \
+            bcftools sort - -Oz -o {output.out_vcf}
+        # init file with header
+        echo -e "CHROM\tPOS\tID\tREF_ALLELE\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2" > {output.out_tsv}
+        bcftools query -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%MOTIF\t[%GT\t%TR_LEN\t%TR_N_CPG\t%TR_PATTERN\t%TR_AM\t%TR_N_METH_VALID\t%UPSTREAM_TR_AM\t%UPSTREAM_TR_N_METH_VALID\t%DOWNSTREAM_TR_AM\t%DOWNSTREAM_TR_N_METH_VALID\t%TR_CPG_METH_HP1\t%TR_CPG_DEPTH_HP1\t%TR_CPG_METH_HP2\t%TR_CPG_DEPTH_HP2\n]' {output.out_vcf} >> {output.out_tsv}
+        """
