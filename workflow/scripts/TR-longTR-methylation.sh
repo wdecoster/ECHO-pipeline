@@ -7,7 +7,7 @@
 #                 calculates haplotype-specific DNAm level at cpg sites and averages 
 #                 for TR and their upstream and downstream region. Finally, it recreates 
 #                 a vcf file.
-# Author:         Leena Putzeys, Brando Poggiali, Nikki Flack
+# Author:         Leena Putzeys, Brando Poggiali, Nicole Flack
 # Date Created:   2025-03-02
 # Last Modified:  2025-11-18
 # Version:        5.0.0

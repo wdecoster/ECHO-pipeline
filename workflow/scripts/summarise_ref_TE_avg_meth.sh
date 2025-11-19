@@ -1,4 +1,14 @@
 #!/bin/bash
+# -----------------------------------------------------------------------------
+# Script Name:    summarise_ref_TE_avg_meth.sh
+# Description:    Aggregate modification statistics. 
+# Author:         Leena Putzeys, Brando Poggiali, Nicole Flack
+# Date Created:   2025-11-12
+# Last Modified:  2025-11-19
+# Version:        1.0.0
+# License:        MIT
+# Dependencies:   [modkit, bgzip, tabix, bedtools, bcftools, awk]
+# -----------------------------------------------------------------------------
 
 # for debugging in bash pipeline, x for logging executed commands
 set -euo pipefail
