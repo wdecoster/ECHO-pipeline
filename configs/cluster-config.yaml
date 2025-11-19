@@ -136,11 +136,35 @@ TR_calling:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
+TR_methyl_call_vcf_prep:
+  partition: "research"
+  time: "4:00:00"
+  mem: "4G"
+  cpus: 1
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+TR_methyl_call_vcf_chunking:
+  partition: "research"
+  time: "4:00:00"
+  mem: "4G"
+  cpus: 1
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
 TR_methylation_calling:
   partition: "research"
-  time: "10:00:00"
+  time: "24:00:00"
   mem: "36G"
   cpus: 8
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+TR_methyl_cat_vcfs:
+  partition: "research"
+  time: "4:00:00"
+  mem: "4G"
+  cpus: 1
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 

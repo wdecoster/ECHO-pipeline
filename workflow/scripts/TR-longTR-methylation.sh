@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
 # -----------------------------------------------------------------------------
-# Script Name:    TR-longTR-methylation_v4.sh
+# Script Name:    TR-longTR-methylation.sh
 # Description:    This script calculate DNA methylation (DNAm) levels at Tandem Repeats (TR) sites.
 #                 The script takes as input a vcf file obtained from LongTR tool. Then it 
 #                 calculates haplotype-specific DNAm level at cpg sites and averages 
 #                 for TR and their upstream and downstream region. Finally, it recreates 
 #                 a vcf file.
-# Author:         Leena Putzeys, Brando Poggiali
+# Author:         Leena Putzeys, Brando Poggiali, Nikki Flack
 # Date Created:   2025-03-02
-# Last Modified:  2025-07-08
-# Version:        4.0.0
+# Last Modified:  2025-11-18
+# Version:        5.0.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, samtools, minimap2, bedtools, bcftools, awk]
 # Usage: ./TR-longTR-methylation_v4.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 
@@ -19,34 +19,31 @@
 # -----------------------------------------------------------------------------
 
 
-set -e
-set -o pipefail
+set -euo pipefail
+# source functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/utils_TR-methylation.sh"
 
 # Print usage instructions
 usage() {
     echo "Usage: $0 -v <vcf_file> -r <reference_fasta> -i <phased_bam> -o <output_dir> -s <sample_id> -e <extend_consensus> -f <flanking_bases> -h <haploid_chromosomes>"
-    echo "  -v <vcf_file>         Input VCF file with variant data"
+    echo "  -v <vcf_file>         Input VCF file with variant data and corrected headers"
     echo "  -r <reference_fasta>  Reference genome in FASTA format"
     echo "  -i <phased_bam>       Input phased BAM file"
     echo "  -o <output_dir>       Output directory for generated files"
     echo "  -s <sample_id>        SampleID to be used in file names"
-    echo "  -t <threads>          Number of threads (default: 8)"
-    echo "  -e <extend>           Number of flanking bases to include for remapping reads (default: 1000)"
-    echo "  -f <flanking_bases>   Number of flanking bases to include for up- and downstream methylation analysis (default: 250)"
+    echo "  -t <threads>          Number of threads"
+    echo "  -e <extend>           Number of flanking bases to include for remapping reads"
+    echo "  -f <flanking_bases>   Number of flanking bases to include for up- and downstream methylation analysis"
     echo "  -h <haploid_chromosomes> Comma-separated list of haploid chromosomes (e.g. chrX,chrY)"
+
     exit 1
 }
-
-# Defaults settings
-FLANKING_BASES=200
-HAPLOID_CHROMOSOMES=""
-EXTEND=1000
-THREADS=8
 
 # Parse command-line arguments
 while getopts "v:r:i:o:s:t:e:f:h:" opt; do
     case $opt in
-        v) VCF_FILE="$OPTARG" ;;
+        v) INPUT_VCF="$OPTARG" ;;
         r) REFERENCE_FASTA="$OPTARG" ;;
         i) PHASED_BAM="$OPTARG" ;;
         o) OUTPUT_DIR="$OPTARG" ;;
@@ -60,7 +57,7 @@ while getopts "v:r:i:o:s:t:e:f:h:" opt; do
 done
 
 # Check required arguments
-if [[ -z "$VCF_FILE" || -z "$REFERENCE_FASTA" || -z "$PHASED_BAM" || -z "$OUTPUT_DIR"  || -z "$SAMPLE_ID" ]]; then
+if [[ -z "$INPUT_VCF" || -z "$REFERENCE_FASTA" || -z "$PHASED_BAM" || -z "$OUTPUT_DIR"  || -z "$SAMPLE_ID" ]]; then
     usage
 fi
 
@@ -82,99 +79,9 @@ if [ ${#MISSING_TOOLS[@]} -ne 0 ]; then
 fi
 
 #Check if files are present
-[[ ! -f "$VCF_FILE" ]] && echo "VCF file not found!" && exit 1
+[[ ! -f "$INPUT_VCF" ]] && echo "VCF file not found!" && exit 1
 [[ ! -f "$REFERENCE_FASTA" ]] && echo "Reference FASTA not found!" && exit 1
 [[ ! -f "$PHASED_BAM" ]] && echo "Phased BAM not found!" && exit 1
-
-#++++ Define functions ++++
-#Clean up when exit script
-cleanup() {
-    echo "Performing cleanup..."
-    rm -rf "${TMP_DIR}" "${METH}" "${ALIGNMENTS}" "${LOGS}"
-    rm -f "$INPUT_VCF" "$CORRECT_HEADER_VCF_FILE" "$OUTPUT_VCF" "$OUTPUT_VCF.gz"
-}
-
-
-#Function to check if a chromosome is haploid
-is_haploid() {
-    local chrom="$1"
-    IFS=',' read -r -a HAPLOID_ARRAY <<< "$HAPLOID_CHROMOSOMES"
-
-    for haploid_chrom in "${HAPLOID_ARRAY[@]}"; do
-        if [[ "$chrom" == "$haploid_chrom" ]]; then
-            return 0
-        fi
-    done
-    return 1
-}
-
-# Function to check if a VCF entry lacks phasing information
-# and modify the GT field based on PDP values and handle haploid chromosomes
-modify_gt_based_on_pdp() {
-    local LINE FORMAT SAMPLE_INFO GT_INDEX PDP_INDEX GT_VALUE PDP_VALUE MODIFIED_GT CHROM
-
-    LINE="$1"
-    FORMAT=$(echo "$LINE" | cut -f9)
-    SAMPLE_INFO=$(echo "$LINE" | cut -f10)
-    CHROM=$(echo "$LINE" | cut -f1)  # Extract chromosome name
-
-    # Find the indexes of GT and PDP in the FORMAT field
-    GT_INDEX=$(echo "$FORMAT" | awk -F':' '{for (i=1; i<=NF; i++) if ($i=="GT") print i}')
-    PDP_INDEX=$(echo "$FORMAT" | awk -F':' '{for (i=1; i<=NF; i++) if ($i=="PDP") print i}')
-
-    # Extract GT value
-    GT_VALUE=$(echo "$SAMPLE_INFO" | cut -d':' -f$GT_INDEX)
-
-    # Check PDP value
-    if is_haploid "$CHROM"; then
-        MODIFIED_GT="${GT_VALUE}"
-    else
-        # Extract PDP value
-        PDP_VALUE=$(echo "$SAMPLE_INFO" | cut -d':' -f$PDP_INDEX)
-
-        # Split GT and PDP into alleles
-        IFS='|' read -r GT1 GT2 <<< "$GT_VALUE"
-        IFS='|' read -r PDP1 PDP2 <<< "$PDP_VALUE"
-
-        # Modify GT based on PDP values
-        if [[ "$PDP1" != "0" ]]; then
-            GT1="$GT1"
-        else
-            GT1="."
-        fi
-
-        if [[ "$PDP2" != "0" ]]; then
-            GT2="$GT2"
-        else
-            GT2="."
-        fi
-
-        # Construct modified GT
-        MODIFIED_GT="$GT1|$GT2"
-    fi
-
-    # Replace the old GT value with the new one
-    MODIFIED_INFO=$(echo "$SAMPLE_INFO" | awk -v gt_index="$GT_INDEX" -v new_gt="$MODIFIED_GT" 'BEGIN{FS=OFS=":"}{$gt_index=new_gt; print}')
-
-    # Construct the modified VCF line
-    echo -e "$(echo "$LINE" | cut -f1-9)\t$MODIFIED_INFO"
-}
-
-# Function to extract uTR features
-extract_uTR_features() {
-    local utr_output="$1"
-
-    # Default values (if no valid data is found)
-    local pat_value="."
-
-    # Extract values using awk
-    if [[ -s "$utr_output" ]]; then
-        pat_value=$(awk '/#Pat / {sub(/#Decomp.*/, "", $0); print substr($0, index($0, "<"))}' "$utr_output" | sort -u | paste -sd "," - | sed 's/[[:space:]]*$//')
-    fi
-
-    # Ensure extracted values are non-empty
-    echo "${pat_value}"
-}
 
 #Function to process each line of a vcf file
 process_line(){
@@ -518,10 +425,10 @@ process_line(){
 
     # Rebuild the VCF line
     NEW_LINE="${BASE_VCF_FIELDS}\t${NEW_FORMAT}\t${NEW_SAMPLE}"
-    # Create a temporary file with vcf line
-    echo -e "$NEW_LINE" > "${TMP_DIR}/${CHROM}_${POS}_${TR_ID}.line.tsv"
+    # append to output vcf
+    echo -e "$NEW_LINE" >> "$OUTPUT_VCF"
+    #"${TMP_DIR}/${CHROM}_${POS}_${TR_ID}.line.tsv"
 }
-
 
 # ******* START ANALYSIS *******
 echo ""
@@ -529,44 +436,21 @@ echo "########## START ANALYSIS ##########"
 echo ""
 
 #Activate cleanup function when exit script
-trap cleanup EXIT
+# trap cleanup EXIT
 
 # Define paths inside the output directory
-INPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_input_sorted.vcf"
-OUTPUT_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_methylated.vcf"
-OUTPUT_SORTED_VCF="${OUTPUT_DIR}/${SAMPLE_ID}_TR_methylation.vcf.gz"
+OUTPUT_VCF="${INPUT_VCF%.vcf.gz}_methylated.vcf"
 TMP_DIR="${OUTPUT_DIR}/temp"
 ALIGNMENTS="${OUTPUT_DIR}/alignments"
 METH="${OUTPUT_DIR}/methylation"
 MAIN_LOG="${OUTPUT_DIR}/${SAMPLE_ID}.log"
 LOGS="${OUTPUT_DIR}/logs"
-OUTPUT_SUMMARY="${OUTPUT_DIR}/${SAMPLE_ID}_TR_methylation_summary.tsv"
-CORRECT_HEADER_VCF_FILE="${OUTPUT_DIR}/${SAMPLE_ID}_corrected_header.vcf"
 
 #Create output directories
 mkdir -p "$OUTPUT_DIR" "$TMP_DIR" "$ALIGNMENTS" "$METH" "$LOGS"
 
-#Robust vcf input check
-if [ ! -r "$VCF_FILE" ]; then
-    echo "ERROR: VCF not readable: $VCF_FILE" 
-    exit 2
-fi
-BODY_N=$(bcftools view -H "$VCF_FILE" | wc -l || echo 0)
-echo "VCF body rows: ${BODY_N}"
-if [ "${BODY_N}" -eq 0 ]; then
-   echo "VCF has no variant rows: $VCF_FILE"
-   printf "CHROM\tPOS\tID\tREF_ALLELES\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2\n" > "$OUTPUT_SUMMARY"
-   exit 0
-fi
-
-#VCF file outputed by longTR has an issue in the header formatting so it is necessary to modify the header
-bcftools annotate   --header-lines <(echo '##FORMAT=<ID=DFLANKINDEL,Number=1,Type=Integer,Description="Total number of reads with an indel in the regions flanking the STR">') -Oz -o "$CORRECT_HEADER_VCF_FILE" "$VCF_FILE" 2>/dev/null
-
-#Sort vcf file
-bcftools sort "$CORRECT_HEADER_VCF_FILE" -Oz -o "$INPUT_VCF" 2>/dev/null
-
 # Copy existing headers from the input VCF
-zgrep '^##' "$CORRECT_HEADER_VCF_FILE" | grep -v '^##bcftools'> "$OUTPUT_VCF"
+zgrep '^##' "$INPUT_VCF" | grep -v '^##bcftools'> "$OUTPUT_VCF"
 
 # Add new FORMAT fields for allele and haplotype-specific methylation info in vcf file
 cat <<EOF >> "$OUTPUT_VCF"
@@ -597,6 +481,7 @@ export -f extract_uTR_features
 export REFERENCE_FASTA
 export PHASED_BAM
 export OUTPUT_DIR
+export OUTPUT_VCF
 export SAMPLE_ID
 export EXTEND
 export FLANKING_BASES
@@ -607,40 +492,19 @@ export METH
 export UTR_EXE
 export LOGS
 
-CHUNK_SIZE=5000
-CHUNK_NUM=0
+# Run process_line on headless input VCF
+echo "Processing lines in ${INPUT_VCF}"
 
-# Extract body of VCF (no header) and store based on CHUNK_SIZE to process large vcf files without creating too many tmp files
-bcftools view -H "$INPUT_VCF" | split -l $CHUNK_SIZE - "$TMP_DIR/chunk_"
+# set -x  # trace commands
+# exec 3>&1 4>&2   # save stdout/stderr
 
-# Loop over each chunk file
-for CHUNK_FILE in "$TMP_DIR"/chunk_*; do
-    echo "Processing chunk $CHUNK_NUM from file $CHUNK_FILE"
+# xargs could be dropped entirely here (could avoid writting so many tmp files) and speed could be adjusted in snakemake with chunking
+xargs -P "$THREADS" -n 1 -d '\n' bash -c 'set -e; process_line "$1"' _ < <(bcftools view -H "$INPUT_VCF")
+wait
+# Append results and clean up
+cat "$LOGS"/*.log >> "$MAIN_LOG"
+rm -f "$LOGS"/*.log 
+rm -f "${METH}"/*
+rm -f "${ALIGNMENTS}"/*
 
-    # Launch parallel processing using xargs -P
-    xargs -P "$THREADS" -n 1 -d '\n' bash -c 'process_line "$1"' _ < "$CHUNK_FILE"
-    wait
-    # Append results and clean up
-    cat "$TMP_DIR"/*.line.tsv >> "$OUTPUT_VCF"
-    cat "$LOGS"/*.log >> "$MAIN_LOG"
-    rm -f "$TMP_DIR"/*.line.tsv "$CHUNK_FILE" 
-    rm -f "$LOGS"/*.log 
-    rm -f "${METH}"/*
-    rm -f "${ALIGNMENTS}"/*
- 
-    CHUNK_NUM=$((CHUNK_NUM + 1))
-done
-
-
-#remove INFO which are not relevant
-bcftools annotate --remove 'INFO/NSKIP,INFO/NFILT,INFO/INEXACT_ALLELE,INFO/BPDIFFS,INFO/DP,INFO/DSNP,INFO/DFLANKINDEL,INFO/REFAC,INFO/AC' -Oz -o "$OUTPUT_VCF".gz "$OUTPUT_VCF" 2>/dev/null
-
-bcftools sort "$OUTPUT_VCF".gz -Oz -o "$OUTPUT_SORTED_VCF" 2>/dev/null
-
-#Generate summary file for user-friendly visualization of the results
-echo -e "CHROM\tPOS\tID\tREF_ALLELE\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2" > "$OUTPUT_SUMMARY"
-
-bcftools query -f '%CHROM\t%POS\t%ID\t%REF\t%ALT\t%MOTIF\t[%GT\t%TR_LEN\t%TR_N_CPG\t%TR_PATTERN\t%TR_AM\t%TR_N_METH_VALID\t%UPSTREAM_TR_AM\t%UPSTREAM_TR_N_METH_VALID\t%DOWNSTREAM_TR_AM\t%DOWNSTREAM_TR_N_METH_VALID\t%TR_CPG_METH_HP1\t%TR_CPG_DEPTH_HP1\t%TR_CPG_METH_HP2\t%TR_CPG_DEPTH_HP2\n]' "$OUTPUT_SORTED_VCF" >> "$OUTPUT_SUMMARY"
-
-echo "Pipeline complete"
-
+echo "Processing complete"
