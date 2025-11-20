@@ -116,6 +116,7 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/05_non_ref_TE_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}.table.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_TR_methylation_summary.tsv", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed", sample=SAMPLES),
     REFERENCE
 ])
