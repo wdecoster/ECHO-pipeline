@@ -1,5 +1,15 @@
 #!/bin/bash
-# Prepare shifted bed files and filtered VCFs for processing with modkit stats
+# -----------------------------------------------------------------------------
+# Script Name:    prep_ref_TE_avg_meth.sh
+# Description:    Prepare shifted bed files and filtered VCFs for processing with modkit stats. 
+# Author:         Leena Putzeys, Brando Poggiali, Nicole Flack
+# Date Created:   2025-11-12
+# Last Modified:  2025-11-19
+# Version:        1.0.0
+# License:        MIT
+# Dependencies:   [modkit, bgzip, tabix, bedtools, bcftools, awk]
+# -----------------------------------------------------------------------------
+
 # Steps 1 and 2 from ref_TE_avg_meth.sh
 
 # for debugging in bash pipeline, x for logging executed commands
