@@ -22,7 +22,6 @@ rule create_log:
         echo "TE_CATALOG: {TE_CATALOG}" >> {output}
         echo "FLANKING_LENGTH_BP: {FLANKING_LENGTH_BP}" >> {output}
         echo "CONSENSUS_EXTENSION: {CONSENSUS_EXTENSION}" >> {output}
-        echo "HAPLOID_CHRS: {HAPLOID_CHRS}" >> {output}
         echo "TYPE_OF_TE: {TYPE_OF_TE}" >> {output}
         echo "TYPE_OF_TR: {TYPE_OF_TR}" >> {output}
 
