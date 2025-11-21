@@ -6,11 +6,12 @@ rule TR_calling:
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
         TR_catalog=ancient(TR_CATALOG),
+        sex = f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_sex_inference.csv",
         reference=ancient(REFERENCE)
     output:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz"
     params:
-        haploid_chrs=HAPLOID_CHRS,
+        haploid_chrs= lambda wildcards, input: get_haploid_chromosomes(input.sex),
         type_of_tr=TYPE_OF_TR,
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:

@@ -1,4 +1,4 @@
-# rules/common.smk
+# rules/setup_and_targets.smk
 
 configfile: "config.yaml"
 
@@ -16,7 +16,7 @@ TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
 CONSENSUS_EXTENSION = config["extension_repeat_consensus"]
-HAPLOID_CHRS = config["haploid_chrs"]
+#HAPLOID_CHRS = config["haploid_chrs"]
 TYPE_OF_TE = config["type_of_te"]
 TYPE_OF_TR = config["type_of_tr"]
 
@@ -25,6 +25,7 @@ TYPE_OF_TR = config["type_of_tr"]
 from datetime import datetime
 from pathlib import Path
 import os
+import csv
 
 # Create directory to store slurm outputs
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
@@ -32,8 +33,6 @@ os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 #Create timestamp for log file
 LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
-
-
 
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
@@ -50,6 +49,8 @@ DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
 # Falls back to the pipeline's default OUTPUT location if not provided.
 FASTQ_DIR = config.get("fastq_dir", f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq")
 
+
+# helper functions
 def raw_fastq(wc):
     return f"{FASTQ_DIR}/{wc.sample}/{wc.sample}.fastq"
 
@@ -58,6 +59,15 @@ def fastq_for_pipeline(wc):
         return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}_filtered.fastq"
     else:
         return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}.fastq"
+
+def get_haploid_chromosomes(csv_path):
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        row = next(reader) # only one row expected
+    # Strip quotes/spaces: "chrM,chrX,chrY" -> chrM,chrX,chrY
+    haploid = row["haploid_chromosomes"].strip().strip('"').replace(" ", "")
+    return haploid
+
 
 #Define outputs files
 all_inputs = []

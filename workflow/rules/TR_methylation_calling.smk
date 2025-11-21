@@ -6,13 +6,14 @@ rule TR_methylation_calling:
         TR_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz",
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
+        sex=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_sex_inference.csv",
         reference=ancient(REFERENCE)
     output:
         out_file=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TR_methylation_summary.tsv"
     params:
         out_dir=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}",
         flanking_length_bp=FLANKING_LENGTH_BP,
-        haploid_chrs=HAPLOID_CHRS,
+        haploid_chrs= lambda wildcards, input: get_haploid_chromosomes(input.sex),
         extension=CONSENSUS_EXTENSION,
         type_of_TR=TYPE_OF_TR,
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
