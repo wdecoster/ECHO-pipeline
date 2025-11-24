@@ -1,34 +1,81 @@
 # rules/log_generation.smk
 
+# Load packages
+from datetime import datetime
+ 
+#Create timestamp for log file
+if "LOGTIMESTAMP" not in globals():
+    LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+
+#LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
+
+all_inputs.append(LOGFILE)
+
 rule create_log:
     output:
         LOGFILE
-    shell:
-        """
-        echo "================ Pipeline Execution Log ================" > {output}
-        echo "Unique Run ID: {LOGTIMESTAMP}" >> {output}
-        echo "Date & Time: $(date)" >> {output}
-        echo "Executed on Server: $(hostname)" >> {output}
-        echo "" >> {output}
-
-        echo "--------------- CONFIGURATION PARAMETERS ---------------" >> {output}
-        echo "SAMPLES: {SAMPLES}" >> {output}
-        echo "START_FROM: {START_FROM}" >> {output}
-        echo "OUTPUT_DIR: {OUTPUT_DIR}" >> {output}
-        echo "INPUT_DIR: {INPUT_DIR}" >> {output}
-        echo "REFERENCE: {REFERENCE}" >> {output}
-        echo "REFERENCE_TE: {REFERENCE_TE}" >> {output}
-        echo "TR_CATALOG: {TR_CATALOG}" >> {output}
-        echo "TE_CATALOG: {TE_CATALOG}" >> {output}
-        echo "FLANKING_LENGTH_BP: {FLANKING_LENGTH_BP}" >> {output}
-        echo "CONSENSUS_EXTENSION: {CONSENSUS_EXTENSION}" >> {output}
-        echo "TYPE_OF_TE: {TYPE_OF_TE}" >> {output}
-        echo "TYPE_OF_TR: {TYPE_OF_TR}" >> {output}
-
-        echo "------------------- RESOURCE SUMMARY -------------------" >> {output}
-        echo "CPUs on this node: $(nproc)" >> {output}
-        echo "RAM for this node $(free -h | grep Mem | awk '{{print "total: " $2, "free: " $7}}')" >> {output}
-        echo "=========================================================" >> {output}
-        """
+    run:
+        import subprocess
+        from datetime import datetime
+        import socket
+        import sys
+        import snakemake
+        import yaml
+        import os
+        from pathlib import Path
 
 
+        def get_git_info(cmd, default="NA"):
+            """Helper to run git commands safely."""
+            try:
+                return subprocess.check_output(cmd, shell=True, text=True).strip()
+            except subprocess.CalledProcessError:
+                return default
+
+        # Collect system info
+        run_id = str(LOGTIMESTAMP)
+        hostname = socket.gethostname()
+        datetime_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Collect Git info
+        git_version = get_git_info("git describe --tags --abbrev=0")
+        git_commit = get_git_info("git rev-parse HEAD")
+        git_branch = get_git_info("git rev-parse --abbrev-ref HEAD")
+        git_remote = get_git_info("git config --get remote.origin.url")
+
+        # Collect environment info
+        python_version = sys.version.split()[0]  # e.g. "3.10.14"
+        snakemake_version = snakemake.__version__
+
+
+        with open(output[0], "w") as f:
+            f.write("================ Pipeline Execution Log ================\n")
+            f.write(f"Unique Run ID: {run_id}\n")
+            f.write(f"Date & Time: {datetime_now}\n")
+            f.write(f"Executed on Server: {hostname}\n\n")
+            
+            f.write("--------------- SOFTWARE ENVIRONMENT -------------------\n")
+            f.write(f"Snakemake version: {snakemake_version}\n")
+            f.write(f"Python version: {python_version}\n\n")
+
+            f.write("--------------- GIT REPOSITORY INFO --------------------\n")
+            f.write(f"ECHO version: {git_version}\n")
+            f.write(f"ECHO git commit Hash: {git_commit}\n")
+            f.write(f"ECHO git branch: {git_branch}\n")
+            f.write(f"ECHO github remote URL: {git_remote}\n\n")
+
+            f.write("--------------- CONFIGURATION PARAMETERS ---------------\n")
+            f.write(f"SAMPLES: {SAMPLES}\n")
+            f.write(f"START_FROM: {START_FROM}\n")
+            f.write(f"OUTPUT_DIR: {OUTPUT_DIR}\n")
+            f.write(f"INPUT_DIR: {INPUT_DIR}\n")
+            f.write(f"REFERENCE: {REFERENCE}\n")
+            f.write(f"REFERENCE_TE: {REFERENCE_TE}\n")
+            f.write(f"TR_CATALOG: {TR_CATALOG}\n")
+            f.write(f"TE_CATALOG: {TE_CATALOG}\n")
+            f.write(f"FLANKING_LENGTH_BP: {FLANKING_LENGTH_BP}\n")
+            f.write(f"CONSENSUS_EXTENSION: {CONSENSUS_EXTENSION}\n")
+            f.write(f"TYPE_OF_TE: {TYPE_OF_TE}\n")
+            f.write(f"TYPE_OF_TR: {TYPE_OF_TR}\n")
+    

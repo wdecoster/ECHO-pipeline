@@ -30,10 +30,6 @@ import csv
 # Create directory to store slurm outputs
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
-#Create timestamp for log file
-LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
-LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
-
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
 TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v4.sh"
@@ -72,7 +68,7 @@ def get_haploid_chromosomes(csv_path):
 #Define outputs files
 all_inputs = []
 
-all_inputs.append(LOGFILE)
+#all_inputs.append(LOGFILE)
 
 if START_FROM == "pod5":
     all_inputs.extend([
