@@ -30,7 +30,7 @@ usage() {
     echo "  -v <vcf_file>         Input VCF file with variant data and corrected headers"
     echo "  -r <reference_fasta>  Reference genome in FASTA format"
     echo "  -i <phased_bam>       Input phased BAM file"
-    echo "  -o <output_dir>       Output directory for generated files"
+    echo "  -o <output_dir>       Temporary output directory for generated intermediate files"
     echo "  -s <sample_id>        SampleID to be used in file names"
     echo "  -t <threads>          Number of threads"
     echo "  -e <extend>           Number of flanking bases to include for remapping reads"
