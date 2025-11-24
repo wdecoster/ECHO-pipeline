@@ -103,7 +103,7 @@ process_line(){
     IFS=',' read -ra ALT_ALLELES <<< "$ALT"
     ALL_ALLELES=("$REF" "${ALT_ALLELES[@]}")
     
-    echo "$LINE" > "$MAIN_LOG"
+    echo "$LINE" >> "$MAIN_LOG"
     echo "" >> "$MAIN_LOG"
     echo "Genotype of the locus: ${GENO_ARRAY[@]}" >> "$MAIN_LOG"
     echo "List of all alleles: ${ALL_ALLELES[@]}"  >> "$MAIN_LOG"
@@ -212,8 +212,8 @@ process_line(){
         #Create fasta file
         SEQ="${UPSTREAM_SEQ}$(echo "${allele_seq}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
         HEADER="${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}"
-        REGION_FASTA="${OUPUT_DIR}/${HEADER}_region.fasta"
-        STR_ALLELE_FASTA="${OUPUT_DIR}/${HEADER}_STR_allele.fasta"
+        REGION_FASTA="${OUTPUT_DIR}/${HEADER}_region.fasta"
+        STR_ALLELE_FASTA="${OUTPUT_DIR}/${HEADER}_STR_allele.fasta"
         uTR_out="${OUTPUT_DIR}/${HEADER}_uTR.out"
         TR_START_REL=$((EXTEND + 1))
         TR_END_REL=$((EXTEND + ${#REF}))
@@ -496,6 +496,6 @@ echo "Processing lines in ${INPUT_VCF}"
 xargs -P "$THREADS" -n 1 -d '\n' bash -c 'set -e; process_line "$1"' _ < <(bcftools view -H "$INPUT_VCF")
 wait
 # Append results and clean up
-rm -f "${OUTPUT_DIR}"
+rm -r "${OUTPUT_DIR}"
 
 echo "Processing complete" 
