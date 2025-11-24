@@ -7,10 +7,10 @@
 #                 calculates haplotype-specific DNAm level at cpg sites and averages 
 #                 for TR and their upstream and downstream region. Finally, it recreates 
 #                 a vcf file.
-# Author:         Leena Putzeys, Brando Poggiali, Nicole Flack
+# Author:         Leena Putzeys, Brando Poggiali, Nicole Flack, Henry Barton
 # Date Created:   2025-03-02
-# Last Modified:  2025-11-18
-# Version:        5.0.0
+# Last Modified:  2025-11-24
+# Version:        5.1.0
 # License:        MIT
 # Dependencies:   [modkit, bgzip, tabix, samtools, minimap2, bedtools, bcftools, awk]
 # Usage: ./TR-longTR-methylation_v4.sh -v <vcf_file> -r <reference_fasta> -i <phased_bam> 
