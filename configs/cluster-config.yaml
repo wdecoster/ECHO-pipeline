@@ -160,6 +160,14 @@ TR_methylation_calling:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
+TR_methyl_sort_vcf_chunk:
+  partition: "research"
+  time: "1:00:00"
+  mem: "4G"
+  cpus: 1
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
 TR_methyl_cat_vcfs:
   partition: "research"
   time: "4:00:00"
