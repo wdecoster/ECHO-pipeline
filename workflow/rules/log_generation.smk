@@ -1,20 +1,42 @@
 # rules/log_generation.smk
 
 # Load packages
-from datetime import datetime
+#from datetime import datetime
  
 #Create timestamp for log file
-if "LOGTIMESTAMP" not in globals():
-    LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
+#if "LOGTIMESTAMP" not in globals():
+#    LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 
 #LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
-LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
+#LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
+
+from datetime import datetime
+import uuid
+import os
+import json
+
+RUN_ID_FILE = ".snakemake/run_id.json"
+
+if os.path.exists(RUN_ID_FILE):
+    with open(RUN_ID_FILE) as f:
+        RUN_ID = json.load(f)["run_id"]
+else:
+    RUN_ID = datetime.now().strftime("%Y_%m_%d_T%H%M%S") + "_" + uuid.uuid4().hex[:8]
+    os.makedirs(os.path.dirname(RUN_ID_FILE), exist_ok=True)
+    with open(RUN_ID_FILE, "w") as f:
+        json.dump({"run_id": RUN_ID}, f)
+
+config["run_id"] = RUN_ID
+
+
+RUN_ID = config["run_id"]
+LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{RUN_ID}.txt"
 
 all_inputs.append(LOGFILE)
 
 rule create_log:
     output:
-        LOGFILE
+        logfile = LOGFILE
     run:
         import subprocess
         from datetime import datetime
@@ -25,6 +47,8 @@ rule create_log:
         import os
         from pathlib import Path
 
+        log_path = output.logfile
+        os.makedirs(os.path.dirname(log_path), exist_ok=True)        
 
         def get_git_info(cmd, default="NA"):
             """Helper to run git commands safely."""
@@ -34,7 +58,7 @@ rule create_log:
                 return default
 
         # Collect system info
-        run_id = str(LOGTIMESTAMP)
+        run_id = RUN_ID
         hostname = socket.gethostname()
         datetime_now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -49,7 +73,7 @@ rule create_log:
         snakemake_version = snakemake.__version__
 
 
-        with open(output[0], "w") as f:
+        with open(log_path, "w") as f:
             f.write("================ Pipeline Execution Log ================\n")
             f.write(f"Unique Run ID: {run_id}\n")
             f.write(f"Date & Time: {datetime_now}\n")
