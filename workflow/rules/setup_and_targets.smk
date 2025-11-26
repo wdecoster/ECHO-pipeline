@@ -101,7 +101,6 @@ if START_FROM == "fastq" and DO_FILTER:
 #Default file outputs independent from which input file is used
 all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_sex_inference.csv", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TR_methylation_summary.tsv", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt", sample=SAMPLES),
