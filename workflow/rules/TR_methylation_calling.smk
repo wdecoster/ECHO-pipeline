@@ -96,7 +96,7 @@ rule TR_methyl_sort_vcf_chunk:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methyl_sort_vcf_chunk/{{sample}}_chunk{{chunk}}.log"
     threads: 1
     singularity:
-         "docker://staphb/bcftools:1.22"
+         "docker://leenaputzeys/tr_methylation:v1.0"
     benchmark:
         f"{OUTPUT_DIR}/benchmarks/TR_methyl_sort_vcf_chunk/{{sample}}_chunk{{chunk}}_TR_methyl_sort_vcf_chunk.tsv"
     shell:
