@@ -155,7 +155,7 @@ TR_methyl_call_vcf_chunking:
 TR_methylation_calling:
   partition: "research"
   time: "48:00:00"
-  mem: "48G"
+  mem: "72G"
   cpus: 8
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
