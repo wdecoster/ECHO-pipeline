@@ -54,13 +54,14 @@ rule TR_methylation_calling:
         chunk_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}.vcf.gz",
         phased_bam=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam",
         phased_bam_index=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_alignment.bam.bai",
+        sex=f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_sex_inference.csv",
         reference=ancient(REFERENCE)
     output:
         unsorted_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf"
     params:
         tmp_out_dir=f"{SYS_TMP}/{LOGTIMESTAMP}_{{sample}}_methyl_call_chunk{{chunk}}", # puts out dir on tmp
         flanking_length_bp=FLANKING_LENGTH_BP,
-        haploid_chrs=HAPLOID_CHRS,
+        haploid_chrs= lambda wildcards, input: get_haploid_chromosomes(input.sex),
         extension=CONSENSUS_EXTENSION,
         type_of_TR=TYPE_OF_TR,
         sample_name=f"{{sample}}_{REFERENCE_NAME}",

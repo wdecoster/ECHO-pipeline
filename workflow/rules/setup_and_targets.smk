@@ -1,4 +1,4 @@
-# rules/common.smk
+# rules/setup_and_targets.smk
 
 configfile: "config.yaml"
 
@@ -16,7 +16,7 @@ TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
 CONSENSUS_EXTENSION = config["extension_repeat_consensus"]
-HAPLOID_CHRS = config["haploid_chrs"]
+#HAPLOID_CHRS = config["haploid_chrs"]
 TYPE_OF_TE = config["type_of_te"]
 TYPE_OF_TR = config["type_of_tr"]
 
@@ -25,6 +25,7 @@ TYPE_OF_TR = config["type_of_tr"]
 from datetime import datetime
 from pathlib import Path
 import os
+import csv
 
 # Create directory to store slurm outputs
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
@@ -33,10 +34,6 @@ os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 SYS_TMP = os.getenv('TMP')
 if SYS_TMP is None:
     SYS_TMP = '/tmp'
-
-#Create timestamp for log file
-LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
-LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
 
 # local rules
 localrules: cp_catalogue
@@ -49,7 +46,7 @@ WORKFLOW_ROOT = Path(workflow.basedir)
 REF_TE_METH_CPG_RES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_cpg_res.sh"
 REF_TE_METH_AVERAGES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_avg_meth.sh"
 TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
-
+SEX_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/sex_from_cramino.py"
 
 # Check if filtering is on or off (if both MIN_READ_QUAL and MIN_READ_LENGTH variables are 0, filtering is skipped)
 DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
@@ -58,6 +55,8 @@ DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
 # Falls back to the pipeline's default OUTPUT location if not provided.
 FASTQ_DIR = config.get("fastq_dir", f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq")
 
+
+# helper functions
 def raw_fastq(wc):
     return f"{FASTQ_DIR}/{wc.sample}/{wc.sample}.fastq"
 
@@ -67,10 +66,19 @@ def fastq_for_pipeline(wc):
     else:
         return f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{wc.sample}/{wc.sample}.fastq"
 
+def get_haploid_chromosomes(csv_path):
+    with open(csv_path) as f:
+        reader = csv.DictReader(f)
+        row = next(reader) # only one row expected
+    # Strip quotes/spaces: "chrM,chrX,chrY" -> chrM,chrX,chrY
+    haploid = row["haploid_chromosomes"].strip().strip('"').replace(" ", "")
+    return haploid
+
+
 #Define outputs files
 all_inputs = []
 
-all_inputs.append(LOGFILE)
+#all_inputs.append(LOGFILE)
 
 if START_FROM == "pod5":
     all_inputs.extend([
@@ -111,6 +119,7 @@ if (START_FROM == "ubam" or START_FROM == "fastq") and DO_FILTER:
 all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_cramino_output.txt", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html", sample=SAMPLES),
+    expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/{{sample}}_sex_inference.csv", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/02_variant_calling/SVs/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_SV_unphased.vcf.gz", sample=SAMPLES),
