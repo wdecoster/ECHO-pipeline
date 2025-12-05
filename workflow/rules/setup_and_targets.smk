@@ -29,6 +29,11 @@ import os
 # Create directory to store slurm outputs
 os.makedirs(f"{OUTPUT_DIR}/logs/slurm", exist_ok=True)
 
+# ID system tmp location
+SYS_TMP = os.getenv('TMP')
+if SYS_TMP is None:
+    SYS_TMP = '/tmp'
+
 #Create timestamp for log file
 LOGTIMESTAMP = datetime.now().strftime("%Y_%m_%dT%H%M")
 LOGFILE = f"{OUTPUT_DIR}/logs/logfile_{LOGTIMESTAMP}.txt"
