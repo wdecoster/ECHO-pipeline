@@ -136,11 +136,43 @@ TR_calling:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
+TR_methyl_call_vcf_prep:
+  partition: "research"
+  time: "4:00:00"
+  mem: "4G"
+  cpus: 1
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+TR_methyl_call_vcf_chunking:
+  partition: "research"
+  time: "4:00:00"
+  mem: "4G"
+  cpus: 1
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
 TR_methylation_calling:
   partition: "research"
-  time: "10:00:00"
-  mem: "28G"
+  time: "48:00:00"
+  mem: "72G"
   cpus: 8
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+TR_methyl_sort_vcf_chunk:
+  partition: "research"
+  time: "1:00:00"
+  mem: "4G"
+  cpus: 1
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+TR_methyl_cat_vcfs:
+  partition: "research"
+  time: "4:00:00"
+  mem: "4G"
+  cpus: 1
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
@@ -160,11 +192,35 @@ ref_TE_methylation_calling_cpg_res:
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
-ref_TE_methylation_calling_averages:
+prep_ref_TE_methylation_calling_averages:
   partition: "research"
-  time: "24:00:00"
+  time: "1:00:00"
+  mem: "4G"
+  cpus: 4
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+modkit_ref_TE_meth_call_phased:
+  partition: "research"
+  time: "8:00:00"
   mem: "32G"
-  cpus: 64
+  cpus: 32
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+modkit_ref_TE_meth_call_unphased:
+  partition: "research"
+  time: "8:00:00"
+  mem: "32G"
+  cpus: 32
+  output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
+  error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
+
+summarise_ref_TE_methylation_calling_averages:
+  partition: "research"
+  time: "1:00:00"
+  mem: "4G"
+  cpus: 1
   output: "{config[output_dir]}/logs/slurm/{rule}.%j.out"
   error: "{config[output_dir]}/logs/slurm/{rule}.%j.err"
 
