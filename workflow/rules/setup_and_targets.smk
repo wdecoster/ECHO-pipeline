@@ -30,9 +30,19 @@ import csv
 # Create directory to store logs
 os.makedirs(f"{OUTPUT_DIR}/logs", exist_ok=True)
 
+# ID system tmp location
+SYS_TMP = os.getenv('TMP')
+if SYS_TMP is None:
+    SYS_TMP = '/tmp'
+
+# local rules
+localrules: cp_catalogue
+
+# step 07 TR vcf chunking
+N_VCF_CHUNKS=15
+
 # Get the absolute path to the Snakefile's directory for launching custom scripts
 WORKFLOW_ROOT = Path(workflow.basedir)
-TR_LONGTR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TR-longTR-methylation_v4.sh"
 REF_TE_METH_CPG_RES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_cpg_res.sh"
 REF_TE_METH_AVERAGES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_avg_meth.sh"
 TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
@@ -109,6 +119,5 @@ all_inputs.extend([
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{{sample}}_{REFERENCE_NAME}_methylation_summary.bed", sample=SAMPLES),
     REFERENCE
 ])
-
 
 
