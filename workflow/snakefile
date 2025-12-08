@@ -76,3 +76,16 @@ rule all:
     input:
         all_inputs
 
+
+#Remove file where date for log file is printed 
+onsuccess:
+    import os
+    RUN_ID_FILE = ".snakemake/run_id.json"
+    if os.path.exists(RUN_ID_FILE):
+        os.remove(RUN_ID_FILE)
+
+onerror:
+    import os
+    RUN_ID_FILE = ".snakemake/run_id.json"
+    if os.path.exists(RUN_ID_FILE):
+        os.remove(RUN_ID_FILE)

@@ -259,17 +259,17 @@ process_uuid_file() {
 
     # Check for missing BED entry that can cause script to break
     if [[ ! -f "$te_bed" ]]; then
-    echo "WARNING: Missing te_bed for UUID $uuid. Skipping modkit and adding NA values to summary."
-    missing_values=".\t.\t.\t.\t.\t."
-    
-    # Extract the matching line from TLDR_SUMMARY and append the missing columns
-    matching_line=$(awk -v uuid="$uuid" '$1 == uuid' "$TLDR_SUMMARY")
-    
-    if [[ -n "$matching_line" ]]; then
-        echo -e "${matching_line}\t${missing_values}" > "${METH_SUMMARY_PHASED}.${uuid}.tmp"
-        echo -e "${matching_line}\t${missing_values}" > "${METH_SUMMARY_UNPHASED}.${uuid}.tmp"
-    fi
-    return
+        echo "WARNING: Missing te_bed for UUID $uuid. Skipping modkit and adding NA values to summary."
+        missing_values=".\t.\t.\t.\t.\t."
+        
+        # Extract the matching line from TLDR_SUMMARY and append the missing columns
+        matching_line=$(awk -v uuid="$uuid" '$1 == uuid' "$TLDR_SUMMARY")
+        
+        if [[ -n "$matching_line" ]]; then
+            echo -e "${matching_line}\t${missing_values}" > "${METH_SUMMARY_PHASED}.${uuid}.tmp"
+            echo -e "${matching_line}\t${missing_values}" > "${METH_SUMMARY_UNPHASED}.${uuid}.tmp"
+        fi
+        return
     fi	    
 
     # Create a new BED file without the strand column
@@ -283,7 +283,8 @@ process_uuid_file() {
     # Create an downstream-shifted BED file (#FLANKING_BASES bp from startm 250 bp default)
     te_bed_downstream="${outbase}/${uuid}_downstream.bed"
     awk -v flank="$FLANKING_BASES" '{OFS="\t"} {print $1, $3, $3+flank}' "$modified_te_bed" > "$te_bed_downstream"
-
+    
+    #Print uuid info 
     echo "=====processing UUID: $uuid ======="
     echo "cons_ref: $cons_ref"
     echo "cons_ref_fai: $cons_ref_fai"

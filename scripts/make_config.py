@@ -61,6 +61,28 @@ def _file_exists(p: str) -> bool:
 def _dir_exists(p: str) -> bool:
     return p and Path(p).is_dir()
 
+def _missing_reference_indexes(reference: str) -> List[str]:
+    """
+    Return a list of expected index files that are missing for the given reference FASTA.
+
+    Adjust this list depending on which tools you actually use
+    (e.g., minimap2 .mmi, samtools .fai only, etc.).
+    """
+    if not reference:
+        return []
+
+    # Base path is the full FASTA path; append suffixes for different index files.
+    # Example: /path/genome.fa -> /path/genome.fa.fai, /path/genome.fa.bwt, ...
+    expected_suffixes = [
+        ".fai"]  # samtools/htslib FASTA index
+
+    missing = []
+    for suf in expected_suffixes:
+        idx_path = reference + suf
+        if not _file_exists(idx_path):
+            missing.append(idx_path)
+    return missing
+
 def _as_int(name: str, v: Any, min_val: Optional[int] = None) -> Tuple[Optional[int], Optional[str]]:
     try:
         iv = int(v)
@@ -145,10 +167,24 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
 
     if not _file_exists(reference):
         errors.append(f"'reference' file not found: {reference!r}")
+    else:
+        missing_idx = _missing_reference_indexes(reference)
+        if missing_idx:
+            print(
+                "WARNING: some reference index files are missing:\n  " +
+                "\n  ".join(missing_idx),
+                file=sys.stderr,
+            )
+
     if reference_name not in ALLOWED_REFERENCE_NAME:
-        errors.append(f"'reference_name' must be one of {sorted(ALLOWED_REFERENCE_NAME)}, got {reference_name!r}")
+        errors.append(
+            f"'reference_name' must be one of {sorted(ALLOWED_REFERENCE_NAME)}, "
+            f"got {reference_name!r}"
+        )
+
     if not _file_exists(reference_TE):
-        errors.append(f"'reference_TE' file not found: {reference_TE!r}")
+        errors.append(f"'reference_TE' file not found: {reference_TE!r}")    
+
 
     # catalogs (optional but validated if provided)
     tr_catalog = cfg.get("tr_catalog")

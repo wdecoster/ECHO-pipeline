@@ -1,37 +1,64 @@
 # rules/ref_TE_methylation_calling_cpg_res.smk
 
-# reference-TE methylation calling at cpg region level
-rule ref_TE_methylation_calling_cpg_res:
+# rules/refactor_ref_TE_methylation_calling_averages.smk
+
+rule ref_TE_meth_call_cpg_res_phased:
     input:
-        phased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed.gz",
-        SNV_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz"
+        pileup=lambda w: (
+            f"{OUTPUT_DIR}/04_methylation_calling/"
+            f"{w.sample}/{REFERENCE_NAME}/phased/"
+            f"{w.sample}_{REFERENCE_NAME}_haplotype_{w.pileup}.bed.gz"
+        ),
+        catalog=lambda w: (
+            f"{OUTPUT_DIR}/08_TE_methylation_calling/"
+            f"{w.sample}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/"
+            f"{TYPE_OF_TE}_{w.catalog}.bed"
+        )
     output:
-        output_file=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_upstream_pileup_1.bed"
-    params:
-        phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased",
-        unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased",
-        out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/cpg_resolution",
-        TE_catalog=TE_CATALOG,
-        type_of_TE=TYPE_OF_TE,
-        flanking_length_bp=FLANKING_LENGTH_BP,
-        sample_name=f"{{sample}}_{REFERENCE_NAME}"
+        f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/"
+        f"cpg_resolution/mod_phased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_{{catalog}}_pileup_{{pileup}}.bed"
     log:
-        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res/{{sample}}.log"
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res_phased/"
+        f"{{sample}}_phased_haplo_{{pileup}}_{{catalog}}.log"
+    threads: 32
     singularity:
         "docker://leenaputzeys/te_methylation:v1.0"
     benchmark:
-        f"{OUTPUT_DIR}/benchmarks/ref_TE_methylation_calling/{{sample}}_ref_TE_methylation_calling_cpg_res.tsv"
+        f"{OUTPUT_DIR}/benchmarks/ref_TE_meth_call_cpg_res_phased/"
+        f"{{sample}}_ref_TE_meth_call_cpg_res_phased_{{catalog}}_{{pileup}}.tsv"
     shell:
         """
-        bash {REF_TE_METH_CPG_RES_SCRIPT_PATH} \
-            -p {params.phased_dir} \
-            -u {params.unphased_dir} \
-            -c {params.TE_catalog} \
-            -t {params.type_of_TE} \
-            -s {params.sample_name} \
-            -o {params.out_dir} \
-            -f {params.flanking_length_bp} \
-            > {log} 2>&1
+        zcat {input.pileup} | bedtools intersect -a - -b {input.catalog} -wa -wb > {output}
+        """
+
+
+rule ref_TE_meth_call_cpg_res_unphased:
+    input:
+        pileup=lambda w: (
+            f"{OUTPUT_DIR}/04_methylation_calling/"
+            f"{w.sample}/{REFERENCE_NAME}/unphased/"
+            f"{w.sample}_{REFERENCE_NAME}_unphased.bed.gz"
+        ),
+        catalog=lambda w: (
+            f"{OUTPUT_DIR}/08_TE_methylation_calling/"
+            f"{w.sample}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/"
+            f"{TYPE_OF_TE}_{w.catalog}.bed"
+        )
+    output:
+        f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/"
+        f"cpg_resolution/mod_unphased/{{sample}}_{REFERENCE_NAME}_{TYPE_OF_TE}_{{catalog}}_pileup_unphased.bed"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_cpg_res_unphased/"
+        f"{{sample}}_unphased_{{catalog}}.log"
+    threads: 32
+    singularity:
+        "docker://leenaputzeys/te_methylation:v1.0"
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/ref_TE_meth_call_cpg_res_unphased/"
+        f"{{sample}}_ref_TE_meth_call_cpg_res_unphased_{{catalog}}.tsv"
+    shell:
+        """
+        zcat {input.pileup} | bedtools intersect -a - -b {input.catalog} -wa -wb > {output}
         """
 
 

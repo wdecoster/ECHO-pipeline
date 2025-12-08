@@ -192,7 +192,7 @@ In abacus, first load the required Conda and Singularity environments:
 ```bash
 module load bioinf/conda
 . /cm/shared/apps/bioinf/conda/23.10.0/etc/profile.d/conda.sh
-conda activate /ifs/software/research/unique/leena/conda-envs/snakemake-env  # contains snakemake v7.32.4
+conda activate /ifs/software/research/unique/leena/conda-envs/snakemake_env_v9  # contains snakemake v9.13.4
 module load bioinf/singularity
 ```
 
