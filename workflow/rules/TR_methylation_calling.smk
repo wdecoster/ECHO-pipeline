@@ -74,7 +74,7 @@ rule TR_methylation_calling:
     output:
         unsorted_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf"
     params:
-        tmp_out_dir=f"{SYS_TMP}/{REFERENCE_NAME}_{{sample}}_methyl_call_chunk{{chunk}}", # puts out dir on tmp
+        tmp_out_dir=f"{SYS_TMP}/{REFERENCE_NAME}_{{sample}}_{TYPE_OF_TR}_methyl_call_chunk{{chunk}}", # puts out dir on tmp
         flanking_length_bp=FLANKING_LENGTH_BP,
         haploid_chrs= lambda wildcards, input: get_haploid_chromosomes(input.sex),
         extension=CONSENSUS_EXTENSION,
