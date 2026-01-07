@@ -6,8 +6,8 @@ rule prep_ref_TE_methylation_calling_averages:
         phased_meth_bed_gz_1=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_1.bed",
         phased_meth_bed_gz_2=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased/{{sample}}_{REFERENCE_NAME}_haplotype_2.bed",
         unphased_meth_bed_gz=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased/{{sample}}_{REFERENCE_NAME}_unphased.bed",
-        snp_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased.vcf.gz",
-        sv_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_phased_SV.vcf.gz"
+        SNV_filt_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/filt/{{sample}}_{REFERENCE_NAME}_SNP_filt.vcf.gz",
+        SV_filt_vcf_gz=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}/filt/{{sample}}_{REFERENCE_NAME}_SV_filt.vcf.gz"
     output:
         upstream_te_catalog=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{TYPE_OF_TE}_upstream.bed",
         downstream_te_catalog=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}/{TYPE_OF_TE}_downstream.bed",
@@ -19,7 +19,6 @@ rule prep_ref_TE_methylation_calling_averages:
         phased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/phased",
         unphased_dir=f"{OUTPUT_DIR}/04_methylation_calling/{{sample}}/{REFERENCE_NAME}/unphased",
         out_dir=f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/ref_TE/{TYPE_OF_TE}",
-        phased_variation_dir=f"{OUTPUT_DIR}/03_phasing/{{sample}}/{REFERENCE_NAME}",
         sample_name=f"{{sample}}_{REFERENCE_NAME}"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/ref_TE_methylation_calling_averages/prep_{{sample}}.log"
@@ -33,13 +32,14 @@ rule prep_ref_TE_methylation_calling_averages:
         bash {WORKFLOW_ROOT}/scripts/prep_ref_TE_avg_meth.sh \
             -p {params.phased_dir} \
             -u {params.unphased_dir} \
-            -v {params.phased_variation_dir} \
             -c {TE_CATALOG} \
             -t {TYPE_OF_TE} \
             -s {params.sample_name} \
             -x {threads} \
             -o {params.out_dir} \
             -f {FLANKING_LENGTH_BP} \
+            -S {input.SNV_filt_vcf_gz} \
+            -V {input.SV_filt_vcf_gz} \
             > {log} 2>&1
         """
 
