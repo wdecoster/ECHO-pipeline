@@ -63,6 +63,7 @@ include: "rules/TR_calling.smk"
 
 # -------  STEP 7 : TR METHYLATION CALLING -------
 
+include: "rules/TR_vcf_filtering.smk"
 include: "rules/TR_methylation_calling.smk"
 
 # -------  STEP 8 : TE METHYLATION CALLING -------

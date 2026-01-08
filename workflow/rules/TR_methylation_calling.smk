@@ -3,7 +3,7 @@
 # TR meth pep - fixes header
 rule TR_methyl_call_vcf_prep:
     input:
-        tr_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz"
+        tr_vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_for_methylation.vcf.gz"
     output:
         out_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_input_sorted.vcf.gz"
     log: 
@@ -36,29 +36,50 @@ rule TR_methyl_call_vcf_chunking:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methyl_call_vcf_chunking/{{sample}}.log"
     threads: 1
     singularity:
-        "docker://staphb/bcftools:1.22"
+        "docker://leenaputzeys/tr_methylation:v1.0"
     benchmark:
         f"{OUTPUT_DIR}/benchmarks/TR_methyl_call_vcf_chunking/{{sample}}_TR_methyl_call_vcf_chunking.tsv"
     shell:
         """
+        set -euo pipefail
+        mkdir -p {params.out_dir}
+
+        # write stdout+stderr to the snakemake log file
+        exec > {log} 2>&1
+
         N_VARS=$(bcftools view -H {input.fixed_vcf} | wc -l)
         echo "$N_VARS variants in input vcf"
 
         CHUNK_VARS=$(( ( N_VARS / {N_VCF_CHUNKS} ) + ( N_VARS % {N_VCF_CHUNKS} > 0 ) )) # ceiling of vars per chunk
+        echo "Putting $CHUNK_VARS variants per chunked vcf"
 
-        # If TR vcf (output of LongTR) does not contain anz variant skip the rule and output empty files 
+        # Case 1: If TR vcf (output of LongTR) does not contain any variant skip the rule and output empty files 
         if (( N_VARS == 0 )); then
-            echo "No variants were found in the TR vcf file"
+            echo "No variants were found in the TR vcf file: creating empty chunks"
 
             for chunk_n in $(seq 0 $(({N_VCF_CHUNKS} - 1))); do
                 cp {input.fixed_vcf} {params.out_dir}/{params.out_pre}${{chunk_n}}.vcf.gz
             done
             
             exit 0
-        fi        
+        fi
+
+        # Case 2: variants exist - scatter        
         
         echo "putting $CHUNK_VARS variants per chunked vcf"
         bcftools +scatter {input.fixed_vcf} -Oz -n $CHUNK_VARS -o {params.out_dir} -p {params.out_pre}
+
+        # Add padding
+        for chunk_n in $(seq 0 $(({N_VCF_CHUNKS} - 1))); do
+            f="{params.out_dir}/{params.out_pre}${{chunk_n}}.vcf.gz"
+            if [[ ! -e "$f" ]]; then
+                echo "Padding missing chunk $chunk_n"
+                bcftools view -h {input.fixed_vcf} | bgzip -c > "$f"
+            fi
+        done
+
+        ls -lh {params.out_dir}
+
         """
 
 
@@ -89,6 +110,14 @@ rule TR_methylation_calling:
         f"{OUTPUT_DIR}/benchmarks/TR_methylation_calling/{{sample}}_chunk{{chunk}}_TR_methylation_calling.tsv"
     shell:
         """
+        N_IN=$(bcftools view -H {input.chunk_vcf} | wc -l)
+        if (( N_IN == 0 )); then
+            echo "Empty input chunk {wildcards.chunk}; writing empty methylated VCF and skipping."
+            bcftools view -h {input.chunk_vcf} > {output.unsorted_vcf}
+            exit 0
+        fi
+
+
         bash {WORKFLOW_ROOT}/scripts/TR-longTR-methylation.sh \
             -v {input.chunk_vcf} \
             -r {input.reference} \
@@ -118,7 +147,24 @@ rule TR_methyl_sort_vcf_chunk:
         f"{OUTPUT_DIR}/benchmarks/TR_methyl_sort_vcf_chunk/{{sample}}_chunk{{chunk}}_TR_methyl_sort_vcf_chunk.tsv"
     shell:
         """
-        # If TR vcf (output of LongTR) does not contain anz variant skip the rule and output empty files 
+        set -euo pipefail
+        exec > {log} 2>&1
+
+
+        # Count records in the *chunk methylated* (not the full fixed_vcf)
+        N_CHUNK=$(bcftools view -H {input.chunk_vcf} | wc -l)
+        echo "Chunk {wildcards.chunk}: $N_CHUNK records in {input.chunk_vcf}"
+
+        if (( N_CHUNK == 0 )); then
+            echo "Empty chunk -> writing bgzipped header-only VCF; skipping sort/tabix"
+            bcftools view -h {input.chunk_vcf} -Oz -o {output.out_vcf}
+            tabix -f -p vcf {output.out_vcf}
+            exit 0
+        fi       
+
+
+
+        # If TR vcf (output of LongTR) does not contain any variant skip the rule and output empty files 
         N_VARS=$(bcftools view -H {input.fixed_vcf} | wc -l)
         if (( N_VARS == 0 )); then
             echo "No variants were found in the TR vcf file: skip bcftools sort"
@@ -149,13 +195,16 @@ rule TR_methyl_cat_vcfs:
         f"{OUTPUT_DIR}/benchmarks/TR_methyl_cat_vcfs/{{sample}}_TR_methyl_cat_vcfs.tsv"
     shell:
         """
+        set -euo pipefail
+        exec > {log} 2>&1
+
         # init file with header
         echo -e "CHROM\tPOS\tID\tREF_ALLELE\tALT_ALLELES\tREF_MOTIF\tGT\tTR_LEN\tTR_N_CPG\tTR_PATTERN\tTR_AM\tTR_N_METH_VALID\tUPSTREAM_TR_AM\tUPSTREAM_TR_N_METH_VALID\tDOWNSTREAM_TR_AM\tDOWNSTREAM_TR_N_METH_VALID\tTR_CPG_METH_HP1\tTR_CPG_DEPTH_HP1\tTR_CPG_METH_HP2\tTR_CPG_DEPTH_HP2" > {output.out_tsv}
-        #if TR vcf (output of LongTR) does not contain anz variant skip the rule and output empty files
+        #if TR vcf (output of LongTR) does not contain any variant skip the rule and output empty files
         N_VARS=$(bcftools view -H {input.fixed_vcf} | wc -l)
         if (( N_VARS == 0 )); then
             echo "No variants were found in the TR vcf file: skip generation summary file"
-            bcftools view -h {params.header_vcf} > {output.out_vcf}
+            bcftools view -h {params.header_vcf} -Oz > {output.out_vcf}
             exit 0
         fi
         
