@@ -41,10 +41,20 @@ def parse_args():
     init.add_argument("--te-catalog",
                       help="Custom TE catalog BED (disables ECHO defaults)")
 
-    init.add_argument("--tr-type",
-                      choices=["genome-wide", "genome-wide-hipstr", "genome-wide-str-cpg", "genome-wide-vntr-cpg", "pathogenic", "forensic"])
-    init.add_argument("--te-type",
-                      choices=["all", "LINE", "SINE", "LTR", "DNA", "helitron", "retroposon"])
+    init.add_argument(
+        "--tr-type",
+        default=None,
+        help="TR type label used for output folders. In --use-bundled-db mode this must be one of the following:" 
+             "genome-wide, genome-wide-hipstr, genome-wide-str-cpg, genome-wide-vntr-cpg, pathogenic, forensic."
+              "With custom catalogs, any label is allowed (e.g. custom_pathogenic)."
+    )
+    init.add_argument(
+        "--te-type",
+        default=None,
+        help="TE type label used for output folders. In --use-bundled-db mode this must be one of: "
+              "all, LINE, SINE, LTR, DNA, helitron, retroposon."
+              "With custom catalogs, any label is allowed (e.g. my_own_catalog)"
+    )
 
     # CpG filtering
     init.add_argument("--cpg-filter", action="store_true")

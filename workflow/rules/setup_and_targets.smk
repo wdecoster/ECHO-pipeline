@@ -16,10 +16,16 @@ TR_CATALOG = config["tr_catalog"]
 TE_CATALOG = config["te_catalog"]
 FLANKING_LENGTH_BP = config["flanking_length_bp"]
 CONSENSUS_EXTENSION = config["extension_repeat_consensus"]
-#HAPLOID_CHRS = config["haploid_chrs"]
 TYPE_OF_TE = config["type_of_te"]
 TYPE_OF_TR = config["type_of_tr"]
 CATALOGS=["upstream", "downstream", "full"]
+TR_METH = config.get("tr_methylation", {}) or {}
+FILTER_TO_CPG_STR = bool(TR_METH.get("filter_to_cpg_str", False))
+CPG_STR_BED = TR_METH.get("cpg_str_bed", None)
+
+if FILTER_TO_CPG_STR and not CPG_STR_BED:
+    print("ERROR: tr_methylation.filter_to_cpg_str=true but tr_methylation.cpg_str_bed is missing.")
+    exit(1)
 
 # Load packages
 from datetime import datetime
@@ -50,8 +56,11 @@ REF_TE_METH_AVERAGES_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/ref_TE_avg_meth.sh"
 TLDR_METH_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/TLDR-methylation_v2.sh"
 SEX_SCRIPT_PATH = WORKFLOW_ROOT / "scripts/sex_from_cramino.py"
 
-# Check if filtering is on or off (if both MIN_READ_QUAL and MIN_READ_LENGTH variables are 0, filtering is skipped)
+# Check if read quality filtering is on or off (if both MIN_READ_QUAL and MIN_READ_LENGTH variables are 0, filtering is skipped)
 DO_FILTER = (MIN_READ_QUAL > 0) or (MIN_READ_LENGTH > 0)
+
+# Take into account filtering the longTR VCF prior to methylation analysis
+TR_VCF_FOR_METH = f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_for_methylation.vcf.gz"
 
 # Where to read *raw* FASTQs from (when START_FROM == "fastq").
 # Falls back to the pipeline's default OUTPUT location if not provided.
@@ -110,10 +119,10 @@ if START_FROM == "fastq" and DO_FILTER:
         expand(f"{OUTPUT_DIR}/00_raw_data/basecalled/fastq/{{sample}}/{{sample}}_filtered.fastq", sample=SAMPLES)
     ])
 
+
 #Default file outputs independent from which input file is used
 all_inputs.extend([
     expand(f"{OUTPUT_DIR}/qc/phased_bam/{{sample}}/{REFERENCE_NAME}/nanoplot/{{sample}}_{REFERENCE_NAME}_phased_bam_NanoPlot-report.html", sample=SAMPLES),
-    expand(f"{OUTPUT_DIR}/qc/multiqc/{{sample}}/{REFERENCE_NAME}/multiqc_report.html", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_TR_methylation_summary.tsv", sample=SAMPLES),
 #    expand(f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk100.vcf.gz", sample=SAMPLES),
     expand(f"{OUTPUT_DIR}/08_TE_methylation_calling/{{sample}}/{REFERENCE_NAME}/non_ref_TE/{{sample}}_{REFERENCE_NAME}.table.pass.summary.meth.phased.txt", sample=SAMPLES),

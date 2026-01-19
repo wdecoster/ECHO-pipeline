@@ -9,7 +9,7 @@ conda-frontend: conda
 use-singularity: true
 singularity-args: "-B /ifs/data/research/unique"
 
-configfile: "configs/config.yaml"
+configfile: "configs/GIAB_complete.yaml"
 
 rerun-incomplete: true
 latency-wait: 60
@@ -114,7 +114,7 @@ set-resources:
   TR_calling:
     slurm_partition: "research"
     mem: "28G"
-    runtime: 600        # 10:00:00
+    runtime: 1440        # 24:00:00
 
   TR_methylation_calling:
     slurm_partition: "research"

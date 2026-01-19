@@ -4,6 +4,17 @@ import sys
 
 DB_ROOT = Path("resources/echoDB_v1")
 
+BUNDLED_TR_TYPES = {
+    "genome-wide",
+    "genome-wide-hipstr",
+    "genome-wide-str-cpg",
+    "genome-wide-vntr-cpg",
+    "pathogenic",
+    "forensic",
+}
+BUNDLED_TE_TYPES = {"all", "LINE", "SINE", "LTR", "DNA", "helitron", "retroposon"}
+
+
 def build_config(args):
     cfg = {}
 
@@ -32,6 +43,11 @@ def build_config(args):
 
         tr_type = args.tr_type or "genome-wide"
         te_type = args.te_type or "all"
+
+        if tr_type not in BUNDLED_TR_TYPES:
+            raise ValueError(f"--tr-type {tr_type!r} not supported with --use-bundled-db. Choose from {sorted(BUNDLED_TR_TYPES)}")
+        if te_type not in BUNDLED_TE_TYPES:
+            raise ValueError(f"--te-type {te_type!r} not supported with --use-bundled-db. Choose from {sorted(BUNDLED_TE_TYPES)}")
 
         cfg["type_of_tr"] = tr_type
         cfg["type_of_te"] = te_type
@@ -88,8 +104,15 @@ def build_config(args):
         cfg["tr_catalog"] = args.tr_catalog
         cfg["te_catalog"] = args.te_catalog
 
+        if not args.tr_type or not args.te_type:
+            raise ValueError("Custom catalogs require --tr-type and --te-type (used for output folder names).")
+        
         cfg["type_of_tr"] = args.tr_type
         cfg["type_of_te"] = args.te_type
+
+    # normalize for the rest of the function (works for both branches)
+    tr_type = cfg["type_of_tr"]
+    te_type = cfg["type_of_te"]
 
     # ---- CpG filtering ----
     cfg["tr_methylation"] = {}

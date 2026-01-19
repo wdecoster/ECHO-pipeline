@@ -6,20 +6,19 @@ Usage examples:
 
 # 1) Create a config from scratch
 python make_config.py init \
-  --output config.yaml \
-  --samples HG001_subset \
-  --start-from ubam \
-  --input-dir /ifs/data/research/unique/projects/test_config \
-  --output-dir /ifs/data/research/unique/projects/test_config \
-  --reference /ifs/data/research/unique/leena/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta \
-  --reference-name GRCh38 \
-  --reference-TE /ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa \
-  --tr-catalog /ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed \
-  --te-catalog /ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_retroposon.bed \
-  --min-read-quality 7 \
-  --min-read-length 500 \
-  --flanking-length-bp 250 \
-  --extension-repeat-consensus 1000
+  --output <config-name>.yaml \				# Name of the config file to create
+  --samples <sample1> <sample2> .. \			# list of sampleIDs (space or comma-separated)
+  --start-from <pod5|ubam|fastq|bam> \       		# Start from a specific input type (choose one)
+  --input-dir <path-to-project-input-dir> \		# Path to the project input directory
+  --output-dir <path-to-project-output-dir> \           # Path to the project output directory
+  --reference <path to reference fasta> \		# path to human reference genome fasta file (should be chr naming)
+  --reference-name <GRCh38|chm13v2> \			# Genome build (e.g., GRCh38 or chm13v2), default = GRCh38
+  --tr-catalog <path-to-tr-catalog> \			# Optional: Path to the TR catalog (if not default GRCh38 genome-wide adotto catalogue is used)
+  --te-catalog <path-to-te-catalog> \			# Optional: Path to the TR catalog (if not default GRCh38 genome-wide TE (all) catalog is used)
+  --min-read-quality <value> \				# Minimum read quality (default: 7)
+  --min-read-length <value>  \				# Minimum read length (default: 500)
+  --flanking-length-bp <value> \			# Flanking length in base pairs (default: 250)
+  --extension-repeat-consensus <value> \		# Repeat consensus extension length (default: 1000)
 
 # 2) Validate an existing config (prints a summary or errors)
 python make_config.py validate config.yaml
@@ -174,7 +173,6 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     # reference files
     reference = cfg.get("reference")
     reference_name = cfg.get("reference_name")
-    reference_TE = cfg.get("reference_TE")
 
     if not _file_exists(reference):
         errors.append(f"'reference' file not found: {reference!r}")
@@ -193,7 +191,8 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
             f"got {reference_name!r}"
         )
 
-    if not _file_exists(reference_TE):
+    reference_TE = cfg.get("reference_TE")
+    if not reference_TE or not _file_exists(reference_TE):
         errors.append(f"'reference_TE' file not found: {reference_TE!r}")    
 
 
@@ -321,7 +320,8 @@ def cmd_init(args: argparse.Namespace) -> int:
     cfg["output_dir"] = args.output_dir
     cfg["reference"] = args.reference
     cfg["reference_name"] = args.reference_name
-    cfg["reference_TE"] = args.reference_TE
+    db_root = args.db_root if getattr(args, "use_bundled_db", False) else "resources/echoDB_v1"
+    cfg["reference_TE"] = str(Path(db_root) / "TEs/teref.ont.human.fa")
     cfg["fastq_filtering"] = {
         "min_read_quality": args.min_read_quality,
         "min_read_length": args.min_read_length,
@@ -332,13 +332,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     cfg["te_catalog"] = args.te_catalog
 
     if args.use_bundled_db: 
-        # Require explicit selection in bundled mode 
-        if not args.tr_type:
-            print("ERROR: With --use-bundled-db you must set --tr-type (genome-wide/pathogenic/forensic).", file=sys.stderr)
-            return 1
-        if not args.te_type:
-            print("ERROR: With --use-bundled-db you must set --te-type (all/LINE/SINE/...).*", file=sys.stderr)
-            return 1
+        # Bundled DB mode: don't require tr_catalog or te_catalog
 
         db_root = args.db_root
         build = args.reference_name # "GRCh38" or "chm13v2"
@@ -365,7 +359,7 @@ def cmd_init(args: argparse.Namespace) -> int:
             return 1
 
         # TE catalog:
-        te_base = args.te_type
+        te_base = args.te_type or "all"
         if build == "GRCh38":
             if te_base == "all":
                 cfg["te_catalog"] = str(Path(db_root) / "TEs/GRCh38/GRCh38_TEs_all.bed")
@@ -379,7 +373,7 @@ def cmd_init(args: argparse.Namespace) -> int:
 
         # Set types directly (no inference needed)
         cfg["type_of_tr"] = args.tr_type
-        cfg["type_of_te"] = args.te_type
+        cfg["type_of_te"] = args.te_type or "all"
 
         # Record bundled-db intent in config (so Snakemake can default later)
         cfg["catalog_defaults"] = {
@@ -408,7 +402,7 @@ def cmd_init(args: argparse.Namespace) -> int:
         inferred_tr = _infer_tr_type_from_path(args.tr_catalog)
         if not inferred_tr:
             print("ERROR: Could not infer 'type_of_tr' from TR catalog path. "
-            "None of the patterns ['genome-wide','pathogenic','forensic'] were found in the path.", file=sys.stderr)
+                  "None of the patterns ['genome-wide','pathogenic','forensic'] were found in the path.", file=sys.stderr)
             return 1
         cfg["type_of_tr"] = inferred_tr
 
@@ -470,7 +464,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # template
     p_t = sub.add_parser("template", help="Write a filled-out template you can edit.")
-    p_t.add_argument("--output", required=True, help="Path to write the template YAML.")
+    p_t.add_argument("--output", required=True, help="Path and filename to write the template YAML, i.e config.yaml")
     p_t.set_defaults(func=cmd_template)
 
     # validate
@@ -480,7 +474,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # init
     p_i = sub.add_parser("init", help="Create a config from CLI arguments.")
-    p_i.add_argument("--output", required=True, help="Where to write the YAML.")
+    p_i.add_argument("--output", required=True, help="Path and filename to write config YAML.")
 
     # samples options
     g_s = p_i.add_argument_group("Samples")
@@ -491,12 +485,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     # core inputs
     g_c = p_i.add_argument_group("Core paths and references")
-    g_c.add_argument("--start-from", choices=sorted(ALLOWED_START_FROM), required=True)
-    g_c.add_argument("--input-dir", required=True)
-    g_c.add_argument("--output-dir", required=True)
-    g_c.add_argument("--reference", required=True)
-    g_c.add_argument("--reference-name", choices=sorted(ALLOWED_REFERENCE_NAME), required=True)
-    g_c.add_argument("--reference-TE", required=True, dest="reference_TE")
+    g_c.add_argument("--start-from", choices=sorted(ALLOWED_START_FROM), required=True, help="Starting point for processing <pod5|ubam|fastq|bam>. If pre-basecalled, needs to be with methylation-aware basecalling model" )
+    g_c.add_argument("--input-dir", required=True, help="Project directory for input data")
+    g_c.add_argument("--output-dir", required=True, help="Project directory for output data")
+    g_c.add_argument("--reference", required=True, help="Path to the human reference genome FASTA file")
+    g_c.add_argument("--reference-name", choices=sorted(ALLOWED_REFERENCE_NAME), default="GRCh38", help="Reference genome build <GRCh38|T2T-CHM13v2>(default: GRCh38)")
 
     # catalogs
     g_cat = p_i.add_argument_group("Catalogs")
@@ -504,14 +497,17 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Path to TR catalog BED (optional if using --use-bundled-db).")
     g_cat.add_argument("--te-catalog", required=False, dest="te_catalog",
                        help="Path to TE catalog BED (optional if using --use-bundled-db).")
-    g_cat.add_argument("--use-bundled-db", action="store_true",
-                       help="Use the repeat database installed in resources/ (no need to pass catalog paths).")
+    g_cat.add_argument("--use-bundled-db", dest="use_bundled_db", action="store_true",
+                       help="Use the ECHO repeat database installed in resources (no need to pass catalog paths).")
+    g_cat.add_argument("--custom-db", dest="use_bundled_db", action="store_false",
+                       help="Do not use echoDB; require explicit --tr-catalog and --te-catalog.")
+    g_cat.set_defaults(use_bundled_db=True)
     g_cat.add_argument("--db-root", default="resources/echoDB_v1",
-                       help="Root folder of the echo-provided DB (default: resources/echoDB_v1).")
-    g_cat.add_argument("--tr-type", choices=sorted(ALLOWED_TYPE_OF_TR), default=None,
-                       help="TR catalog type to use with --use-bundled-db (genome-wide/pathogenic/forensic).")
-    g_cat.add_argument("--te-type", choices=sorted(ALLOWED_TYPE_OF_TE), default=None,
-                       help="TE type to use with --use-bundled-db (all/LINE/SINE/...).")
+                       help="Root folder of the bundled ECHO repeat databases (default: resources/echoDB_v1).")
+    g_cat.add_argument("--tr-type", choices=sorted(ALLOWED_TYPE_OF_TR), default="genome-wide",
+                       help="ECHO TR catalog type to use with --use-bundled-db (genome-wide/pathogenic/forensic).")
+    g_cat.add_argument("--te-type", choices=sorted(ALLOWED_TYPE_OF_TE), default=all,
+                       help="ECHO TE catalog type to use with --use-bundled-db (all/LINE/SINE/...).")
     g_cat.add_argument("--cpg-filter", dest="cpg_filter", action="store_true",
                        help="Enable filtering to CpG-containing STR loci before TR methylation profiling.")
     g_cat.add_argument("--no-cpg-filter", dest="cpg_filter", action="store_false",
@@ -522,12 +518,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # filtering + params
     g_f = p_i.add_argument_group("Read filtering")
-    g_f.add_argument("--min-read-quality", type=int, default=7)
-    g_f.add_argument("--min-read-length", type=int, default=500)
+    g_f.add_argument("--min-read-quality", type=int, default=7, help="Minimum read quality (default: 7)")
+    g_f.add_argument("--min-read-length", type=int, default=500, help="Minimum read length (default: 500 bp)")
 
     g_p = p_i.add_argument_group("Analysis parameters")
-    g_p.add_argument("--flanking-length-bp", type=int, default=250, dest="flanking_length_bp")
-    g_p.add_argument("--extension-repeat-consensus", type=int, default=1000, dest="extension_repeat_consensus")
+    g_p.add_argument("--flanking-length-bp", type=int, default=250, dest="flanking_length_bp", help="Flanking length (bp) of repeats used for re-alignment (default: 250)")
+    g_p.add_argument("--extension-repeat-consensus", type=int, default=1000, dest="extension_repeat_consensus", help="Length (bp) of TE consensus extension (default: 1000)")
 
     p_i.set_defaults(func=cmd_init)
 
