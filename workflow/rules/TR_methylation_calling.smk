@@ -78,7 +78,7 @@ def get_chunks(wildcards):
     ckpt = checkpoints.TR_methyl_call_vcf_chunking.get(sample=wildcards.sample)
     chunk_dir = ckpt.output["chunk_dir"]
 
-    pattern = os.path.join(chunk_dir, f"{wildcards.sample}_chunk{{chunk}}.vcf.gz")
+    pattern = os.path.join(chunk_dir, f"{wildcards.sample}_chunk{{chunk,\\d+}}.vcf.gz")
     chunks = glob_wildcards(pattern).chunk
     return sorted(chunks, key=lambda x: int(x))
 

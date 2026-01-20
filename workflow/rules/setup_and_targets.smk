@@ -26,6 +26,7 @@ from datetime import datetime
 from pathlib import Path
 import os
 import csv
+import re
 
 # Create directory to store logs
 os.makedirs(f"{OUTPUT_DIR}/logs", exist_ok=True)
