@@ -275,31 +275,35 @@ process_uuid_file() {
     te_bed_downstream="${outbase}/${uuid}_downstream.bed"
     awk -v flank="$FLANKING_BASES" '{OFS="\t"} {print $1, $3, $3+flank}' "$modified_te_bed" > "$te_bed_downstream"
     
-    #Print uuid info 
-    echo "=====processing UUID: $uuid ======="
-    echo "cons_ref: $cons_ref"
-    echo "cons_ref_fai: $cons_ref_fai"
-    echo "te_bed: $te_bed"
-    echo "te_bam: $te_bam"
-    echo "te_bam_bai: $te_bam_bai"
 
     # Ensure all necessary files exist
     if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bed_downstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
 
         echo "Start modkit processing of $uuid" 
- 
+        THREADS_MODKIT=2 
         # Modkit analysis
-        modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" 2>/dev/null 
+        modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" #2>/dev/null 
         modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --ignore h --mod-threshold m:0.8 "${outbase}/pileup_${uuid}_unphased.bed" 2>/dev/null 
 
-        for bed in 1 2; do
-            bedfile="$outbase/pileup_${uuid}_${bed}.bed" 
-            [[ -f "$bedfile" && -s "$bedfile" ]] || continue
+      
+        for bed in 1 2 unphased; do
+            bedfile="$outbase/pileup_${uuid}_${bed}.bed"
+        
+            if [[ ! -f "$bedfile" ]]; then
+                echo "WARNING: bed file not found: $bedfile" >&2
+                continue
+            fi
+        
+            if [[ ! -s "$bedfile" ]]; then
+                echo "WARNING: bed file is empty: $bedfile" >&2
+                continue
+            fi
+        
             bgzip "$bedfile" && tabix "$bedfile.gz"
-        done 
+        done
 
-        bgzip "$outbase/pileup_${uuid}_unphased.bed"
-        tabix "$outbase/pileup_${uuid}_unphased.bed.gz"
+
+        echo "------------------------------------------------"
 
         modkit stats -t "$THREADS_MODKIT" --regions "$modified_te_bed" -c m -o "${outbase}/${uuid}_TE_stats_1.tsv" "${outbase}/pileup_${uuid}_1.bed.gz" 2>/dev/null 
         modkit stats -t "$THREADS_MODKIT" --regions "$modified_te_bed" -c m -o "${outbase}/${uuid}_TE_stats_2.tsv" "${outbase}/pileup_${uuid}_2.bed.gz" 2>/dev/null 
@@ -321,6 +325,9 @@ process_uuid_file() {
         stats_downTE_1="${outbase}/${uuid}_downstreamTE_stats_1.tsv"
         stats_downTE_2="${outbase}/${uuid}_downstreamTE_stats_2.tsv"
         stats_downTE_unphased="${outbase}/${uuid}_downstreamTE_stats_unphased.tsv"
+
+
+	#for f in "$stats_TE_1" "$stats_TE_2" "$stats_TE_unphased"; do [[ -e "$f" ]] && echo "EXISTS : $f" || echo "MISSING: $f"; done
 
         # Initialize values as missing
         hp1_TE_percent_m="."
@@ -344,7 +351,7 @@ process_uuid_file() {
 
         # Extract the Phasing column
         phasing_info=$(awk -v uuid="$uuid" '$1 == uuid {print $9}' "$TLDR_SUMMARY")
-
+        
         # Determine whether each haplotype exists
         hp1_exists=false
         hp2_exists=false
@@ -390,6 +397,7 @@ process_uuid_file() {
         meth_values_phased="${meth_TE_values}${TAB}${meth_TE_counts}${TAB}${meth_upTE_values}${TAB}${meth_upTE_counts}${TAB}${meth_downTE_values}${TAB}${meth_downTE_counts}"
         meth_values_unphased="${unphased_TE_percent_m}${TAB}${unphased_TE_count_valid_m}${TAB}${unphased_upTE_percent_m}${TAB}${unphased_upTE_count_valid_m}${TAB}${unphased_downTE_percent_m}${TAB}${unphased_downTE_count_valid_m}"
 
+
         # Print results for phased and unphased in a tmp file
         if [[ -n "$meth_values_phased" ]]; then
             if grep -q "^$uuid" "$TLDR_SUMMARY"; then
@@ -425,7 +433,12 @@ process_uuid_file() {
             echo "Skipping update for UUID: $uuid (no valid methylation data found)"
         fi
     echo "Done with: $file"
-    echo 
+    echo "Removing tmp files for: $file"
+    rm ${outbase}/${uuid}_*TE_stats_*.tsv 
+    rm ${outbase}/${uuid}_te_modified.bed 
+    rm ${outbase}/${uuid}_upstream.bed 
+    rm ${outbase}/${uuid}_downstream.bed 
+ 
     
     else
         echo "WARNING: missing files required for UUID: $uuid. Skipping."
@@ -484,13 +497,14 @@ wait
 wait
 
 # Remove temporary files 
-#rm "$uuid_file"
+echo "## Remove temporary files ##"
+rm "$uuid_file"
 
-rm ${outbase}/*.tsv &
-rm ${outbase}/*_te_modified.bed &
-rm ${outbase}/*_upstream.bed &
-rm ${outbase}/*_downstream.bed &
-#rm  -rf "$faileddir" &
+rm  -rf "$faileddir" &
+rm -f ${outbase}/*.tsv &
+rm -f ${outbase}/*_te_modified.bed &
+rm -f ${outbase}/*_upstream.bed &
+rm -f ${outbase}/*_downstream.bed &
 
 wait
 #Merge bed files containing all cpg DNAm levels in one single bed files for hap1, hap2, ungrouped, and unphased
