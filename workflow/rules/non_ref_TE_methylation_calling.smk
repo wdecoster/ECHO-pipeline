@@ -15,7 +15,7 @@ rule non_ref_TE_methylation_calling:
     threads: 32
 #    WARNING: PARALELISATION DOES NOT WORK WITH CONTAINER - FIX  
     singularity:
-        "docker://leenaputzeys/te_methylation:v1.0"
+        "/mnt/ngs/projects/Nanopore_pipeline/users/lfw156/container_creation/non_ref_te_meth_2.0.sif"
 #    conda:
 #        "../envs/te_methylation.yaml"
     benchmark:

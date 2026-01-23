@@ -56,6 +56,8 @@ while getopts "i:o:s:f:t:" opt; do
 done
 
 THREADS_MODKIT=$(( THREADS / 16 ))
+(( THREADS_MODKIT < 1 )) && THREADS_MODKIT=1
+
 
 # Check required arguments
 if [[ -z "$TLDR_IN" || -z "$OUTPUT_DIR"  || -z "$SAMPLE_ID" ]]; then
@@ -203,7 +205,7 @@ cat "$move_list" | xargs -I{} -P "$parallel_jobs" mv {} "$faileddir/"
 
 # Clean up
 cat "$move_list" >> "$failed_file_list"
-#rm "$move_list"
+rm "$move_list"
 
 echo "✅ Done."
 
@@ -280,9 +282,8 @@ process_uuid_file() {
     if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bed_downstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
 
         echo "Start modkit processing of $uuid" 
-        THREADS_MODKIT=2 
-        # Modkit analysis
-        modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" #2>/dev/null 
+	# Modkit analysis
+        modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" 2>/dev/null 
         modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --ignore h --mod-threshold m:0.8 "${outbase}/pileup_${uuid}_unphased.bed" 2>/dev/null 
 
       
@@ -302,8 +303,6 @@ process_uuid_file() {
             bgzip "$bedfile" && tabix "$bedfile.gz"
         done
 
-
-        echo "------------------------------------------------"
 
         modkit stats -t "$THREADS_MODKIT" --regions "$modified_te_bed" -c m -o "${outbase}/${uuid}_TE_stats_1.tsv" "${outbase}/pileup_${uuid}_1.bed.gz" 2>/dev/null 
         modkit stats -t "$THREADS_MODKIT" --regions "$modified_te_bed" -c m -o "${outbase}/${uuid}_TE_stats_2.tsv" "${outbase}/pileup_${uuid}_2.bed.gz" 2>/dev/null 
@@ -327,7 +326,6 @@ process_uuid_file() {
         stats_downTE_unphased="${outbase}/${uuid}_downstreamTE_stats_unphased.tsv"
 
 
-	#for f in "$stats_TE_1" "$stats_TE_2" "$stats_TE_unphased"; do [[ -e "$f" ]] && echo "EXISTS : $f" || echo "MISSING: $f"; done
 
         # Initialize values as missing
         hp1_TE_percent_m="."
@@ -447,7 +445,11 @@ process_uuid_file() {
 }
 
 
-MAX_JOBS=$((THREADS))  # or you can divide it for another safe value, e.g., 4 or 8
+MAX_JOBS=$(( THREADS / THREADS_MODKIT ))
+(( MAX_JOBS < 1 )) && MAX_JOBS=1
+export THREADS_MODKIT MAX_JOBS
+echo "THREADS=$THREADS THREADS_MODKIT=$THREADS_MODKIT MAX_JOBS=$MAX_JOBS" >&2
+
 count=0
 job_count=0
 # Launch parallel processing of uuid in backgrounds
