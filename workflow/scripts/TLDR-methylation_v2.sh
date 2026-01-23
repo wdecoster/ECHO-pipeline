@@ -146,10 +146,10 @@ mkdir -p "$faileddir"
 echo "Indexing UUIDs into memory..."
 
 #1: Load UUIDs into associative array
-declare -A uuid_map
-while read -r uuid; do
-    [[ -n "$uuid" ]] && uuid_map["$uuid"]=1
-done < "$uuid_file"
+#declare -A uuid_map
+#while read -r uuid; do
+#    [[ -n "$uuid" ]] && uuid_map["$uuid"]=1
+#done < "$uuid_file"
 
 #2: Create a temp file for files to move and a file to store failed uuid files
 
@@ -164,45 +164,36 @@ echo "Scanning files to move..."
 # Step 3: Find all files and compare against UUIDs
 MAX_JOBS=$((THREADS))  # Safe default
 job_count=0
+echo "Max job: $MAX_JOBS"
 
 check_failed_file() {
     local file="$1"
-    local filename
-    filename=$(basename "$file")
+    local filename=$(basename "$file")
+    # 1. Skip if in failed_file_list
+    if [[ -n "${failed_file_list:-}" && -f "$failed_file_list" ]]; then
+        grep -Fxqm1 -- "$file" "$failed_file_list" && return 0
+    fi 
+    # 2. Skip if in failed directory
+    [[ -n "${faileddir:-}" && "$file" == "$faileddir"* ]] && return 0
     
-    # Skip files that were already moved in failed directory in former runs
-    if grep -Fxqm1 "$file" "$failed_file_list"; then
-        return  # already seen before
+    # 3. UUID matching (Is any line in uuid_file present in filename?)
+    if [[ -f "$uuid_file" ]] && grep -Ff "$uuid_file" <<< "$filename" | grep -q .; then
+        return 0
     fi
     
-    # Skip files in failed dir
-    [[ "$file" == "$faileddir"* ]] && return
-    
-    matched=false
-    for uuid in "${!uuid_map[@]}"; do
-        if [[ "$filename" == *"$uuid"* ]]; then
-            matched=true
-            break
-        fi
-    done
-
-    if [[ "$matched" == false ]]; then
-        echo "$file" >> "$move_list"
-    fi
+    # 4. Success - Add to list
+    echo "$file"
 }
 
-# Start processing and write failed uuid files in a txt file. We do it in parallel.
-while IFS= read -r -d '' file; do
-    check_failed_file "$file" &
+export uuid_file failed_file_list faileddir
+export -f check_failed_file
 
-    ((job_count++))
-    if (( job_count >= MAX_JOBS )); then
-        wait  # Wait for current batch
-        job_count=0
-    fi
-done < <(find "$detailed_dir" -type f -print0)
+find "$detailed_dir" -type f -print0 \
+  | parallel -0 -j "$MAX_JOBS" check_failed_file {} \
+  > "$move_list"
 
-wait  # Final wait
+
+echo "Finished while loop"
 
 echo "Moving $(wc -l < "$move_list") unmatched files to $faileddir using $parallel_jobs parallel jobs..."
 
@@ -212,7 +203,7 @@ cat "$move_list" | xargs -I{} -P "$parallel_jobs" mv {} "$faileddir/"
 
 # Clean up
 cat "$move_list" >> "$failed_file_list"
-rm "$move_list"
+#rm "$move_list"
 
 echo "✅ Done."
 
@@ -493,7 +484,7 @@ wait
 wait
 
 # Remove temporary files 
-rm "$uuid_file"
+#rm "$uuid_file"
 
 rm ${outbase}/*.tsv &
 rm ${outbase}/*_te_modified.bed &
