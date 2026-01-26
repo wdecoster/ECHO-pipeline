@@ -112,7 +112,7 @@ To install the ECHO pipline, use:
 ```bash
 git clone https://github.com/leenput/repeatome_pipeline.git # clone the repository
 cd repeatome_pipeline
-bash workflow/scripts/download_repeat_catalogs.sh # download the repeat catalogs in current directory
+bash scripts/download_repeat_catalogs.sh # download the repeat catalogs in current directory
 ```
   
 ### **Prepare input files**  

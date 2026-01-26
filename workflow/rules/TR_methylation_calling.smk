@@ -137,7 +137,8 @@ rule TR_methyl_sort_vcf_chunk:
         fixed_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}_input_sorted.vcf.gz",
         chunk_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf"
     output:
-        out_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf.gz"
+        out_vcf=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf.gz",
+        out_tbi=f"{OUTPUT_DIR}/07_TR_methylation_calling/{{sample}}/{REFERENCE_NAME}/{TYPE_OF_TR}/chunked_vcfs/{{sample}}_chunk{{chunk}}_methylated.vcf.gz.tbi"
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/TR_methyl_sort_vcf_chunk/{{sample}}_chunk{{chunk}}.log"
     threads: 1
@@ -150,7 +151,10 @@ rule TR_methyl_sort_vcf_chunk:
         set -euo pipefail
         exec > {log} 2>&1
 
-
+        echo "Sorting + bgzip + index for chunk {wildcards.chunk}"
+        echo "Input: {input.chunk_vcf}"
+        echo "Output: {output.out_vcf}"
+        
         # Count records in the *chunk methylated* (not the full fixed_vcf)
         N_CHUNK=$(bcftools view -H {input.chunk_vcf} | wc -l)
         echo "Chunk {wildcards.chunk}: $N_CHUNK records in {input.chunk_vcf}"
@@ -163,7 +167,6 @@ rule TR_methyl_sort_vcf_chunk:
         fi       
 
 
-
         # If TR vcf (output of LongTR) does not contain any variant skip the rule and output empty files 
         N_VARS=$(bcftools view -H {input.fixed_vcf} | wc -l)
         if (( N_VARS == 0 )); then
@@ -173,7 +176,9 @@ rule TR_methyl_sort_vcf_chunk:
         fi
 
         bcftools sort -Oz -o {output.out_vcf} {input.chunk_vcf}
-        tabix {output.out_vcf}
+        tabix -f -p vcf {output.out_vcf}
+
+        echo "Done."
         """
 
 # merges the chunked vcfs and creates the summary tsv

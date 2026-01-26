@@ -20,6 +20,8 @@
 
 
 set -euo pipefail
+trap 'echo "[FATAL] line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
+
 # source functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/utils_TR-methylation.sh"
@@ -56,6 +58,17 @@ while getopts "v:r:i:o:s:t:e:f:h:" opt; do
     esac
 done
 
+# Disable uTR decomposition (set to 1 to skip)
+SKIP_UTR="${SKIP_UTR:-0}"   # <-- set to 0 if you want uTR on by default
+
+
+# helper function to format vcf 
+sanitize_vcf_field() {
+    printf "%s" "$1" | tr -d '\000-\037'
+}
+
+
+
 # Check required arguments
 if [[ -z "$INPUT_VCF" || -z "$REFERENCE_FASTA" || -z "$PHASED_BAM" || -z "$OUTPUT_DIR"  || -z "$SAMPLE_ID" ]]; then
     usage
@@ -63,7 +76,13 @@ fi
 
 # Verify tools are installed
 MISSING_TOOLS=()
-for tool in samtools minimap2 awk modkit bgzip tabix bedtools bcftools uTR; do
+TOOLS=(samtools minimap2 awk modkit bgzip tabix bedtools bcftools)
+
+if [[ "$SKIP_UTR" -eq 0 ]]; then
+    TOOLS+=(uTR)
+fi
+
+for tool in "${TOOLS[@]}"; do
     if ! command -v "$tool" &> /dev/null; then
         MISSING_TOOLS+=("$tool")
     fi
@@ -213,17 +232,25 @@ process_line(){
         SEQ="${UPSTREAM_SEQ}$(echo "${allele_seq}" | tr '[:lower:]' '[:upper:]')${DOWNSTREAM_SEQ}"
         HEADER="${CHROM}_${POS}_${TR_ID}_${HAPLOTYPE}"
         REGION_FASTA="${OUTPUT_DIR}/${HEADER}_region.fasta"
-        STR_ALLELE_FASTA="${OUTPUT_DIR}/${HEADER}_STR_allele.fasta"
-        uTR_out="${OUTPUT_DIR}/${HEADER}_uTR.out"
+        
+        # uTR outputs are only created if uTR is enabled
+        STR_ALLELE_FASTA=""
+        uTR_out=""
+
         TR_START_REL=$((EXTEND + 1))
         TR_END_REL=$((EXTEND + ${#REF}))
         echo "**** Start Analysis for: $HEADER ****" >> "$MAIN_LOG"
         echo ">$HEADER" > "$REGION_FASTA"
-        echo ">$HEADER" > "$STR_ALLELE_FASTA"
         echo "$SEQ" >> "$REGION_FASTA"
-        echo "$allele_seq" | tr -d '\r' | tr -cd 'ACGTNacgtn' >> "$STR_ALLELE_FASTA"
-        #echo "$allele_seq" >> "$STR_ALLELE_FASTA"
         samtools faidx "$REGION_FASTA"
+
+        if [[ "$SKIP_UTR" -eq 0 ]]; then
+            STR_ALLELE_FASTA="${OUTPUT_DIR}/${HEADER}_STR_allele.fasta"
+            uTR_out="${OUTPUT_DIR}/${HEADER}_uTR.out"
+
+            echo ">$HEADER" > "$STR_ALLELE_FASTA"
+            echo "$allele_seq" | tr -d '\r' | tr -cd 'ACGTNacgtn' >> "$STR_ALLELE_FASTA"
+        fi
          
         # Extract reads overlapping the region and convert to FASTQ
         REGION_BAM="${OUTPUT_DIR}/${TR_ID}_extracted.bam"
@@ -250,7 +277,7 @@ process_line(){
         fi
         
         # Convert to FASTQ
-         echo "Converting to fast $HEADER" >> "$MAIN_LOG"
+        echo "Converting to fast $HEADER" >> "$MAIN_LOG"
         REGION_FASTQ="${OUTPUT_DIR}/${CHROM}_${TR_ID}_${HAPLOTYPE}.extracted.fastq"
         samtools fastq -t -T MM,ML,HP,PS "$FILTERED_BAM" > "$REGION_FASTQ" 2>/dev/null
         
@@ -274,12 +301,10 @@ process_line(){
         echo "Running modkit pileup for ${HEADER}" >> "$MAIN_LOG"
         PILEUP_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_region_modkit_pileup.bed"
         modkit pileup "${REGION_REALIGNED_BAM}" "${PILEUP_OUTPUT}" --cpg --ref "${REGION_FASTA}" --ignore h --combine-strands --mod-threshold m:0.8 2>> "$MAIN_LOG"
+        
         # Brief pause to ensure modkit output is fully written before bgzip
         timeout 10 bash -c "while [ ! -s '$PILEUP_OUTPUT' ]; do sleep 0.1; done"
         echo "Modkit pileup completed successfully" >> "$MAIN_LOG"
-        # Compress and index the phased pileup output
-        bgzip "$PILEUP_OUTPUT"
-        tabix "${PILEUP_OUTPUT}.gz"
         
         # Perform modkit stats for the TR region for each phased output
         TR_ALL_START=$((EXTEND + 1))
@@ -298,32 +323,14 @@ process_line(){
         bedtools flank -i "$REGION_BED" -l "$FLANKING_BASES" -r 0 -g "${GENOME_COORDINATES}" > "$REGION_UPSTREAM_BED"
         bedtools flank -i "$REGION_BED" -l 0 -r "$FLANKING_BASES" -g "${GENOME_COORDINATES}" > "$REGION_DOWNSTREAM_BED"
         
-        STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
-        STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
-        STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
-        
-        echo "Running modkit stats for TR ${HEADER}" >> "$MAIN_LOG"
-        modkit stats --regions "$REGION_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-        modkit stats --regions "$REGION_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-        modkit stats --regions "$REGION_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
-        
-        #Extraction of methylation values and run uTR to get allele pattern
-        echo "Extraction of average methylation values" >> "$MAIN_LOG"
-        
-        TR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_OUTPUT_TR")
-        TR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OUTPUT_TR")
-        upTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_OUTPUT_upTR")
-        upTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OUTPUT_upTR")
-        downTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_OUTPUT_downTR")
-        downTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OUTPUT_downTR")
-        
         echo "Extraction of CpG methylation values" >> "$MAIN_LOG"
         PILEUP_TR_OUTPUT="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_TR_modkit_pileup.bed"
         
         
-        if [[ -s "${PILEUP_OUTPUT}.gz" ]] &&  bedtools intersect -a "${PILEUP_OUTPUT}.gz" -b "$REGION_BED" > "$PILEUP_TR_OUTPUT" 2>/dev/null; then
+        if [[ -s "${PILEUP_OUTPUT}" ]] &&  bedtools intersect -a "${PILEUP_OUTPUT}" -b "$REGION_BED" > "$PILEUP_TR_OUTPUT" 2>>"$MAIN_LOG"; then
             if [[ -s "$PILEUP_TR_OUTPUT" ]]; then
                 echo "Intersect succeeded, continuing with next step..." >> "$MAIN_LOG"
+
                 TR_CPG_METH=$(cut -f11 "$PILEUP_TR_OUTPUT" | paste -sd, -)
                 TR_CPG_DEPTH=$(cut -f10 "$PILEUP_TR_OUTPUT" | paste -sd, -)
             else
@@ -336,13 +343,42 @@ process_line(){
             TR_CPG_DEPTH="."
             echo "No CpG sites in the region" >> "$MAIN_LOG"
         fi
-        
-        if "$UTR_EXE" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>/dev/null; then
-            TR_PATTERN=$(extract_uTR_features "$uTR_out")
-            echo -e " Pattern: ${TR_PATTERN}" >> "$MAIN_LOG" 
+
+        # compress and index for modkit stats
+        bgzip -f "$PILEUP_OUTPUT"
+        tabix -f -p bed "${PILEUP_OUTPUT}.gz"
+
+
+        # modkit stats (requires .gz and .tbi)
+        STAT_OUTPUT_TR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_modkit_stats.tsv"
+        STAT_OUTPUT_upTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_upstream_modkit_stats.tsv"
+        STAT_OUTPUT_downTR="${METH}/${CHROM}_${TR_ID}_${HAPLOTYPE}_downstream_modkit_stats.tsv"
+
+        echo "Running modkit stats for TR ${HEADER}" >> "$MAIN_LOG"
+        modkit stats --regions "$REGION_BED" --min-coverage 3 -o "${STAT_OUTPUT_TR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+        modkit stats --regions "$REGION_UPSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_upTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+        modkit stats --regions "$REGION_DOWNSTREAM_BED" --min-coverage 3 -o "${STAT_OUTPUT_downTR}" "${PILEUP_OUTPUT}.gz" 2>/dev/null
+
+        #Extraction of methylation values and run uTR to get allele pattern
+        echo "Extraction of average methylation values" >> "$MAIN_LOG"
+
+        TR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_OUTPUT_TR")
+        TR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OUTPUT_TR")
+        upTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_OUTPUT_upTR")
+        upTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OUTPUT_upTR")
+        downTR_AVG_METHYLATION=$(awk 'NR==2 {if ($8 == "") print "."; else print $8}' "$STAT_OUTPUT_downTR")
+        downTR_COV_METH=$(awk 'NR==2 {if ($7 == "") print "."; else print $7}' "$STAT_OUTPUT_downTR")
+
+        if [[ "$SKIP_UTR" -eq 0 ]]; then
+            if "$UTR_EXE" -f "$STR_ALLELE_FASTA" -y -o "$uTR_out" 2>>"$MAIN_LOG"; then
+                TR_PATTERN=$(extract_uTR_features "$uTR_out")
+                echo -e " Pattern: ${TR_PATTERN}" >> "$MAIN_LOG" 
+            else
+                echo "uTR failed to decompose the DNA sequence" >> "$MAIN_LOG"
+                TR_PATTERN="."
+            fi
         else
-            echo "uTR failed to decompose the DNA sequence. Continuing with the rest of the pipeline..."
-            echo "uTR failed to decompose the DNA sequence" >> "$MAIN_LOG"
+            echo "Skipping uTR (SKIP_UTR=1): TR_PATTERN='.'." >> "$MAIN_LOG"
         fi
         
         
@@ -355,6 +391,8 @@ process_line(){
             downTR_NCOV="$downTR_COV_METH"
             TR_CPG_METH_HP1="$TR_CPG_METH"
             TR_CPG_DEPTH_HP1="$TR_CPG_DEPTH"
+            TR_CPG_METH_HP2="."
+            TR_CPG_DEPTH_HP2="."
             TR_PATTERN="$TR_PATTERN"
         elif [[ "$HAPLOTYPE" == 1 ]]; then
             HP1_TR_AVG_VALUE="$TR_AVG_METHYLATION"
@@ -382,7 +420,6 @@ process_line(){
         # Cleanup temporary files
         rm -f "$REGION_FASTA"
         rm -f "${REGION_FASTA}.fai"
-        rm -f "$STR_ALLELE_FASTA"
         rm -f "$REGION_FASTQ"
         rm -f "$REGION_SAM"
         rm -f "$REGION_BAM"
@@ -397,7 +434,11 @@ process_line(){
         rm -f "$STAT_OUTPUT_TR"
         rm -f "$STAT_OUTPUT_upTR"
         rm -f "$STAT_OUTPUT_downTR"
-        rm -f "$uTR_out"
+
+        if [[ "$SKIP_UTR" -eq 0 ]]; then
+            rm -f "$STR_ALLELE_FASTA"
+            rm -f "$uTR_out"
+        fi
         
         rm -f "$PILEUP_TR_OUTPUT"
         rm -f "${PILEUP_OUTPUT}.gz" "${PILEUP_OUTPUT}.gz.tbi"
@@ -485,6 +526,7 @@ export ALIGNMENTS
 export METH
 export UTR_EXE
 export MAIN_LOG
+export SKIP_UTR
 
 # Run process_line on headless input VCF
 echo "Processing lines in ${INPUT_VCF}"
@@ -493,9 +535,31 @@ echo "Processing lines in ${INPUT_VCF}"
 # exec 3>&1 4>&2   # save stdout/stderr
 
 # xargs could be dropped entirely here (could avoid writting so many tmp files) and speed could be adjusted in snakemake with chunking
-xargs -P "$THREADS" -n 1 -d '\n' bash -c 'set -e; process_line "$1"' _ < <(bcftools view -H "$INPUT_VCF")
+# xargs -P "$THREADS" -n 1 -d '\n' bash -c 'set -e; process_line "$1"' _ < <(bcftools view -H "$INPUT_VCF")
+
+FAIL_LOG="${OUTPUT_VCF%.vcf}_failed_lines.txt"
+: > "$FAIL_LOG"
+
+bcftools view -H "$INPUT_VCF" | \
+xargs -P "$THREADS" -n 1 -d '\n' -I{} \
+bash -c '
+  set -euo pipefail
+  line="{}"
+  if ! process_line "$line"; then
+    echo "$line" >> "'"$FAIL_LOG"'"
+    exit 0
+  fi
+' 
+
 wait
+
 # Append results and clean up
-rm -r "${OUTPUT_DIR}"
+if [[ -s "$FAIL_LOG" ]]; then
+  echo "[WARN] Some loci failed; keeping temp dir: ${OUTPUT_DIR}" >> "$MAIN_LOG"
+  echo "[WARN] Failed loci list: $FAIL_LOG" >> "$MAIN_LOG"
+else
+  rm -r "${OUTPUT_DIR}"
+  rm -f "$FAIL_LOG"
+fi
 
 echo "Processing complete" 
