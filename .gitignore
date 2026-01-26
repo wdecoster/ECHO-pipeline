@@ -19,6 +19,7 @@ profiles/brando_profile
 !workflow/**
 !test_data
 !test_data/**
+!configs/
 !configs/cluster-config.yaml
 !configs/config.yaml
 !configs/config_local.yaml
