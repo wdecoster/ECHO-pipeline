@@ -8,7 +8,8 @@ rule variant_calling_snps_indels:
         reference=ancient(REFERENCE)
     params:
         out_dir=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}",
-        model_path="/usr/local/bin/models/r1041_e82_400bps_sup_v500"
+        model_path="/usr/local/bin/models/r1041_e82_400bps_sup_v500",
+        tmp_root = CLAIR3_TMP_ROOT
     output:
         snp_vcf_gz=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz",
         snp_vcf_index=f"{OUTPUT_DIR}/02_variant_calling/SNVs_Indels/{{sample}}/{REFERENCE_NAME}/phased_merge_output.vcf.gz.tbi"
@@ -21,6 +22,21 @@ rule variant_calling_snps_indels:
         f"{OUTPUT_DIR}/benchmarks/variant_calling_snps_indels/{{sample}}_variant_calling_snps_indels.tsv"
     shell:
         """
+        set -euo pipefail
+        # Job-local Clair3 temporary directory
+        TMPDIR="{params.tmp_root}/{wildcards.sample}"
+        export TMPDIR
+        export TMP="$TMPDIR"
+        export TEMP="$TMPDIR"
+
+        mkdir -p "$TMPDIR"
+        cleanup() {{
+             rm -rf "$TMPDIR"
+         }}
+        trap cleanup EXIT 
+        
+        echo "[INFO] Clair3 TMPDIR=$TMPDIR" >> {log}
+
         export OMP_NUM_THREADS={threads}
         run_clair3.sh \
             --bam_fn {input.aligned_bam} \
