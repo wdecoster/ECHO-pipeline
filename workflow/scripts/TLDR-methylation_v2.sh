@@ -280,8 +280,8 @@ process_uuid_file() {
 
     # Ensure all necessary files exist
     if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bed_downstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
-
         echo "Start modkit processing of $uuid" 
+	
 	# Modkit analysis
         modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" 2>/dev/null 
         modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --ignore h --mod-threshold m:0.8 "${outbase}/pileup_${uuid}_unphased.bed" 2>/dev/null 

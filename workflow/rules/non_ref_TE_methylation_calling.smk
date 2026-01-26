@@ -13,9 +13,8 @@ rule non_ref_TE_methylation_calling:
     log:
         f"{OUTPUT_DIR}/logs/snakemake_rules/non_ref_TE_methylation_calling/{{sample}}.log"
     threads: 32
-#    WARNING: PARALELISATION DOES NOT WORK WITH CONTAINER - FIX  
     singularity:
-        "/mnt/ngs/projects/Nanopore_pipeline/users/lfw156/container_creation/non_ref_te_meth_2.0.sif"
+         "docker://leenaputzeys/non_ref_te_meth:1.0"    
 #    conda:
 #        "../envs/te_methylation.yaml"
     benchmark:
