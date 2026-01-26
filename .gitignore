@@ -21,11 +21,12 @@ profiles/brando_profile
 !test_data/**
 !configs/cluster-config.yaml
 !configs/config.yaml
+!configs/config_local.yaml
 !profiles/
 !profiles/slurm_profile/
 !profiles/slurm_profile/config.yaml
-!profiles/local/
-!profiles/local/config.yaml
+!profiles/local_cph/
+!profiles/local_cph/config.yaml
 
 # Ignore editor swap files
 workflow/*.swp
