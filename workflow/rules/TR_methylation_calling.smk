@@ -15,6 +15,9 @@ rule TR_methyl_call_vcf_prep:
         f"{OUTPUT_DIR}/benchmarks/TR_methyl_call_vcf_prep/{{sample}}_TR_methyl_call_vcf_prep.tsv"
     shell:
         """
+        set -euo pipefail
+        exec > {log} 2>&1
+        
         BODY_N=$(bcftools view -H {input.tr_vcf} | wc -l)
         echo "VCF body rows: $BODY_N"
         bcftools annotate \
@@ -110,6 +113,9 @@ rule TR_methylation_calling:
         f"{OUTPUT_DIR}/benchmarks/TR_methylation_calling/{{sample}}_chunk{{chunk}}_TR_methylation_calling.tsv"
     shell:
         """
+        set -euo pipefail
+        exec > {log} 2>&1
+
         N_IN=$(bcftools view -H {input.chunk_vcf} | wc -l)
         if (( N_IN == 0 )); then
             echo "Empty input chunk {wildcards.chunk}; writing empty methylated VCF and skipping."
@@ -128,7 +134,6 @@ rule TR_methylation_calling:
             -t {threads} \
             -f {params.flanking_length_bp} \
             -h {params.haploid_chrs} \
-            > {log} 2>&1
         """
 
 # sorting the output annotated vcf
@@ -165,7 +170,6 @@ rule TR_methyl_sort_vcf_chunk:
             tabix -f -p vcf {output.out_vcf}
             exit 0
         fi       
-
 
         # If TR vcf (output of LongTR) does not contain any variant skip the rule and output empty files 
         N_VARS=$(bcftools view -H {input.fixed_vcf} | wc -l)

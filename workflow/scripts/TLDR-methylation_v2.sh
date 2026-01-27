@@ -56,6 +56,8 @@ while getopts "i:o:s:f:t:" opt; do
 done
 
 THREADS_MODKIT=$(( THREADS / 16 ))
+(( THREADS_MODKIT < 1 )) && THREADS_MODKIT=1
+
 
 # Check required arguments
 if [[ -z "$TLDR_IN" || -z "$OUTPUT_DIR"  || -z "$SAMPLE_ID" ]]; then
@@ -146,10 +148,10 @@ mkdir -p "$faileddir"
 echo "Indexing UUIDs into memory..."
 
 #1: Load UUIDs into associative array
-declare -A uuid_map
-while read -r uuid; do
-    [[ -n "$uuid" ]] && uuid_map["$uuid"]=1
-done < "$uuid_file"
+#declare -A uuid_map
+#while read -r uuid; do
+#    [[ -n "$uuid" ]] && uuid_map["$uuid"]=1
+#done < "$uuid_file"
 
 #2: Create a temp file for files to move and a file to store failed uuid files
 
@@ -164,45 +166,36 @@ echo "Scanning files to move..."
 # Step 3: Find all files and compare against UUIDs
 MAX_JOBS=$((THREADS))  # Safe default
 job_count=0
+echo "Max job: $MAX_JOBS"
 
 check_failed_file() {
     local file="$1"
-    local filename
-    filename=$(basename "$file")
+    local filename=$(basename "$file")
+    # 1. Skip if in failed_file_list
+    if [[ -n "${failed_file_list:-}" && -f "$failed_file_list" ]]; then
+        grep -Fxqm1 -- "$file" "$failed_file_list" && return 0
+    fi 
+    # 2. Skip if in failed directory
+    [[ -n "${faileddir:-}" && "$file" == "$faileddir"* ]] && return 0
     
-    # Skip files that were already moved in failed directory in former runs
-    if grep -Fxqm1 "$file" "$failed_file_list"; then
-        return  # already seen before
+    # 3. UUID matching (Is any line in uuid_file present in filename?)
+    if [[ -f "$uuid_file" ]] && grep -Ff "$uuid_file" <<< "$filename" | grep -q .; then
+        return 0
     fi
     
-    # Skip files in failed dir
-    [[ "$file" == "$faileddir"* ]] && return
-    
-    matched=false
-    for uuid in "${!uuid_map[@]}"; do
-        if [[ "$filename" == *"$uuid"* ]]; then
-            matched=true
-            break
-        fi
-    done
-
-    if [[ "$matched" == false ]]; then
-        echo "$file" >> "$move_list"
-    fi
+    # 4. Success - Add to list
+    echo "$file"
 }
 
-# Start processing and write failed uuid files in a txt file. We do it in parallel.
-while IFS= read -r -d '' file; do
-    check_failed_file "$file" &
+export uuid_file failed_file_list faileddir
+export -f check_failed_file
 
-    ((job_count++))
-    if (( job_count >= MAX_JOBS )); then
-        wait  # Wait for current batch
-        job_count=0
-    fi
-done < <(find "$detailed_dir" -type f -print0)
+find "$detailed_dir" -type f -print0 \
+  | parallel -0 -j "$MAX_JOBS" check_failed_file {} \
+  > "$move_list"
 
-wait  # Final wait
+
+echo "Finished while loop"
 
 echo "Moving $(wc -l < "$move_list") unmatched files to $faileddir using $parallel_jobs parallel jobs..."
 
@@ -284,31 +277,32 @@ process_uuid_file() {
     te_bed_downstream="${outbase}/${uuid}_downstream.bed"
     awk -v flank="$FLANKING_BASES" '{OFS="\t"} {print $1, $3, $3+flank}' "$modified_te_bed" > "$te_bed_downstream"
     
-    #Print uuid info 
-    echo "=====processing UUID: $uuid ======="
-    echo "cons_ref: $cons_ref"
-    echo "cons_ref_fai: $cons_ref_fai"
-    echo "te_bed: $te_bed"
-    echo "te_bam: $te_bam"
-    echo "te_bam_bai: $te_bam_bai"
 
     # Ensure all necessary files exist
     if [[ -f "$cons_ref" && -f "$cons_ref_fai" && -f "$modified_te_bed" && -f "$te_bed_upstream" && -f "$te_bed_downstream" && -f "$te_bam" && -f "$te_bam_bai" ]]; then
-
         echo "Start modkit processing of $uuid" 
- 
-        # Modkit analysis
+	
+	# Modkit analysis
         modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --prefix "pileup_$uuid" --partition-tag HP --ignore h --mod-threshold m:0.8 "$outbase" 2>/dev/null 
         modkit pileup -t "$THREADS_MODKIT" --ref "$cons_ref" --cpg "$te_bam" --combine-strands --ignore h --mod-threshold m:0.8 "${outbase}/pileup_${uuid}_unphased.bed" 2>/dev/null 
 
-        for bed in 1 2; do
-            bedfile="$outbase/pileup_${uuid}_${bed}.bed" 
-            [[ -f "$bedfile" && -s "$bedfile" ]] || continue
+      
+        for bed in 1 2 unphased; do
+            bedfile="$outbase/pileup_${uuid}_${bed}.bed"
+        
+            if [[ ! -f "$bedfile" ]]; then
+                echo "WARNING: bed file not found: $bedfile" >&2
+                continue
+            fi
+        
+            if [[ ! -s "$bedfile" ]]; then
+                echo "WARNING: bed file is empty: $bedfile" >&2
+                continue
+            fi
+        
             bgzip "$bedfile" && tabix "$bedfile.gz"
-        done 
+        done
 
-        bgzip "$outbase/pileup_${uuid}_unphased.bed"
-        tabix "$outbase/pileup_${uuid}_unphased.bed.gz"
 
         modkit stats -t "$THREADS_MODKIT" --regions "$modified_te_bed" -c m -o "${outbase}/${uuid}_TE_stats_1.tsv" "${outbase}/pileup_${uuid}_1.bed.gz" 2>/dev/null 
         modkit stats -t "$THREADS_MODKIT" --regions "$modified_te_bed" -c m -o "${outbase}/${uuid}_TE_stats_2.tsv" "${outbase}/pileup_${uuid}_2.bed.gz" 2>/dev/null 
@@ -330,6 +324,8 @@ process_uuid_file() {
         stats_downTE_1="${outbase}/${uuid}_downstreamTE_stats_1.tsv"
         stats_downTE_2="${outbase}/${uuid}_downstreamTE_stats_2.tsv"
         stats_downTE_unphased="${outbase}/${uuid}_downstreamTE_stats_unphased.tsv"
+
+
 
         # Initialize values as missing
         hp1_TE_percent_m="."
@@ -353,7 +349,7 @@ process_uuid_file() {
 
         # Extract the Phasing column
         phasing_info=$(awk -v uuid="$uuid" '$1 == uuid {print $9}' "$TLDR_SUMMARY")
-
+        
         # Determine whether each haplotype exists
         hp1_exists=false
         hp2_exists=false
@@ -399,6 +395,7 @@ process_uuid_file() {
         meth_values_phased="${meth_TE_values}${TAB}${meth_TE_counts}${TAB}${meth_upTE_values}${TAB}${meth_upTE_counts}${TAB}${meth_downTE_values}${TAB}${meth_downTE_counts}"
         meth_values_unphased="${unphased_TE_percent_m}${TAB}${unphased_TE_count_valid_m}${TAB}${unphased_upTE_percent_m}${TAB}${unphased_upTE_count_valid_m}${TAB}${unphased_downTE_percent_m}${TAB}${unphased_downTE_count_valid_m}"
 
+
         # Print results for phased and unphased in a tmp file
         if [[ -n "$meth_values_phased" ]]; then
             if grep -q "^$uuid" "$TLDR_SUMMARY"; then
@@ -434,7 +431,12 @@ process_uuid_file() {
             echo "Skipping update for UUID: $uuid (no valid methylation data found)"
         fi
     echo "Done with: $file"
-    echo 
+    echo "Removing tmp files for: $file"
+    rm ${outbase}/${uuid}_*TE_stats_*.tsv 
+    rm ${outbase}/${uuid}_te_modified.bed 
+    rm ${outbase}/${uuid}_upstream.bed 
+    rm ${outbase}/${uuid}_downstream.bed 
+ 
     
     else
         echo "WARNING: missing files required for UUID: $uuid. Skipping."
@@ -443,7 +445,11 @@ process_uuid_file() {
 }
 
 
-MAX_JOBS=$((THREADS))  # or you can divide it for another safe value, e.g., 4 or 8
+MAX_JOBS=$(( THREADS / THREADS_MODKIT ))
+(( MAX_JOBS < 1 )) && MAX_JOBS=1
+export THREADS_MODKIT MAX_JOBS
+echo "THREADS=$THREADS THREADS_MODKIT=$THREADS_MODKIT MAX_JOBS=$MAX_JOBS" >&2
+
 count=0
 job_count=0
 # Launch parallel processing of uuid in backgrounds
@@ -493,13 +499,14 @@ wait
 wait
 
 # Remove temporary files 
+echo "## Remove temporary files ##"
 rm "$uuid_file"
 
-rm ${outbase}/*.tsv &
-rm ${outbase}/*_te_modified.bed &
-rm ${outbase}/*_upstream.bed &
-rm ${outbase}/*_downstream.bed &
-#rm  -rf "$faileddir" &
+rm  -rf "$faileddir" &
+rm -f ${outbase}/*.tsv &
+rm -f ${outbase}/*_te_modified.bed &
+rm -f ${outbase}/*_upstream.bed &
+rm -f ${outbase}/*_downstream.bed &
 
 wait
 #Merge bed files containing all cpg DNAm levels in one single bed files for hap1, hap2, ungrouped, and unphased
