@@ -35,3 +35,18 @@ rule TR_calling:
         """
 
 
+rule TR_calling_tabix:
+    input:
+        vcf=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz"
+    output:
+        tbi=f"{OUTPUT_DIR}/06_TR_calling/{{sample}}/{REFERENCE_NAME}/{{sample}}_{REFERENCE_NAME}_TRs_{TYPE_OF_TR}.vcf.gz.tbi"
+    threads: 1
+    singularity:
+        "docker://leenaputzeys/tr_methylation:v1.0"
+    log:
+        f"{OUTPUT_DIR}/logs/snakemake_rules/TR_calling_tabix/{{sample}}.log"
+    shell:
+        r"""
+        set -euo pipefail
+        tabix -f {input.vcf} > {log} 2>&1
+        """

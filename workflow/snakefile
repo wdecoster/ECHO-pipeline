@@ -39,12 +39,14 @@ include: "rules/variant_calling_sv.smk"
 
 # -------  STEP 3: PHASING AND HAPLOTAGGING -------
 
-#Phasing 
+# Phasing 
 include: "rules/phasing.smk"
+
+# VCF filtering
+include: "rules/VCF_filtering.smk"
 
 # QC phasing
 include: "rules/QC_phasing.smk"
-include: "rules/multiqc.smk"
 include: "rules/sex_from_cramino.smk"
 
 # -------  STEP 4 : METHYLATION CALLING -------
@@ -61,6 +63,7 @@ include: "rules/TR_calling.smk"
 
 # -------  STEP 7 : TR METHYLATION CALLING -------
 
+include: "rules/TR_vcf_filtering.smk"
 include: "rules/TR_methylation_calling.smk"
 
 # -------  STEP 8 : TE METHYLATION CALLING -------

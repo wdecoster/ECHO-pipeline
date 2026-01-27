@@ -6,20 +6,19 @@ Usage examples:
 
 # 1) Create a config from scratch
 python make_config.py init \
-  --output config.yaml \
-  --samples HG001_subset \
-  --start-from ubam \
-  --input-dir /ifs/data/research/unique/projects/test_config \
-  --output-dir /ifs/data/research/unique/projects/test_config \
-  --reference /ifs/data/research/unique/leena/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta \
-  --reference-name GRCh38 \
-  --reference-TE /ifs/data/research/unique/repeat-catalogs/TEs/teref.ont.human.fa \
-  --tr-catalog /ifs/data/research/unique/repeat-catalogs/TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed \
-  --te-catalog /ifs/data/research/unique/repeat-catalogs/TEs/GRCh38/TE_classes/GRCh38_TEs_retroposon.bed \
-  --min-read-quality 7 \
-  --min-read-length 500 \
-  --flanking-length-bp 250 \
-  --extension-repeat-consensus 1000
+  --output <config-name>.yaml \				# Name of the config file to create
+  --samples <sample1> <sample2> .. \			# list of sampleIDs (space or comma-separated)
+  --start-from <pod5|ubam|fastq|bam> \       		# Start from a specific input type (choose one)
+  --input-dir <path-to-project-input-dir> \		# Path to the project input directory
+  --output-dir <path-to-project-output-dir> \           # Path to the project output directory
+  --reference <path to reference fasta> \		# path to human reference genome fasta file (should be chr naming)
+  --reference-name <GRCh38|chm13v2> \			# Genome build (e.g., GRCh38 or chm13v2), default = GRCh38
+  --tr-catalog <path-to-tr-catalog> \			# Optional: Path to the TR catalog (if not default GRCh38 genome-wide adotto catalogue is used)
+  --te-catalog <path-to-te-catalog> \			# Optional: Path to the TR catalog (if not default GRCh38 genome-wide TE (all) catalog is used)
+  --min-read-quality <value> \				# Minimum read quality (default: 7)
+  --min-read-length <value>  \				# Minimum read length (default: 500)
+  --flanking-length-bp <value> \			# Flanking length in base pairs (default: 250)
+  --extension-repeat-consensus <value> \		# Repeat consensus extension length (default: 1000)
 
 # 2) Validate an existing config (prints a summary or errors)
 python make_config.py validate config.yaml
@@ -45,13 +44,13 @@ except ImportError as e:
 ALLOWED_START_FROM = {"pod5", "ubam", "fastq", "bam"}
 ALLOWED_REFERENCE_NAME = {"chm13v2", "GRCh38"}
 ALLOWED_TYPE_OF_TE = {
-    "all","all_cpg",
-    "DNA","DNA_cpg",
-    "LINE","LINE_cpg",
-    "helitron","helitron_cpg",
-    "SINE","SINE_cpg",
-    "LTR","LTR_cpg",
-    "retroposon","retroposon_cpg",
+    "all",
+    "DNA",
+    "LINE",
+    "helitron",
+    "SINE",
+    "LTR",
+    "retroposon",
 }
 ALLOWED_TYPE_OF_TR = {"genome-wide", "pathogenic", "forensic"}
 
@@ -108,17 +107,17 @@ def _comma_or_list_to_list(values: Any) -> List[str]:
 
 def _infer_te_type_from_path(te_catalog: str) -> Optional[str]:
     """
-    Infer TE type from filename.
-    Expected pattern: ... TE_XXX.bed or TEs_XXX.bed; capture XXX (may include _cpg).
+    Infer TE type from filename
     """
     if not te_catalog:
         return None
     name = Path(te_catalog).name
-    # Try 'TE_' first
-    m = re.search(r"(?:^|[_-])TE_([^./]+)\.bed$", name)
-    if not m:
-        # Support 'TEs_'
-        m = re.search(r"(?:^|[_-])TEs_([^./]+)\.bed$", name)
+    
+    m = re.search(r"_TEs_([^./]+)\.bed$", name)
+    if m:
+        return m.group(1)
+
+    m = re.search(r"_TE_([^./]+)\.bed$", name)
     if m:
         return m.group(1)
     return None
@@ -134,6 +133,17 @@ def _infer_tr_type_from_path(tr_catalog: str) -> Optional[str]:
         if k in s:
             return k
     return None
+
+def _bundled_cpg_str_bed(db_root: str, build: str) -> str:
+    """
+    Return the default CpG-containing STR BED for the bundled echoDB.
+    """
+    if build == "GRCh38":
+        return str(Path(db_root) / "TRs/GRCh38/genome-wide-str-cpg/adotto_longTR_STR_cpgmotif.bed")
+    if build == "chm13v2":
+        raise ValueError("No bundled CpG STR BED available for chm13v2 in echoDB_v1.")
+    raise ValueError(f"Unknown build for CpG STR BED: {build!r}")
+
 
 def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     errors: List[str] = []
@@ -163,7 +173,6 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     # reference files
     reference = cfg.get("reference")
     reference_name = cfg.get("reference_name")
-    reference_TE = cfg.get("reference_TE")
 
     if not _file_exists(reference):
         errors.append(f"'reference' file not found: {reference!r}")
@@ -182,7 +191,8 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
             f"got {reference_name!r}"
         )
 
-    if not _file_exists(reference_TE):
+    reference_TE = cfg.get("reference_TE")
+    if not reference_TE or not _file_exists(reference_TE):
         errors.append(f"'reference_TE' file not found: {reference_TE!r}")    
 
 
@@ -218,6 +228,19 @@ def _validate_config(cfg: Dict[str, Any]) -> List[str]:
     ext, e4 = _as_int("extension_repeat_consensus", cfg.get("extension_repeat_consensus"), min_val=0)
     if e3: errors.append(e3)
     if e4: errors.append(e4)
+
+    # tr_methylation (CpG STR filtering)
+    tm = cfg.get("tr_methylation", {})
+    if tm and not isinstance(tm, dict):
+        errors.append("'tr_methylation' must be a mapping.")
+    elif isinstance(tm, dict):
+        filt = bool(tm.get("filter_to_cpg_str", False))
+        bed = tm.get("cpg_str_bed", None)
+        if filt:
+            if not bed:
+                errors.append("tr_methylation.filter_to_cpg_str is true but tr_methylation.cpg_str_bed is missing.")
+            elif not _file_exists(bed):
+                errors.append(f"'tr_methylation.cpg_str_bed' file not found: {bed!r}")
 
     return errors
 
@@ -297,32 +320,128 @@ def cmd_init(args: argparse.Namespace) -> int:
     cfg["output_dir"] = args.output_dir
     cfg["reference"] = args.reference
     cfg["reference_name"] = args.reference_name
-    cfg["reference_TE"] = args.reference_TE
+    db_root = args.db_root if getattr(args, "use_bundled_db", False) else "resources/echoDB_v1"
+    cfg["reference_TE"] = str(Path(db_root) / "TEs/teref.ont.human.fa")
     cfg["fastq_filtering"] = {
         "min_read_quality": args.min_read_quality,
         "min_read_length": args.min_read_length,
     }
+
+    # --- Catalog selection: bundled DB mode OR explicit paths ---
     cfg["tr_catalog"] = args.tr_catalog
     cfg["te_catalog"] = args.te_catalog
 
-    # Infer types
-    inferred_te = _infer_te_type_from_path(args.te_catalog)
-    if not inferred_te:
-        print("ERROR: Could not infer 'type_of_te' from TE catalog filename. "
-              "Expected pattern like '*TE_<TYPE>.bed' or '*TEs_<TYPE>.bed'.", file=sys.stderr)
-        return 1
-    if inferred_te not in ALLOWED_TYPE_OF_TE:
-        print(f"ERROR: Inferred 'type_of_te'='{inferred_te}' is not one of allowed values: "
-              f"{sorted(ALLOWED_TYPE_OF_TE)}", file=sys.stderr)
-        return 1
-    cfg["type_of_te"] = inferred_te
+    if args.use_bundled_db: 
+        # Bundled DB mode: don't require tr_catalog or te_catalog
 
-    inferred_tr = _infer_tr_type_from_path(args.tr_catalog)
-    if not inferred_tr:
-        print("ERROR: Could not infer 'type_of_tr' from TR catalog path. "
-              "None of the patterns ['genome-wide','pathogenic','forensic'] were found in the path.", file=sys.stderr)
-        return 1
-    cfg["type_of_tr"] = inferred_tr
+        db_root = args.db_root
+        build = args.reference_name # "GRCh38" or "chm13v2"
+
+        # TR catalog: default is Adotto for genome-wide TR genotyping
+        if build == "GRCh38":
+            if args.tr_type == "genome-wide":
+                cfg["tr_catalog"] = str(Path(db_root) / "TRs/GRCh38/genome-wide/adotto_longTR.bed")
+            elif args.tr_type == "pathogenic":
+                cfg["tr_catalog"] = str(Path(db_root) / "TRs/GRCh38/pathogenic/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed")
+            elif args.tr_type == "forensic":
+                cfg["tr_catalog"] = str(Path(db_root) / "TRs/GRCh38/forensic/STRbase_GRCh38_STRloci_longTR.bed")
+            else:
+                print(f"ERROR: Unsupported --tr-type {args.tr_type!r} for GRCh38.", file=sys.stderr)
+                return 1
+        elif build == "chm13v2":
+            if args.tr_type == "pathogenic":
+                cfg["tr_catalog"] = str(Path(db_root) / "TRs/T2T-CHM13v2/pathogenic/STRchive-disease-loci.v2.2.1.T2T-CHM13.longTR.bed")
+            else:
+                print("ERROR: For chm13v2, only pathogenic TR catalog is available in echoDB_v1.", file=sys.stderr)
+                return 1
+        else:
+            print(f"ERROR: Unknown reference_name/build: {build!r}", file=sys.stderr)
+            return 1
+
+        # TE catalog:
+        te_base = args.te_type or "all"
+        if build == "GRCh38":
+            if te_base == "all":
+                cfg["te_catalog"] = str(Path(db_root) / "TEs/GRCh38/GRCh38_TEs_all.bed")
+            else:
+                cfg["te_catalog"] = str(Path(db_root) / f"TEs/GRCh38/TE_classes/GRCh38_TEs_{te_base}.bed")
+        elif build == "chm13v2":
+            if te_base == "all":
+                cfg["te_catalog"] = str(Path(db_root) / "TEs/T2T-CHM13v2/T2T-CHM13_TEs_all.bed")
+            else:
+                cfg["te_catalog"] = str(Path(db_root) / f"TEs/T2T-CHM13v2/TE_classes/T2T-CHM13_TEs_{te_base}.bed")
+
+        # Set types directly (no inference needed)
+        cfg["type_of_tr"] = args.tr_type
+        cfg["type_of_te"] = args.te_type or "all"
+
+        # Record bundled-db intent in config (so Snakemake can default later)
+        cfg["catalog_defaults"] = {
+            "enabled": True,
+            "db_root": db_root,
+            "build": build,
+        }
+
+    else:
+        # Manual mode: require explicit paths and keep legacy inference
+        if not args.tr_catalog or not args.te_catalog:
+            print("ERROR: Provide --tr-catalog and --te-catalog (or use --use-bundled-db).", file=sys.stderr)
+            return 1
+
+        # Infer types
+        inferred_te = _infer_te_type_from_path(args.te_catalog)
+        if not inferred_te:
+            print("ERROR: Could not infer 'type_of_te' from TE catalog filename.", file=sys.stderr)
+            return 1
+        if inferred_te not in ALLOWED_TYPE_OF_TE:
+            print(f"ERROR: Inferred 'type_of_te'='{inferred_te}' is not one of allowed values: "
+              f"{sorted(ALLOWED_TYPE_OF_TE)}", file=sys.stderr)
+            return 1
+        cfg["type_of_te"] = inferred_te
+
+        inferred_tr = _infer_tr_type_from_path(args.tr_catalog)
+        if not inferred_tr:
+            print("ERROR: Could not infer 'type_of_tr' from TR catalog path. "
+                  "None of the patterns ['genome-wide','pathogenic','forensic'] were found in the path.", file=sys.stderr)
+            return 1
+        cfg["type_of_tr"] = inferred_tr
+
+    # --- TR methylation CpG STR filtering (defaults depend on bundled vs manual mode) ---
+
+    cfg["tr_methylation"] = {}
+    cfg_cpg_bed = args.cpg_str_bed  # may be None
+
+    if args.use_bundled_db:
+        # Bundled DB: default ON unless user explicitly disables
+        cpg_filter = True if args.cpg_filter is None else bool(args.cpg_filter)
+
+        if cpg_filter:
+            if cfg_cpg_bed is None:
+                try:
+                    cfg_cpg_bed = _bundled_cpg_str_bed(args.db_root, args.reference_name)
+                except Exception as e:
+                    print(f"ERROR: CpG filtering requested but no bundled CpG STR BED available: {e}", file=sys.stderr)
+                    return 1
+            cfg["tr_methylation"]["filter_to_cpg_str"] = True
+            cfg["tr_methylation"]["cpg_str_bed"] = cfg_cpg_bed
+        else:
+            cfg["tr_methylation"]["filter_to_cpg_str"] = False
+            cfg["tr_methylation"]["cpg_str_bed"] = None
+
+    else:
+        # Manual catalogs: default OFF to avoid mismatches unless explicitly enabled
+        cpg_filter = False if args.cpg_filter is None else bool(args.cpg_filter)
+
+        if cpg_filter:
+            if cfg_cpg_bed is None:
+                print("ERROR: --cpg-filter enabled with custom TR catalogs, but --cpg-str-bed was not provided. "
+                      "Provide a CpG STR BED matched to your TR catalog, or disable filtering.", file=sys.stderr)
+                return 1
+            cfg["tr_methylation"]["filter_to_cpg_str"] = True
+            cfg["tr_methylation"]["cpg_str_bed"] = cfg_cpg_bed
+        else:
+            cfg["tr_methylation"]["filter_to_cpg_str"] = False
+            cfg["tr_methylation"]["cpg_str_bed"] = None
 
     cfg["flanking_length_bp"] = args.flanking_length_bp
     cfg["extension_repeat_consensus"] = args.extension_repeat_consensus
@@ -345,7 +464,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # template
     p_t = sub.add_parser("template", help="Write a filled-out template you can edit.")
-    p_t.add_argument("--output", required=True, help="Path to write the template YAML.")
+    p_t.add_argument("--output", required=True, help="Path and filename to write the template YAML, i.e config.yaml")
     p_t.set_defaults(func=cmd_template)
 
     # validate
@@ -355,7 +474,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     # init
     p_i = sub.add_parser("init", help="Create a config from CLI arguments.")
-    p_i.add_argument("--output", required=True, help="Where to write the YAML.")
+    p_i.add_argument("--output", required=True, help="Path and filename to write config YAML.")
 
     # samples options
     g_s = p_i.add_argument_group("Samples")
@@ -366,26 +485,45 @@ def build_parser() -> argparse.ArgumentParser:
 
     # core inputs
     g_c = p_i.add_argument_group("Core paths and references")
-    g_c.add_argument("--start-from", choices=sorted(ALLOWED_START_FROM), required=True)
-    g_c.add_argument("--input-dir", required=True)
-    g_c.add_argument("--output-dir", required=True)
-    g_c.add_argument("--reference", required=True)
-    g_c.add_argument("--reference-name", choices=sorted(ALLOWED_REFERENCE_NAME), required=True)
-    g_c.add_argument("--reference-TE", required=True, dest="reference_TE")
+    g_c.add_argument("--start-from", choices=sorted(ALLOWED_START_FROM), required=True, help="Starting point for processing <pod5|ubam|fastq|bam>. If pre-basecalled, needs to be with methylation-aware basecalling model" )
+    g_c.add_argument("--input-dir", required=True, help="Project directory for input data")
+    g_c.add_argument("--output-dir", required=True, help="Project directory for output data")
+    g_c.add_argument("--reference", required=True, help="Path to the human reference genome FASTA file")
+    g_c.add_argument("--reference-name", choices=sorted(ALLOWED_REFERENCE_NAME), default="GRCh38", help="Reference genome build <GRCh38|T2T-CHM13v2>(default: GRCh38)")
 
     # catalogs
     g_cat = p_i.add_argument_group("Catalogs")
-    g_cat.add_argument("--tr-catalog", required=True, dest="tr_catalog")
-    g_cat.add_argument("--te-catalog", required=True, dest="te_catalog")
+    g_cat.add_argument("--tr-catalog", required=False, dest="tr_catalog",
+                       help="Path to TR catalog BED (optional if using --use-bundled-db).")
+    g_cat.add_argument("--te-catalog", required=False, dest="te_catalog",
+                       help="Path to TE catalog BED (optional if using --use-bundled-db).")
+    g_cat.add_argument("--use-bundled-db", dest="use_bundled_db", action="store_true",
+                       help="Use the ECHO repeat database installed in resources (no need to pass catalog paths).")
+    g_cat.add_argument("--custom-db", dest="use_bundled_db", action="store_false",
+                       help="Do not use echoDB; require explicit --tr-catalog and --te-catalog.")
+    g_cat.set_defaults(use_bundled_db=True)
+    g_cat.add_argument("--db-root", default="resources/echoDB_v1",
+                       help="Root folder of the bundled ECHO repeat databases (default: resources/echoDB_v1).")
+    g_cat.add_argument("--tr-type", choices=sorted(ALLOWED_TYPE_OF_TR), default="genome-wide",
+                       help="ECHO TR catalog type to use with --use-bundled-db (genome-wide/pathogenic/forensic).")
+    g_cat.add_argument("--te-type", choices=sorted(ALLOWED_TYPE_OF_TE), default=all,
+                       help="ECHO TE catalog type to use with --use-bundled-db (all/LINE/SINE/...).")
+    g_cat.add_argument("--cpg-filter", dest="cpg_filter", action="store_true",
+                       help="Enable filtering to CpG-containing STR loci before TR methylation profiling.")
+    g_cat.add_argument("--no-cpg-filter", dest="cpg_filter", action="store_false",
+                       help="Disable CpG STR filtering before TR methylation profiling.")
+    g_cat.set_defaults(cpg_filter=None)  # None means choose default based on bundled/custom mode
+    g_cat.add_argument("--cpg-str-bed", dest="cpg_str_bed", default=None,
+                       help="BED file of CpG-containing STR loci to filter to (required if --cpg-filter with custom TR catalogs).")
 
     # filtering + params
     g_f = p_i.add_argument_group("Read filtering")
-    g_f.add_argument("--min-read-quality", type=int, default=7)
-    g_f.add_argument("--min-read-length", type=int, default=500)
+    g_f.add_argument("--min-read-quality", type=int, default=7, help="Minimum read quality (default: 7)")
+    g_f.add_argument("--min-read-length", type=int, default=500, help="Minimum read length (default: 500 bp)")
 
     g_p = p_i.add_argument_group("Analysis parameters")
-    g_p.add_argument("--flanking-length-bp", type=int, default=250, dest="flanking_length_bp")
-    g_p.add_argument("--extension-repeat-consensus", type=int, default=1000, dest="extension_repeat_consensus")
+    g_p.add_argument("--flanking-length-bp", type=int, default=250, dest="flanking_length_bp", help="Flanking length (bp) of repeats used for re-alignment (default: 250)")
+    g_p.add_argument("--extension-repeat-consensus", type=int, default=1000, dest="extension_repeat_consensus", help="Length (bp) of TE consensus extension (default: 1000)")
 
     p_i.set_defaults(func=cmd_init)
 
