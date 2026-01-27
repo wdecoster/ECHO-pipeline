@@ -1,0 +1,22 @@
+# Start from micromamba base (lightweight conda)
+FROM mambaorg/micromamba:1.5.8
+
+LABEL Author="Brando Poggiali" \
+      Version="v1.0" \
+      Description="Docker image for non_ref_TE_methylation_calling (ECHO pipeline)"
+
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Install exact tool versions in container using micromamba
+RUN micromamba create -y -n temeth -c conda-forge -c bioconda \
+    samtools=1.22 ont-modkit=0.5.0 bedtools=2.31 bcftools=1.22 bc gawk parallel \
+    && micromamba clean -a -y 
+
+# Add env/bin to PATH so we don’t need to activate
+ENV PATH=/opt/conda/envs/temeth/bin:$PATH
+
+WORKDIR /workspace
+ENTRYPOINT ["/usr/bin/env"]
+CMD ["bash"]
+
