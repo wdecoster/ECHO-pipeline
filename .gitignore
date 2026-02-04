@@ -28,6 +28,8 @@ profiles/brando_profile
 !profiles/slurm_profile/config.yaml
 !profiles/local_cph/
 !profiles/local_cph/config.yaml
+!docs/
+!docs/**
 
 # Ignore editor swap files
 workflow/*.swp
