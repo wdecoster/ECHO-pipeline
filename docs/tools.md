@@ -23,8 +23,8 @@
 
 **TR characterization**  
 - TR genotyping using [LongTR](https://github.com/gymrek-lab/LongTR)
-- Optional: TR locus filtering for downstream methylation anaysis (default: YES)   
-- Using a custom [script](workflow/scripts/TR-longTR-methylation_v4.sh), methylation information is incorporated for each TR allele in the VCF.
+- Optional: TR locus filtering for downstream methylation anaysis (in default mode with bundled catalogs: YES)   
+- Using a custom [script](workflow/scripts/TR-longTR-methylation.sh), methylation information is incorporated for each TR allele in the (filtered) VCF.
 - Motif decomposition using [uTR](https://github.com/morisUtokyo/uTR).
 
 **TE characterization**  
