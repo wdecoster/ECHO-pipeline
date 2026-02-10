@@ -82,7 +82,8 @@ This mode is enabled with the `--use-bundled-db` flag.
 
 Example usage:
 
-`python scripts/make_config_tiny.py init \
+```
+python scripts/make_config_tiny.py init \  
   --output config.yaml \
   --samples HG002 HG003 \
   --start-from fastq \
@@ -90,7 +91,8 @@ Example usage:
   --output-dir /path/to/project \
   --reference /path/to/GRCh38.fa \
   --reference-name GRCh38 \
-  --use-bundled-db`
+  --use-bundled-db
+```
 
 In bundled mode, the script automatically:
 
@@ -120,7 +122,8 @@ When using custom catalogs, the following arguments are **required**:
 
 Example usage:
 
-`python scripts/make_config_tiny.py init \
+```
+python scripts/make_config_tiny.py init \
   --output config.yaml \
   --samples SAMPLE1 SAMPLE2 \
   --start-from ubam \
@@ -131,7 +134,8 @@ Example usage:
   --tr-catalog /path/to/my_TRs.bed \
   --te-catalog /path/to/my_TEs.bed \
   --tr-type my_TR_label \
-  --te-type my_TE_label`
+  --te-type my_TE_label
+```
 
 The `tr-type` and `te-type` labels are used exclusively for naming output
 directories and do not affect analysis logic.
@@ -203,7 +207,7 @@ This behaviour is controlled using:
 
 CpG filtering is automatically disabled if:
 
-- a CpG-filtered TR catalog is selected (`genome-wide-str-cpg` or `genome-wide-vntr-cpg`)
+- a CpG-filtered TR catalog is selected for genotyping (`genome-wide-str-cpg` or `genome-wide-vntr-cpg`)
 - an incompatible bundled TR type is selected (e.g. `pathogenic` or `forensic`)
 
 A warning is printed when this occurs.

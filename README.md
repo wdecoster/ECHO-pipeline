@@ -32,6 +32,8 @@ For more information on all the tools used, see [`docs/tools.md`](docs/tools.md)
 
 ## SETTING UP THE PIPELINE
 
+--
+
 ### Installation
   
 To install the ECHO pipline, use:
@@ -40,6 +42,8 @@ git clone https://github.com/leenput/repeatome_pipeline.git # clone the reposito
 cd repeatome_pipeline
 bash scripts/download_repeat_catalogs.sh # download the repeat catalogs in current directory
 ```
+
+---
   
 ### **Prepare input files**  
 To run the pipeline, ONT input files must be in one of the following formats:  
@@ -50,6 +54,7 @@ To run the pipeline, ONT input files must be in one of the following formats:
 | `.ubam` | Pre-basecalled, unaligned data (dorado, methylation-aware model: sup,5mCG\_5hmCG) |
 | `.bam`  | Pre-basecalled (dorado) + aligned ONT data (aligned to GRCh38 or T2T-CHM13v2)              |
 
+---
 
 ### Project directory structure
 
@@ -92,6 +97,7 @@ Depending on start point of the pipeline, ensure that your input files are store
 
 Replace `{project_name}` and `{sample_name}` with your actual project and sample identifiers.
   
+---
 
 ### Set up configuration file
 
@@ -123,6 +129,38 @@ python scripts/make_config_tiny.py init \
 
 📄 For full configuration details and advanced usage, see  
 [`docs/configuration.md`](docs/configuration.md)
+
+#### Default behaviour (bundled database mode)
+
+When using the configuration script with `--use-bundled-db`, ECHO applies the
+following defaults unless explicitly overridden:
+
+**Reference build**
+- Uses the reference specified by `--reference-name` (`GRCh38` or `T2T-CHM13v2`)
+
+**Tandem repeats (TRs)**
+- Default TR catalog: genome-wide Adotto longTR catalog
+- TR type: `genome-wide`
+- For TR methylation analysis, results are restricted to canonical STRs
+  containing CpG sites (CpG filtering enabled)
+
+**Transposable elements (TEs)**
+- Default TE catalog: genome-wide TE annotation (`all` classes)
+- Derived from UCSC RepeatMasker
+
+**Read filtering**
+- Minimum read quality: 7
+- Minimum read length: 500 bp
+
+**Analysis parameters**
+- Flanking region length: 250 bp
+- Repeat consensus extension: 1000 bp
+
+These defaults are chosen to provide a **sensitive, genome-wide analysis**
+while keeping computational requirements manageable.
+All defaults can be modified via the configuration script.
+
+---
 
 ### Configure the execution profile
 
@@ -187,18 +225,20 @@ ADD
 
 ---
 
-## Repeat catalogs
+## REPEAT CATALOGS
  
 For a detailed description of the repeat catalogs bundled with ECHO, or how to use custom catalogs, see  
 📄 [`docs/repeat_catalogs.md`](docs/repeat_catalogs.md)
 
+---
 
-## Output files 
+## OUTPUT FILES 
 
 In your project folder, numerous output files are provided, with the most important ones explained [here](docs/output.md)
 
+---
 
-## Test data
+## TEST DATA
 
 ADD
 
@@ -210,4 +250,5 @@ ADD
 ---
 
 ## QUESTIONS?
+
 Please leave any feedback, issue or question on the [Issues section](https://github.com/leenput/repeatome_pipeline/issues).   
