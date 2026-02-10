@@ -69,43 +69,84 @@ projectID/
 ├── logs/
 ```
 
-Depending on start point of the pipeline, ensure that your input files are stored in the following data structures (paths are tailored to usage on our Abacus HPC system):
+Depending on start point of the pipeline, ensure that your input files are stored in the following data structures:
 
 - `pod5`:   
 
 ```
-/ifs/data/research/unique/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5>
+/path/to/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5>
 ```
 
 - `ubam`:  
 
 ```
-/ifs/data/research/unique/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>
+/path/to/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>
 ```
 
 - `bam` (with index `.bai`):  
 
 ```
-/ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam>
-/ifs/data/research/unique/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam.bai>
+/path/to/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam>
+/path/to/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam.bai>
 ```
 
 Replace `{project_name}` and `{sample_name}` with your actual project and sample identifiers.
   
 
 ### Set up configuration file
-Before running the pipeline, you need to create a `config.yaml` file that includes the following:
 
-- Sample ID
+Before running the pipeline, you must generate a `config.yaml` file.
+This is done using the provided helper script `make_config_tiny.py`,
+which creates and validates a Snakemake configuration for ECHO.
+
+The configuration defines:
+- Sample IDs
 - Input format (`.pod5`, `.ubam`, or `.bam`)
-- project input directory (*format: /ifs/data/research/unique/projects/projectID*)  
-- project output directory (preferably the same of input directory)
-- reference genome path (path to GRCh38 or T2T-CHM13v2 fasta file) 
-- TE catalog path 
-- TR catalog path
-- length of flanking regions for TE and TR analysis
+- Project input and output directories
+- Reference genome (GRCh38 or T2T-CHM13v2)
+- TR and TE catalogs
+- Key analysis parameters (e.g. flanking length, read filters)  
 
-*Note: an example `config.yaml` file is provided in profiles/slurm_profile/. You can create your own slurm profile directory in profiles/ and copy the config.yaml there an customize it for your own analysis.*
+A minimal configuration using the bundled ECHO repeat catalogs **defaults** can be generated automatically:
+
+```bash
+python scripts/make_config_tiny.py init \
+  --output configs/<config-name>.yaml \
+  --samples SAMPLE1 SAMPLE2 \
+  --start-from ubam \
+  --input-dir /path/to/project \
+  --output-dir /path/to/project \
+  --reference /path/to/GRCh38.fa \
+  --reference-name GRCh38
+```
+
+📄 For full configuration details and advanced usage, see  
+[`docs/configuration.md`](docs/configuration.md)
+
+### Configure the execution profile
+
+ECHO is executed using a Snakemake *profile*, which defines how jobs are submitted
+to the compute environment (e.g. SLURM settings, partitions, resources).
+
+After generating `<config-name>.yaml`, you must update the profile configuration so that:  
+1. the profile points to the generated `config.yaml`  
+2. cluster-specific settings match your local compute infrastructure  
+
+#### Point the profile to your config.yaml
+
+In the profile directory (e.g. `profiles/slurm_profile/`), edit `config.yaml`
+so that it references the configuration file you generated:
+
+```yaml
+configfile: /full/path/to/your/<config-name>.yaml
+```
+
+#### Adjust cluster-specific settings
+In the same profile config, you should adapt cluster-specific settings to match your available  
+computational infrastructure, including:  
+- singularity bind mounts to the project folder 
+- partition or queue names  
+- default memory or runtime limits  
 
 ---
 
@@ -113,7 +154,7 @@ Before running the pipeline, you need to create a `config.yaml` file that includ
   
 ### *Abacus* HPC environment
 
-In abacus, first load the required Conda and Singularity environments:
+In Abacus, first load the required Conda and Singularity environments:
 
 ```bash
 module load bioinf/conda
@@ -121,37 +162,49 @@ module load bioinf/conda
 conda activate /ifs/software/research/unique/leena/conda-envs/snakemake_env_v9  # contains snakemake v9.13.4
 module load bioinf/singularity
 ```
+And then launch it:
+```bash
+snakemake -s workflow/snakefile --profile profiles/slurm_profile
+```
 
 ### *Other* HPC environment
-For other HPC systems, ensure that the following are installed and available in your environment:
+Ensure the following are installed and available in your environment:
 
 - Conda (version ≥23.3, tested on 23.10.0)
 - Singularity (version ≥3.7 and <4.0, tested on 3.7.0)
 - Snakemake (version ≥7.0 and <9.0, tested on 7.32.4)
- 
-### Launch the pipeline
-  
-Finally, to launch the pipeline, use the following command:
+   
+To launch the pipeline, use the following command:
 
 ```bash
 snakemake -s workflow/snakefile --profile profiles/slurm_profile 
 ```
 
+### *Local* execution
+
+ADD
+
 ---
-## REPEAT CATALOGS
-For a detailed description of the repeat catalogs bundled with ECHO, see  
+
+## Repeat catalogs
+ 
+For a detailed description of the repeat catalogs bundled with ECHO, or how to use custom catalogs, see  
 📄 [`docs/repeat_catalogs.md`](docs/repeat_catalogs.md)
 
 
----
-## OUTPUT
+## Output files 
 
 In your project folder, numerous output files are provided, with the most important ones explained [here](docs/output.md)
+
+
+## Test data
+
+ADD
 
 ---
 ## CITATION
 
-TBD
+ADD
 
 ---
 
