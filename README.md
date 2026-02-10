@@ -130,35 +130,27 @@ python scripts/make_config_tiny.py init \
 📄 For full configuration details and advanced usage, see  
 [`docs/configuration.md`](docs/configuration.md)
 
+
 #### Default behaviour (bundled database mode)
 
 When using the configuration script with `--use-bundled-db`, ECHO applies the
 following defaults unless explicitly overridden:
 
-**Reference build**
-- Uses the reference specified by `--reference-name` (`GRCh38` or `T2T-CHM13v2`)
-
-**Tandem repeats (TRs)**
-- Default TR catalog: genome-wide Adotto longTR catalog
-- TR type: `genome-wide`
-- For TR methylation analysis, results are restricted to canonical STRs
-  containing CpG sites (CpG filtering enabled)
-
-**Transposable elements (TEs)**
-- Default TE catalog: genome-wide TE annotation (`all` classes)
-- Derived from UCSC RepeatMasker
-
-**Read filtering**
-- Minimum read quality: 7
-- Minimum read length: 500 bp
-
-**Analysis parameters**
-- Flanking region length: 250 bp
-- Repeat consensus extension: 1000 bp
+| Category | Setting | Default value | Notes |
+|--------|--------|---------------|-------|
+| Reference | Reference build | As specified by `--reference-name` | `GRCh38` or `T2T-CHM13v2` |
+| TR analysis | TR catalog | Adotto genome-wide longTR | Sensitive, genome-wide TR catalog |
+| TR analysis | TR type | `genome-wide` | Used for output folder naming |
+| TR methylation | CpG filtering | Enabled | Restricts analysis to canonical STRs containing CpGs |
+| TE analysis | TE catalog | Genome-wide (`all`) | All TE classes from UCSC RepeatMasker |
+| Read filtering | Minimum read quality | 7 | Applied to FASTQ/UBAM inputs |
+| Read filtering | Minimum read length | 500 bp | Shorter reads are discarded |
+| Analysis | Flanking region length | 250 bp | Used for TR and TE analyses |
+| Analysis | Repeat consensus extension | 1000 bp | Extension for repeat consensus building |
 
 These defaults are chosen to provide a **sensitive, genome-wide analysis**
 while keeping computational requirements manageable.
-All defaults can be modified via the configuration script.
+All defaults can be modified via the configuration script, see [here](docs/configuration.md).
 
 ---
 
