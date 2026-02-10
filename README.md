@@ -179,6 +179,12 @@ snakemake -s workflow/snakefile --profile profiles/slurm_profile
 ```
 
 ---
+## REPEAT CATALOGS
+For a detailed description of the repeat catalogs bundled with ECHO, see  
+📄 [`docs/repeat_catalogs.md`](docs/repeat_catalogs.md)
+
+
+---
 ## OUTPUT
 
 In your project folder, numerous output files are provided, with the most important ones explained [here](docs/output.md)
