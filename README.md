@@ -117,7 +117,8 @@ python scripts/make_config_tiny.py init \
   --input-dir /path/to/project \
   --output-dir /path/to/project \
   --reference /path/to/GRCh38.fa \
-  --reference-name GRCh38
+  --reference-name GRCh38 \
+  --use-bundled-db
 ```
 
 📄 For full configuration details and advanced usage, see  
