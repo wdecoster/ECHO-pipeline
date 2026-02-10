@@ -4,14 +4,13 @@
 ## TABLE OF CONTENTS
 - [Introduction](#introduction)
 - [Pipeline overview](#pipeline-overview)
-- [Repeat catalogs](#repeat-catalogs)
 - [Setting up](#setting-up-the-pipeline)
   - [Installation](#installation)
   - [Input Files](#prepare-input-files)
   - [Directory Structure](#project-directory-structure)
   - [Configuration](#set-up-configuration-file)
 - [Running the pipeline](#running-the-pipeline)
-- [Outputs](#outputs)
+- [Citation](#citation)
 - [Questions](#questions)
 
 ## INTRODUCTION
@@ -25,49 +24,9 @@ Here we introduce **ECHO**, a comprehensive [Snakemake](https://snakemake.readth
 
 ## PIPELINE OVERVIEW
 ### **Schematic overview**
-![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/blob/a607e743ae1e6a5f04cc4b91df79611345c5e504/DAG-pipeline.jpg)
----
+![Pipeline schematic](https://github.com/leenput/repeatome_pipeline/)
 
-## REPEAT CATALOGS
-The ECHO pipeline includes multiple repeat catalogs specifically designed to capture the repetitive elements of interest, both tandem repeats (TRs) and transposable elements (TEs), for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [zenodo repository](https://zenodo.org/records/16925640), are compiled from published resources and adapted to ensure compatibility with the pipeline. They define the genomic loci where genotyping and/or methylation profiling is performed, enabling analysis of the human repeatome. 
-
-### Tandem repeats
-For tandem repeat (TR) analysis, catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format:
-```bash
-chr  start  end  TRmotif  TR_ID
-```
-
-The following catalogs are provided with the pipeline:
-- **STRs associated with human diseases**:
-    - 73 loci
-    - available for GRCh38 and T2T-CHM13v2
-    - based on [STRchive](https://strchive.org/loci/) (v2.2.1)
-- **forensically relevant STRs**:
-    - 77 loci
-    - available for GRCh38
-    - based on [STRbase](https://strbase.nist.gov/Loci) (v2.0)
-- **genome-wide TR panel**:
-    - 1,177,430 loci
-    - available for GRCh38
-    - derived from ~1.8M TRs in the [project adotto catalog v1.2.1](https://zenodo.org/records/13987414), released as part of the GIAB tandem repeat benchmark variant set ([English et al. 2025](https://www.nature.com/articles/s41587-024-02225-z)). This panel was filtered to remove homopolymers, repeats with motif lengths >100 bp (STRs and VNTRs), and regions containing multiple overlapping TRs, which cannot be robustly evaluated with Truvari (inspired by approach of [Loughleed et al., 2025](https://www.biorxiv.org/content/10.1101/2025.03.25.645269v1.full).
-- **STRs with CpG sites in their repeat motif (1-6 bp)**:
-    - 7,394 loci
-    - available for GRCh38
-    - derived from the genome-wide panel above with additional filtering for TRs with motif lengths < 7bp and the occurence of CpG sites in their motifs 
-
-### Transposable elements
-TE catalogues are derived from RepeatMasker annotations, which were obtained from the UCSC Genome Browser:  
-
-- **GRCh38**: [hg38.fa.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.fa.out.gz)  
-- **T2T-CHM13v2**: [hs1.repeatMasker.out.gz](https://hgdownload.soe.ucsc.edu/goldenPath/hs1/bigZips/hs1.repeatMasker.out.gz)  
-
-The RepeatMasker (RM) outputs were filtered to retain only bona fide TEs and uncertain classifications (entries containing “?”) were removed from the panel.
-
-ECHO can be configured to use different TE catalogs depending on the user's choice:  
-- class-specific catalogs for **DNA transposons, RC/Helitrons, LINEs, SINEs, LTR retrotransposons, and SVAs**, based on the RM classification.
-- a **genome-wide TE catalog** covering all annotated TEs,  
-
-In addition, we provide the file `reref.ont.human.fa`, a FASTA reference used by the TLDR tool to annotate the most relevant TE families in the human genome.
+For more information on all the tools used, see [`docs/tools.md`](docs/tools.md). 
 
 ---
 
@@ -188,6 +147,11 @@ For a detailed description of the repeat catalogs bundled with ECHO, see
 ## OUTPUT
 
 In your project folder, numerous output files are provided, with the most important ones explained [here](docs/output.md)
+
+---
+## CITATION
+
+TBD
 
 ---
 
