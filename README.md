@@ -36,7 +36,7 @@ For more information on all the tools used, see [`docs/tools.md`](docs/tools.md)
 
 ### Installation
   
-To install the ECHO pipline, use:
+To install the ECHO pipeline, use:
 ```bash
 git clone https://github.com/leenput/repeatome_pipeline.git # clone the repository
 cd repeatome_pipeline
