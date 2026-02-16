@@ -46,7 +46,7 @@ bash scripts/download_repeat_catalogs.sh # download the repeat catalogs in curre
 ---
   
 ### **Prepare input files**  
-To run the pipeline, ONT input files must be in one of the following formats:  
+To run the pipeline, ECHO accepts input files in one of the following formats:
 
 | Format  | Description                                                                       |
 | ------- | --------------------------------------------------------------------------------- |
