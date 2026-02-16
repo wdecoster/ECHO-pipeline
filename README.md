@@ -52,6 +52,7 @@ To run the pipeline, ONT input files must be in one of the following formats:
 | ------- | --------------------------------------------------------------------------------- |
 | `.pod5` | Raw signal-level data (GPU required for basecalling)                              |
 | `.ubam` | Pre-basecalled, unaligned data (dorado, methylation-aware model: sup,5mCG\_5hmCG) |
+| `.fastq` | Basecalled ONT reads, generated using a methylation-aware basecaller (dorado, methylation-aware model: sup,5mCG\_5hmCG) |
 | `.bam`  | Pre-basecalled (dorado) + aligned ONT data (aligned to GRCh38 or T2T-CHM13v2)              |
 
 ---
