@@ -60,7 +60,7 @@ To run the pipeline, ECHO accepts input files in one of the below formats. The c
 
 ---
 
-## ⚙️ Set up configuration files
+### ⚙️ Set up configuration files
 
 This pipeline uses **two independent configuration layers**:
 
@@ -73,7 +73,7 @@ This pipeline uses **two independent configuration layers**:
 
 ---
 
-### 1. Workflow configuration
+#### 1. Workflow configuration
 
 Before running the pipeline, you must generate a **run-specific workflow configuration file** (`config.yaml`) for your analysis.
 
@@ -87,7 +87,7 @@ The configuration defines:
 - TR and TE catalogs
 - Key analysis parameters (e.g. flanking length, read filters)
 
-#### Generating a minimal configuration
+##### Generating a minimal configuration
 
 To quickly get started using the bundled ECHO repeat catalogs and sensible defaults, run:
 
@@ -105,7 +105,7 @@ python scripts/make_config_tiny.py init \
 
 > 📄 For full configuration details and advanced usage, see [`docs/configuration.md`](docs/configuration.md)
 
-#### Default settings (`--use-bundled-db` mode)
+##### Default settings (`--use-bundled-db` mode)
 
 When `--use-bundled-db` is specified, ECHO applies the following defaults unless you explicitly override them:
 
@@ -125,7 +125,7 @@ These defaults are designed to provide a **sensitive, genome-wide analysis** whi
 
 ---
 
-### 2. Execution profile
+#### 2. Execution profile
 
 The execution profile controls **how Snakemake submits and manages jobs** on your compute environment (e.g. SLURM partitions, memory limits, scheduler settings). Pre-configured example profiles are provided in the `profiles/` directory.
 
@@ -140,7 +140,7 @@ Choose the profile that matches your environment:
 
 Once you have chosen a profile, you need to make two changes:
 
-#### Step 1 — Point the profile to your workflow config
+##### Step 1 — Point the profile to your workflow config
 
 Open `profiles/<your-profile>/config.yaml` and set the path to the workflow configuration file you generated in the previous step:
 
@@ -148,7 +148,7 @@ Open `profiles/<your-profile>/config.yaml` and set the path to the workflow conf
 configfile: /full/path/to/your/<config-name>.yaml
 ​```
 
-#### Step 2 — Adjust cluster-specific settings
+##### Step 2 — Adjust cluster-specific settings
 
 In the same profile `config.yaml`, adapt the settings to match your compute infrastructure. Key things to check:
 
