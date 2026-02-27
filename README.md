@@ -144,7 +144,7 @@ Once you have chosen a profile, you need to make two changes:
 
 Open `profiles/<your-profile>/config.yaml` and set the path to the workflow configuration file you generated in the previous step:
 
-​```yaml
+​```
 configfile: /full/path/to/your/<config-name>.yaml
 ​```
 
@@ -153,7 +153,6 @@ configfile: /full/path/to/your/<config-name>.yaml
 In the same profile `config.yaml`, adapt the settings to match your compute infrastructure. Key things to check:
 
 - **Singularity bind mounts** — ensure the project folder is accessible inside the container
-- **Partition or queue names** — update to match the queues available on your cluster
 - **Default memory and runtime limits** — adjust to fit typical job requirements
 
 ---
