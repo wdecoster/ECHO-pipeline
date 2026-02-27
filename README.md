@@ -32,7 +32,10 @@ For more information on all the tools used, see [`docs/tools.md`](docs/tools.md)
 
 ## SETTING UP THE PIPELINE
 
---
+Ensure the following are installed and available in your environment:
+
+- Singularity (version ≥3.7 and <4.0, tested on 3.7.0)
+- Snakemake (version ≥9.0, tested on 9.13.14)
 
 ### Installation
   
@@ -46,77 +49,49 @@ bash scripts/download_repeat_catalogs.sh # download the repeat catalogs in curre
 ---
   
 ### **Prepare input files**  
-To run the pipeline, ECHO accepts input files in one of the following formats:
+To run the pipeline, ECHO accepts input files in one of the below formats. The chosen starting file format should be stored in a predefined directory in order to be detected by the pipeline. Based on your chosen starting file format, store it in the following path:
 
-| Format  | Description                                                                       |
+| Format  | Starting Directory                                                                    |
 | ------- | --------------------------------------------------------------------------------- |
-| `.pod5` | Raw signal-level data (GPU required for basecalling)                              |
-| `.ubam` | Pre-basecalled, unaligned data (dorado, methylation-aware model: sup,5mCG\_5hmCG) |
-| `.fastq` | Basecalled ONT reads, generated using a methylation-aware basecaller (dorado, methylation-aware model: sup,5mCG\_5hmCG) |
-| `.bam`  | Pre-basecalled (dorado) + aligned ONT data (aligned to GRCh38 or T2T-CHM13v2)              |
+| `.pod5` | /path/to/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5> |
+| `.ubam` | /path/to/projects/{project_name}/test_config/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>  |
+| `.fastq` | /path/to/projects/{project_name}/00_raw_data/basecalled/fastq/{sample_name}/<your-file.fastq> |
+| `.bam` (with index `.bai`)  | /path/to/projects/{project_name}/01_alignment/{sample_name}/GRCh38/<your-file.bam> and /path/to/projects/{project_name}/01_alignment/{sample_name}/GRCh38/<your-file.bam.bai> |
 
 ---
 
-### Project directory structure
+## ⚙️ Set up configuration files
 
-The project directory will be organized in the following way:
-```
-projectID/                        
-├── 00_raw_data/                  
-├── 01_alignment/             
-├── 02_variant_calling/      
-├── 03_phasing/              
-├── 04_methylation_calling/
-├── 05_non_ref_TE_calling/
-├── 06_TR_calling/
-├── 07_TR_methylation_calling/
-├── 08_TE_methylation_calling/
-├── qc/
-├── logs/
-```
+This pipeline uses **two independent configuration layers**:
 
-Depending on start point of the pipeline, ensure that your input files are stored in the following data structures:
+| Layer | File | Purpose |
+|---|---|---|
+| **Workflow configuration** | `config/config.yaml` | Defines *what* to analyse (inputs, parameters, references) |
+| **Execution profile** | `profiles/*/config.yaml` | Defines *how* to run the pipeline (local or HPC, resources, scheduler) |
 
-- `pod5`:   
+> ✏️ **Only the workflow configuration (`config/config.yaml`) needs to be modified for each run.**
 
-```
-/path/to/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5>
-```
-
-- `ubam`:  
-
-```
-/path/to/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>
-```
-
-- `bam` (with index `.bai`):  
-
-```
-/path/to/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam>
-/path/to/projects/{project_name}/01_alignment/{sample_name}/<your-file.bam.bai>
-```
-
-Replace `{project_name}` and `{sample_name}` with your actual project and sample identifiers.
-  
 ---
 
-### Set up configuration file
+### 1. Workflow configuration
 
-Before running the pipeline, you must generate a `config.yaml` file.
-This is done using the provided helper script `make_config_tiny.py`,
-which creates and validates a Snakemake configuration for ECHO.
+Before running the pipeline, you must generate a **run-specific workflow configuration file** (`config.yaml`) for your analysis.
+
+Rather than editing this file by hand, it is **generated and validated** using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
 The configuration defines:
 - Sample IDs
 - Input format (`.pod5`, `.ubam`, or `.bam`)
 - Project input and output directories
-- Reference genome (GRCh38 or T2T-CHM13v2)
+- Reference genome (`GRCh38` or `T2T-CHM13v2`)
 - TR and TE catalogs
-- Key analysis parameters (e.g. flanking length, read filters)  
+- Key analysis parameters (e.g. flanking length, read filters)
 
-A minimal configuration using the bundled ECHO repeat catalogs **defaults** can be generated automatically:
+#### Generating a minimal configuration
 
-```bash
+To quickly get started using the bundled ECHO repeat catalogs and sensible defaults, run:
+
+​```bash
 python scripts/make_config_tiny.py init \
   --output configs/<config-name>.yaml \
   --samples SAMPLE1 SAMPLE2 \
@@ -126,19 +101,16 @@ python scripts/make_config_tiny.py init \
   --reference /path/to/GRCh38.fa \
   --reference-name GRCh38 \
   --use-bundled-db
-```
+​```
 
-📄 For full configuration details and advanced usage, see  
-[`docs/configuration.md`](docs/configuration.md)
+> 📄 For full configuration details and advanced usage, see [`docs/configuration.md`](docs/configuration.md)
 
+#### Default settings (`--use-bundled-db` mode)
 
-#### Default behaviour (bundled database mode)
-
-When using the configuration script with `--use-bundled-db`, ECHO applies the
-following defaults unless explicitly overridden:
+When `--use-bundled-db` is specified, ECHO applies the following defaults unless you explicitly override them:
 
 | Category | Setting | Default value | Notes |
-|--------|--------|---------------|-------|
+|---|---|---|---|
 | Reference | Reference build | As specified by `--reference-name` | `GRCh38` or `T2T-CHM13v2` |
 | TR analysis | TR catalog | Adotto genome-wide longTR | Sensitive, genome-wide TR catalog |
 | TR analysis | TR type | `genome-wide` | Used for output folder naming |
@@ -149,36 +121,40 @@ following defaults unless explicitly overridden:
 | Analysis | Flanking region length | 250 bp | Used for TR and TE analyses |
 | Analysis | Repeat consensus extension | 1000 bp | Extension for repeat consensus building |
 
-These defaults are chosen to provide a **sensitive, genome-wide analysis**
-while keeping computational requirements manageable.
-All defaults can be modified via the configuration script, see [here](docs/configuration.md).
+These defaults are designed to provide a **sensitive, genome-wide analysis** while keeping computational requirements manageable. All defaults can be overridden — see [`docs/configuration.md`](docs/configuration.md) for details.
 
 ---
 
-### Configure the execution profile
+### 2. Execution profile
 
-ECHO is executed using a Snakemake *profile*, which defines how jobs are submitted
-to the compute environment (e.g. SLURM settings, partitions, resources).
+The execution profile controls **how Snakemake submits and manages jobs** on your compute environment (e.g. SLURM partitions, memory limits, scheduler settings). Pre-configured example profiles are provided in the `profiles/` directory.
 
-After generating `<config-name>.yaml`, you must update the profile configuration so that:  
-1. the profile points to the generated `config.yaml`  
-2. cluster-specific settings match your local compute infrastructure  
+Choose the profile that matches your environment:
 
-#### Point the profile to your config.yaml
+| Environment | Profile directory |
+|---|---|
+| HPC cluster (SLURM) | `profiles/slurm_profile/` |
+| Local / non-HPC | `profiles/local_cph/` |
 
-In the profile directory (e.g. `profiles/slurm_profile/`), edit `config.yaml`
-so that it references the configuration file you generated:
+> If you use a different scheduler (e.g. PBS, LSF), use the SLURM profile as a starting point and adapt the submission settings accordingly.
 
-```yaml
+Once you have chosen a profile, you need to make two changes:
+
+#### Step 1 — Point the profile to your workflow config
+
+Open `profiles/<your-profile>/config.yaml` and set the path to the workflow configuration file you generated in the previous step:
+
+​```yaml
 configfile: /full/path/to/your/<config-name>.yaml
-```
+​```
 
-#### Adjust cluster-specific settings
-In the same profile config, you should adapt cluster-specific settings to match your available  
-computational infrastructure, including:  
-- singularity bind mounts to the project folder 
-- partition or queue names  
-- default memory or runtime limits  
+#### Step 2 — Adjust cluster-specific settings
+
+In the same profile `config.yaml`, adapt the settings to match your compute infrastructure. Key things to check:
+
+- **Singularity bind mounts** — ensure the project folder is accessible inside the container
+- **Partition or queue names** — update to match the queues available on your cluster
+- **Default memory and runtime limits** — adjust to fit typical job requirements
 
 ---
 
