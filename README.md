@@ -91,16 +91,17 @@ The configuration defines:
 
 To quickly get started using the bundled ECHO repeat catalogs and sensible defaults, run:
 
-​```python scripts/make_config_tiny.py init \
---output configs/<config-name>.yaml \
---samples SAMPLE1 SAMPLE2 \
---start-from ubam \
---input-dir /path/to/project \
---output-dir /path/to/project \
---reference /path/to/GRCh38.fa \
---reference-name GRCh38 \
---use-bundled-db
-​```
+```bash
+python scripts/make_config_tiny.py init \
+  --output configs/<config-name>.yaml \
+  --samples SAMPLE1 SAMPLE2 \
+  --start-from ubam \
+  --input-dir /path/to/project \
+  --output-dir /path/to/project \
+  --reference /path/to/GRCh38.fa \
+  --reference-name GRCh38 \
+  --use-bundled-db
+```
 
 > 📄 For full configuration details and advanced usage, see [`docs/configuration.md`](docs/configuration.md)
 
