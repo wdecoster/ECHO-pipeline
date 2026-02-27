@@ -7,7 +7,7 @@
 - [Setting up](#setting-up-the-pipeline)
   - [Installation](#installation)
   - [Input Files](#prepare-input-files)
-  - [Directory Structure](#project-directory-structure)
+  - [Set up configuration files](#Set-up-configuration-files)
   - [Configuration](#set-up-configuration-file)
 - [Running the pipeline](#running-the-pipeline)
 - [Citation](#citation)
@@ -75,7 +75,7 @@ This pipeline uses **two independent configuration layers**:
 
 #### 1. Workflow configuration
 
-Before running the pipeline, you must generate a **run-specific workflow configuration file** (`config.yaml`) for your analysis.
+Before running the pipeline, you must generate a **run-specific workflow configuration file** (`configs/config.yaml`) for your analysis.
 
 Rather than editing this file by hand, it is **generated and validated** using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
@@ -91,16 +91,15 @@ The configuration defines:
 
 To quickly get started using the bundled ECHO repeat catalogs and sensible defaults, run:
 
-​```bash
-python scripts/make_config_tiny.py init \
-  --output configs/<config-name>.yaml \
-  --samples SAMPLE1 SAMPLE2 \
-  --start-from ubam \
-  --input-dir /path/to/project \
-  --output-dir /path/to/project \
-  --reference /path/to/GRCh38.fa \
-  --reference-name GRCh38 \
-  --use-bundled-db
+​```python scripts/make_config_tiny.py init \
+--output configs/<config-name>.yaml \
+--samples SAMPLE1 SAMPLE2 \
+--start-from ubam \
+--input-dir /path/to/project \
+--output-dir /path/to/project \
+--reference /path/to/GRCh38.fa \
+--reference-name GRCh38 \
+--use-bundled-db
 ​```
 
 > 📄 For full configuration details and advanced usage, see [`docs/configuration.md`](docs/configuration.md)
