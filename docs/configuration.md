@@ -16,7 +16,7 @@ Pipeline configuration in ECHO consists of two components:
    Defines samples, input/output locations, reference genome, repeat catalogs,
    and analysis parameters.
 
-2. A **Snakemake execution profile**  (`profiles/config.yaml`)
+2. A **Snakemake execution profile**  (`profiles/*/config.yaml`)
    Defines how jobs are submitted to the compute environment (scheduler, resources,
    Singularity settings).
 
