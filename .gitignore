@@ -24,10 +24,10 @@ profiles/brando_profile
 !configs/config.yaml
 !configs/config_local.yaml
 !profiles/
-!profiles/slurm_profile/
-!profiles/slurm_profile/config.yaml
-!profiles/local/
-!profiles/local/config.yaml
+!profiles/HPC_profile/
+!profiles/HPC_profile/config.yaml
+!profiles/local_profile/
+!profiles/local_profile/config.yaml
 !docs/
 !docs/**
 
