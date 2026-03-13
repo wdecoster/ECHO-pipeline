@@ -62,20 +62,20 @@ To run the pipeline, ECHO accepts input files in one of the below formats. The c
 
 ### ⚙️ Set up configuration files
 
-This pipeline uses **two independent configuration layers**:
+ECHO uses **two independent configuration layers**:
 
 | Layer | File | Purpose |
 |---|---|---|
-| **Workflow configuration** | `config/pipeline_config.yaml` | Defines *what* to analyse (inputs, parameters, references) |
-| **Execution profile** | `profiles/*/config.yaml` | Defines *how* to run the pipeline (local or HPC, resources, scheduler) |
+| **Pipeline configuration** | `config/pipeline_config.yaml` | Defines *what* to analyse in the pipeline (inputs, parameters, references) |
+| **Execution profile** | `profiles/*/config.yaml` | Defines *how* to run the pipeline on your system (local or HPC, resources, scheduler) |
 
-> ✏️ **Only the workflow configuration (`config/pipeline_config.yaml`) needs to be modified for each project.**
+> ✏️ **Only the pipeline configuration (`config/pipeline_config.yaml`) needs to be modified for each project.**
 
 ---
 
-#### 1. Workflow configuration
+#### 1. Pipeline configuration
 
-Before running the pipeline, you must generate a **project-specific workflow configuration file** (`configs/pipeline_config.yaml`) for your analysis.
+Before running the pipeline, you must generate a **project-specific pipeline configuration file** (`configs/pipeline_config.yaml`) for your analysis.
 
 Rather than editing this file by hand, it is **generated and validated** using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
@@ -167,9 +167,7 @@ In the same profile `config.yaml`, adapt the settings to match your compute infr
 
 ## RUNNING THE PIPELINE
   
-### HPC or local environments
-
-Run the workflow from the root directory of the repository:
+Run the workflow from the root directory of the repository (both in HPC or local environments):
 
 ```bash
 snakemake --snakefile workflow/Snakefile --profile profiles/HPC_profile
