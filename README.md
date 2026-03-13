@@ -66,7 +66,7 @@ ECHO uses **two independent configuration layers**:
 
 | Layer | File | Purpose |
 |---|---|---|
-| **Pipeline configuration** | `config/pipeline_config.yaml` | Defines *what* to analyse in the pipeline (inputs, parameters, references) |
+| **Pipeline configuration** | `configs/pipeline_config.yaml` | Defines *what* to analyse in the pipeline (inputs, parameters, references) |
 | **Execution profile** | `profiles/*/config.yaml` | Defines *how* to run the pipeline on your system (local or HPC, resources, scheduler) |
 
 > ✏️ **Only the pipeline configuration (`config/pipeline_config.yaml`) needs to be modified for each project.**
