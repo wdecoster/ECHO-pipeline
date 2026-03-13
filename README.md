@@ -54,7 +54,7 @@ To run the pipeline, ECHO accepts input files in one of the below formats. The c
 | Format  | Starting Directory                                                                    |
 | ------- | --------------------------------------------------------------------------------- |
 | `.pod5` | /path/to/projects/{project_name}/00_raw_data/pod5/{sample_name}/<your-file.pod5> |
-| `.ubam` | /path/to/projects/{project_name}/test_config/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>  |
+| `.ubam` | /path/to/projects/{project_name}/00_raw_data/basecalled/ubam/{sample_name}/<your-file.bam>  |
 | `.fastq` | /path/to/projects/{project_name}/00_raw_data/basecalled/fastq/{sample_name}/<your-file.fastq> |
 | `.bam` (with index `.bai`)  | /path/to/projects/{project_name}/01_alignment/{sample_name}/GRCh38/<your-file.bam> and /path/to/projects/{project_name}/01_alignment/{sample_name}/GRCh38/<your-file.bam.bai> |
 
@@ -66,16 +66,16 @@ This pipeline uses **two independent configuration layers**:
 
 | Layer | File | Purpose |
 |---|---|---|
-| **Workflow configuration** | `config/config.yaml` | Defines *what* to analyse (inputs, parameters, references) |
+| **Workflow configuration** | `config/pipeline_config.yaml` | Defines *what* to analyse (inputs, parameters, references) |
 | **Execution profile** | `profiles/*/config.yaml` | Defines *how* to run the pipeline (local or HPC, resources, scheduler) |
 
-> ✏️ **Only the workflow configuration (`config/config.yaml`) needs to be modified for each run.**
+> ✏️ **Only the workflow configuration (`config/pipeline_config.yaml`) needs to be modified for each project.**
 
 ---
 
 #### 1. Workflow configuration
 
-Before running the pipeline, you must generate a **run-specific workflow configuration file** (`configs/config.yaml`) for your analysis.
+Before running the pipeline, you must generate a **project-specific workflow configuration file** (`configs/pipeline_config.yaml`) for your analysis.
 
 Rather than editing this file by hand, it is **generated and validated** using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
@@ -133,10 +133,17 @@ Choose the profile that matches your environment:
 
 | Environment | Profile directory |
 |---|---|
-| HPC cluster (SLURM) | `profiles/slurm_profile/` |
-| Local / non-HPC | `profiles/local_cph/` |
+| HPC cluster | `profiles/slurm_profile/` |
+| Local (non-HPC) | `profiles/local_cph/` |
 
-> If you use a different scheduler (e.g. PBS, LSF), use the SLURM profile as a starting point and adapt the submission settings accordingly.
+The provided HPC profile uses **SLURM** as the default scheduler. If you are using a different scheduler (e.g., PBS or LSF), you can modify the `executor` variable in the `config.yaml` file accordingly. Snakemake will automatically handle job submission based on the selected executor.
+
+Snakemake (v9+) supports several executors, including:
+- `slurm`
+- `pbs`
+- `lsf`
+- `sge`
+- `kubernetes`
 
 Once you have chosen a profile, you need to make two changes:
 
@@ -150,48 +157,24 @@ configfile: /full/path/to/your/<config-name>.yaml
 
 ##### Step 2 — Adjust cluster-specific settings
 
-In the same profile `config.yaml`, adapt the settings to match your compute infrastructure. Key things to check:
+In the same profile `config.yaml`, adapt the settings to match your compute infrastructure. Key parameters to check include:
 
-- **Singularity bind mounts** — ensure the project folder is accessible inside the container
-- **Default memory and runtime limits** — adjust to fit typical job requirements
+- **Singularity bind mounts** — ensure the project directory is accessible inside the container. Specify the path to the project directory in the `singularity-args` parameter in `profiles/HPC_profile/config.yaml`.
+
+- **Default memory and runtime limits** — adjust these values to reflect typical job requirements and the resources available on your system.
 
 ---
 
 ## RUNNING THE PIPELINE
   
-### *Abacus* HPC environment
+### HPC or local environments
 
-In Abacus, first load the required Conda and Singularity environments:
-
-```bash
-module load bioinf/conda
-. /cm/shared/apps/bioinf/conda/23.10.0/etc/profile.d/conda.sh
-conda activate /ifs/software/research/unique/leena/conda-envs/snakemake_env_v9  # contains snakemake v9.13.4
-module load bioinf/singularity
-```
-And then launch it:
-```bash
-snakemake -s workflow/snakefile --profile profiles/slurm_profile
-```
-
-### *Other* HPC environment
-Ensure the following are installed and available in your environment:
-
-- Conda (version ≥23.3, tested on 23.10.0)
-- Singularity (version ≥3.7 and <4.0, tested on 3.7.0)
-- Snakemake (version ≥7.0 and <9.0, tested on 7.32.4)
-   
-To launch the pipeline, use the following command:
+Run the workflow from the root directory of the repository:
 
 ```bash
-snakemake -s workflow/snakefile --profile profiles/slurm_profile 
+snakemake --snakefile workflow/Snakefile --profile profiles/slurm_profile
 ```
-
-### *Local* execution
-
-ADD
-
----
+Alternatively, if you are outside the project directory, provide the full path to the `Snakefile` and the profile directory
 
 ## REPEAT CATALOGS
  
