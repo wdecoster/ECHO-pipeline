@@ -26,8 +26,8 @@ profiles/brando_profile
 !profiles/
 !profiles/slurm_profile/
 !profiles/slurm_profile/config.yaml
-!profiles/local_cph/
-!profiles/local_cph/config.yaml
+!profiles/local/
+!profiles/local/config.yaml
 !docs/
 !docs/**
 
