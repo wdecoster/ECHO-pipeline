@@ -20,7 +20,7 @@ profiles/brando_profile
 !test_data
 !test_data/**
 !configs/
-!configs/config.yaml
+!configs/pipeline_config.yaml
 !profiles/
 !profiles/HPC_profile/
 !profiles/HPC_profile/config.yaml
