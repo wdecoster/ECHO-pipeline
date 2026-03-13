@@ -172,9 +172,11 @@ In the same profile `config.yaml`, adapt the settings to match your compute infr
 Run the workflow from the root directory of the repository:
 
 ```bash
-snakemake --snakefile workflow/Snakefile --profile profiles/slurm_profile
+snakemake --snakefile workflow/Snakefile --profile profiles/HPC_profile
 ```
 Alternatively, if you are outside the project directory, provide the full path to the `Snakefile` and the profile directory
+
+---
 
 ## REPEAT CATALOGS
  
