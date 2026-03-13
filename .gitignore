@@ -20,9 +20,7 @@ profiles/brando_profile
 !test_data
 !test_data/**
 !configs/
-!configs/cluster-config.yaml
 !configs/config.yaml
-!configs/config_local.yaml
 !profiles/
 !profiles/HPC_profile/
 !profiles/HPC_profile/config.yaml
