@@ -77,7 +77,7 @@ ECHO uses **two independent configuration layers**:
 
 Before running the pipeline, you must generate a **project-specific pipeline configuration file** (`configs/pipeline_config.yaml`) for your analysis.
 
-Rather than editing this file by hand, it is **generated and validated** using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
+You can hard-code this file (you can find an example in `configs/pipeline_config.yaml`) or it is possible to **generated and validated** it using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
 The configuration defines:
 - Sample IDs
@@ -127,7 +127,7 @@ These defaults are designed to provide a **sensitive, genome-wide analysis** whi
 
 #### 2. Execution profile
 
-The execution profile controls **how Snakemake submits and manages jobs** on your compute environment (e.g. SLURM partitions, memory limits, scheduler settings). Pre-configured example profiles are provided in the `profiles/` directory.
+The execution profile controls **how Snakemake submits and manages jobs** on your compute environment (e.g. SLURM job scheduler and resource limits such as memory and CPUs). Pre-configured example profiles are provided in the `profiles/` directory.
 
 Choose the profile that matches your environment:
 
