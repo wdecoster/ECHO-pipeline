@@ -134,10 +134,9 @@ Choose the profile that matches your environment:
 | Environment | Profile directory |
 |---|---|
 | HPC cluster | `profiles/slurm_profile/` |
-| Local (non-HPC) | `profiles/local_cph/` |
+| Local (non-HPC) | `profiles/local_profile/` |
 
-The provided HPC profile uses **SLURM** as the default scheduler. If you are using a different scheduler (e.g., PBS or LSF), you can modify the `executor` variable in the `config.yaml` file accordingly. Snakemake will automatically handle job submission based on the selected executor.
-
+The provided HPC profile uses **SLURM** as the default scheduler. If you are using a different scheduler, you can modify the `executor` variable in the `config.yaml` file accordingly. Snakemake will automatically handle job submission based on the selected executor.
 Snakemake (v9+) supports several executors, including:
 - `slurm`
 - `pbs`
@@ -149,10 +148,10 @@ Once you have chosen a profile, you need to make two changes:
 
 ##### Step 1 — Point the profile to your workflow config
 
-Open `profiles/<your-profile>/config.yaml` and set the path to the workflow configuration file you generated in the previous step:
+Open `profiles/HPC_profile/config.yaml` and set the path to the workflow configuration file you generated in the previous step:
 
 ​```
-configfile: /full/path/to/your/<config-name>.yaml
+configfile: /full/path/to/your/<pipeline_config-name>.yaml
 ​```
 
 ##### Step 2 — Adjust cluster-specific settings
@@ -167,7 +166,7 @@ In the same profile `config.yaml`, adapt the settings to match your compute infr
 
 ## RUNNING THE PIPELINE
   
-Run the workflow from the root directory of the repository (both in HPC or local environments):
+Run the pipeline from the root directory of the repository (both in HPC or local environments):
 
 ```bash
 snakemake --snakefile workflow/Snakefile --profile profiles/HPC_profile
