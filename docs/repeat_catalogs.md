@@ -190,7 +190,6 @@ chr7 10234567 10234999 LTR/ERV ERVK_5
 - **TE_ID values must be unique**  
 - Chromosome naming must match the reference assembly (e.g. `chr1`, `chr2`, etc.)  
 - Overlapping TE loci are allowed but may increase computational runtime
-- 
 
 Custom TE catalogs can be supplied to the ECHO pipeline using the `--te_catalog` parameter.
 
