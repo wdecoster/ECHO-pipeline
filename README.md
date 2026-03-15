@@ -66,16 +66,16 @@ ECHO uses **two independent configuration layers**:
 
 | Layer | File | Purpose |
 |---|---|---|
-| **Project_configuration** | `configs/project_config.yaml` | Defines *what* to analyse in the pipeline (inputs, parameters, references) |
+| **Project configuration** | `configs/project_config.yaml` | Defines *what* to analyse in the pipeline (inputs, parameters, references) |
 | **Execution profile** | `profiles/*/config.yaml` | Defines *how* to run the pipeline on your system (local or HPC, resources, scheduler) |
 
-> ✏️ **Only the project_configuration (`config/project_config.yaml`) needs to be modified for each project.**
+> ✏️ **Only the project configuration (`config/project_config.yaml`) needs to be modified for each project.**
 
 ---
 
-#### 1. Project_configuration
+#### 1. Project configuration
 
-Before running the pipeline, you must generate a **project-specific project_configuration file** (`configs/project_config.yaml`) for your analysis.
+Before running the pipeline, you must generate a **project-specific project configuration file** (`configs/project_config.yaml`) for your analysis.
 
 You can hard-code this file (you can find an example in `configs/project_config.yaml`) or it is possible to **generated and validated** it using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
