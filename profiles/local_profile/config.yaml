@@ -9,7 +9,7 @@ conda-frontend: conda
 use-singularity: true
 singularity-args: "-B /path/to/projects/{project_name}/"
 
-configfile: "configs/pipeline_config.yaml"
+configfile: "configs/project_config.yaml"
 
 rerun-incomplete: true
 latency-wait: 60
