@@ -43,8 +43,8 @@ Ensure the following are installed and available in your environment:
   
 To install the ECHO pipeline, use:
 ```bash
-git clone https://github.com/leenput/repeatome_pipeline.git # clone the repository
-cd repeatome_pipeline
+git git@github.com:leenput/ECHO-pipeline.git # clone the repository
+cd ECHO-pipeline
 bash scripts/download_repeat_catalogs.sh # download the repeat catalogs in current directory
 ```
 
