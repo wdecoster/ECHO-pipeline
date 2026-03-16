@@ -1,4 +1,4 @@
-# profiles/brando_profile/config.yaml
+# profiles/slurm_profile/config.yaml
 
 executor: slurm
 jobs: 8
@@ -9,7 +9,7 @@ conda-frontend: conda
 use-singularity: true
 singularity-args: "-B /ifs/data/research/unique"
 
-configfile: "configs/GIAB_complete.yaml"
+configfile: "configs/project_config.yaml"
 
 rerun-incomplete: true
 latency-wait: 60

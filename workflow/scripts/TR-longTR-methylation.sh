@@ -155,6 +155,12 @@ process_line(){
     TR_CPG_METH_HP2="."
     TR_CPG_DEPTH_HP2="." 
     
+    TR_AVG_VALUE="."
+    upTR_AVG_VALUE="."
+    downTR_AVG_VALUE="."
+    TR_NCOV="."
+    upTR_NCOV="."
+    downTR_NCOV="."
     HP1_TR_AVG_VALUE="."
     HP1_TR_NCOV="."
     HP1_upTR_AVG_VALUE="."
