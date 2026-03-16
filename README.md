@@ -7,8 +7,7 @@
 - [Setting up](#setting-up-the-pipeline)
   - [Installation](#installation)
   - [Input Files](#prepare-input-files)
-  - [Set up configuration files](#Set-up-configuration-files)
-  - [Configuration](#set-up-configuration-file)
+  - [Set up configuration files](#set-up-configuration-files)
 - [Running the pipeline](#running-the-pipeline)
 - [Citation](#citation)
 - [Questions](#questions)
@@ -60,7 +59,7 @@ To run the pipeline, ECHO accepts input files in one of the below formats. The c
 
 ---
 
-### ⚙️ Set up configuration files
+### Set up configuration files
 
 ECHO uses **two independent configuration layers**:
 
