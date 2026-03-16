@@ -1,6 +1,6 @@
 # Configuration of the ECHO pipeline
 
-ECHO is configured using a project-level `config.yaml` file, which is generated
+ECHO is configured using a project-level `project_config.yaml` file, which is generated
 automatically using the helper script `make_config_tiny.py`.
 
 This document provides a **detailed reference** for generating, validating, and
@@ -12,11 +12,11 @@ customising the configuration used by the ECHO pipeline.
 
 Pipeline configuration in ECHO consists of two components:
 
-1. A **project configuration file** (`config.yaml`)  
+1. A **project configuration file** (`configs/project_config.yaml`)  
    Defines samples, input/output locations, reference genome, repeat catalogs,
    and analysis parameters.
 
-2. A **Snakemake execution profile**  
+2. A **Snakemake execution profile**  (`profiles/*/config.yaml`)
    Defines how jobs are submitted to the compute environment (scheduler, resources,
    Singularity settings).
 

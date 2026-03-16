@@ -1,0 +1,56 @@
+samples:
+  - {sample_name}
+  - {sample_name}
+
+start_from: "ubam" #Options: "pod5", "ubam", "fastq", "bam".
+
+# ------------------------------------------------------------------
+# USER INPUT / OUTPUT DIRECTORIES
+# Replace with the directories containing your data
+# ------------------------------------------------------------------
+
+input_dir: "/path/to/projects/{project_name}/"
+output_dir: "/path/to/projects/{project_name}/"
+
+# ------------------------------------------------------------------
+# REFERENCE GENOME
+# Replace with the path to your reference genome FASTA
+# ------------------------------------------------------------------
+
+reference: "/path/to/reference/genome/GRCh38.fasta"
+reference_name: "GRCh38" #"chm13v2" or "GRCh38"
+reference_TE: "/path/to/TE/reference/teref.ont.human.fa"
+
+# ------------------------------------------------------------------
+# FASTQ FILTERING PARAMETERS
+# ------------------------------------------------------------------
+
+fastq_filtering:
+  min_read_quality: 0
+  min_read_length: 500
+
+# ------------------------------------------------------------------
+# TANDEM REPEAT (TR) CATALOG
+# ------------------------------------------------------------------
+
+tr_catalog: "/path/to/TR/catalog/STRchive-disease-loci.v2.2.1.GRCh38.longTR.bed"
+type_of_tr: "pathogenic" # Options: genome-wide, genome-wide-str, pathogenic (ideal for testing), forensic
+
+# ------------------------------------------------------------------
+# TRANSPOSABLE ELEMENT (TE) CATALOG
+# ------------------------------------------------------------------
+
+# small TE catalog (ideal for testing)
+te_catalog: "/path/to/TE/catalog/GRCh38_TEs_retroposon.bed"
+type_of_te: "retroposon" #Options: all, all_cpg, DNA, DNA_cpg, LINE, LINE_cpg, helitron, helitron_cpg, SINE, SINE_cpg, LTR, LTR_cpg, retroposon, retroposon_cpg
+
+# Example full catalog
+# te_catalog: "/path/to/TE/catalog/GRCh38_TEs_all.bed"
+# type_of_te: "all"
+
+# ------------------------------------------------------------------
+# ANALYSIS PARAMETERS
+# ------------------------------------------------------------------
+
+flanking_length_bp: "250" # flanking regions (bp) to be analysed for methylation and sequence variation
+extension_repeat_consensus: "1000" # Bases used to extend repeat consensus for re-mapping

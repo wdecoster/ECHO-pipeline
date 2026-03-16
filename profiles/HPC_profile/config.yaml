@@ -7,7 +7,7 @@ use-conda: true
 conda-frontend: conda
 
 use-singularity: true
-singularity-args: "-B /ifs/data/research/unique"
+singularity-args: "-B /path/to/projects/{project_name}/"
 
 configfile: "configs/project_config.yaml"
 

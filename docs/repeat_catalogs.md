@@ -1,4 +1,4 @@
-# REPEAT CATALOGS - echoDB
+# BUNDLED REPEAT CATALOGS - echoDB
 
 The ECHO pipeline includes multiple repeat catalogs specifically designed to capture the repetitive elements of interest, both tandem repeats (TRs) and transposable elements (TEs), 
 for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [sandbox zenodo repository](https://sandbox.zenodo.org/records/430049), are compiled from published resources and adapted to ensure compatibility with the pipeline. 
@@ -9,17 +9,7 @@ They define the genomic loci where genotyping and/or methylation profiling is pe
 
 ---
 
-## Contents
-
-- Genome-wide and targeted **TR catalogs** (STRs and VNTRs)
-- **CpG-containing TR subsets** for methylation profiling
-- **Pathogenic** and **forensic** TR panels
-- Genome-wide **TE annotations**, including class-specific catalogs
-- Support for **GRCh38** and **T2T-CHM13v2** reference assemblies
-
----
-
-## Reference Assemblies
+## Supported reference assemblies
 
 echoDB currently supports the following assemblies:
 
@@ -37,14 +27,14 @@ Default catalogs used by the ECHO pipeline:
 
 ---
 
-## Tandem Repeat (TR) Catalogs
+## Tandem repeat (TR) catalogs
 
-### Tandem repeats
-
-For tandem repeat (TR) analysis, the catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format:
+For TR analysis, the catalogs specify the 1-based genomic coordinates of repeat loci to be profiled in the following format:
 ```bash
 chr  start  end  TRmotif  TR_ID
 ```
+
+### Genome-wide (GRCh38)
 
 #### Adotto genome-wide TRs
 - **ID:** `adotto_genome_wide`
@@ -101,7 +91,7 @@ CpGs may occur within the motif body and/or at motif junctions.
 
 ---
 
-## Transposable Element (TE) Catalogs
+## Transposable element (TE) catalogs
 
 ### Genome-wide TE annotations
 
@@ -128,9 +118,80 @@ echoDBv1/TEs/refGenome/TE_classes/refGenome_TEs_<class>.bed
 Class-specific BED files filtered by RepeatMasker class annotation.
 
 ---
-
 ## notes:
   - All BED files use chr-prefixed contig names.
   - TR catalogs are formatted for LongTR input (as provided in this DB; coordinate conventions follow the catalog source/format).
   - CpG STR catalogs are recommended for downstream methylation profiling to reduce computational burden
   - Catalogs are provided as annotation resources and do not include methylation or activity estimates
+
+
+---
+
+# CUSTOM REPEAT CATALOGS 
+
+In addition to the bundled **echoDB** catalogs, users may supply **custom repeat catalogs** to analyze specific loci or repeat sets of interest. This allows targeted analyses such as:
+
+- candidate loci identified in previous studies  
+- custom panels for targeted applications  
+- reduced catalogs for faster exploratory analyses  
+
+Custom catalogs can be provided independently for **TR (epi)genotyping** or **TE characterization**.  
+
+## Custom tandem repeat catalogs
+
+Custom TR catalogs must follow the same **tab-separated 1-based BED-like format** used by ECHO:
+
+```bash
+chr   start   end   TRmotif   TR_ID
+```
+**Requirements**:  
+- Coordinates must correspond to the reference genome used for read alignment  
+- Chromosome naming must match the reference assembly (e.g. `chr1`, `chr2`, etc.) 
+- TR_ID values must be unique
+- Motifs should represent the canonical repeat unit where possible  
+- Overlapping loci are allowed but may increase runtime and complicate interpretation
+
+For methylation profiling of TR loci, users may optionally restrict analysis to **TRs containing CpGs within the repeat motif**.  
+
+This can be achieved by generating a custom subset of TR loci where:  
+
+- the repeat motif itself contains a **CG dinucleotide**, or  
+- **CpGs are formed across repeat boundaries** when motifs concatenate.  
+
+Restricting catalogs to CpG-containing TRs can substantially **reduce computational burden** and focus methylation analyses on informative loci.  
+
+These catalogs can be supplied to ECHO via the standard `--tr_catalog` parameter.  
+
+## Custom transposable element catalogs  
+
+Users may also provide **custom TE catalogs** to restrict analysis to specific transposable element insertions or TE families of interest.
+
+This can be useful for:  
+- focusing on **specific TE families or subfamilies** (e.g. *L1HS*, *AluYb8*, *SVA_F*)
+- analyzing **candidate polymorphic insertions**
+- restricting analysis to **experimentally validated loci**
+- building **reduced catalogs for faster exploratory analyses**
+
+Custom TE catalogs should be provided in **BED format**, specifying the genomic coordinates of TE loci to analyze.
+
+```bash
+chr   start   end   TEfamily   TE_ID
+```
+
+Example catalog entries:
+```
+chr1 3456789 3457234 LINE/L1 L1HS_1
+chr3 8765432 8765667 SINE/Alu AluYb8_23
+chr7 10234567 10234999 LTR/ERV ERVK_5
+```
+
+**Requirements**:  
+- Coordinates must correspond to the **reference genome used for read alignment**  
+- **TE_ID values must be unique**  
+- Chromosome naming must match the reference assembly (e.g. `chr1`, `chr2`, etc.)  
+- Overlapping TE loci are allowed but may increase computational runtime
+
+Custom TE catalogs can be supplied to the ECHO pipeline using the `--te_catalog` parameter.
+
+---
+
