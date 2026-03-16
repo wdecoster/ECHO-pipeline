@@ -7,8 +7,11 @@
 - [Setting up](#setting-up-the-pipeline)
   - [Installation](#installation)
   - [Input Files](#prepare-input-files)
-  - [Set up configuration files](#set-up-configuration-files)
+  - [Configuration](#set-up-configuration-files)
 - [Running the pipeline](#running-the-pipeline)
+- [Repeat catalogs](#repeat-catalogs)
+- [Output](#output-files)
+- [Test data](#test-data)
 - [Citation](#citation)
 - [Questions](#questions)
 
