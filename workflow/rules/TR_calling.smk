@@ -30,6 +30,7 @@ rule TR_calling:
             --bam-samps {params.sample_name} \
             --bam-libs {params.sample_name} \
             --haploid {params.haploid_chrs} \
+            --alignment-params -1.0,-0.458675,-1.0,-0.458675,-0.00005800168,-1.0,-1.0 \
             --phased-bam \
             > {log} 2>&1
         """

@@ -1,4 +1,4 @@
-# profiles/brando_profile/config.yaml
+# profiles/slurm_profile/config.yaml
 
 executor: slurm
 jobs: 8
