@@ -26,7 +26,7 @@ reference_TE: "/path/to/TE/reference/teref.ont.human.fa"
 # ------------------------------------------------------------------
 
 fastq_filtering:
-  min_read_quality: 0
+  min_read_quality: 7
   min_read_length: 500
 
 # ------------------------------------------------------------------
