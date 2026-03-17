@@ -9,7 +9,7 @@ STAGING_DIR="${DEST_ROOT}/.${DB_NAME}.staging"
 ZIP_PATH="${DEST_ROOT}/${DB_NAME}.zip"
 
 # Download repeat catalog zip file from Zenodo to current directory
-ZENODO="https://sandbox.zenodo.org/record/430049/files/${DB_NAME}.zip?download=1"
+ZENODO="https://zenodo.org/records/18172438/files/echoDB_v1.zip?download=1"
 
 
 #----prep download----
