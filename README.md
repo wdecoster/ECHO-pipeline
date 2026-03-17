@@ -79,7 +79,7 @@ ECHO uses **two independent configuration layers**:
 
 Before running the pipeline, you must generate a **project-specific project configuration file** (`configs/project_config.yaml`) for your analysis.
 
-You can hard-code this file (you can find an example in `configs/project_config.yaml`) or it is possible to **generated and validated** it using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
+You can hard-code this file (you can find an example in `configs/project_config.yaml`) or it is possible to **generate and validate** it using the provided helper script `scripts/make_config_tiny.py`. This script creates a valid Snakemake configuration for ECHO and ensures internal consistency between your input data, reference resources, and analysis settings.
 
 The configuration defines:
 - Sample IDs
