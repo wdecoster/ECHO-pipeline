@@ -1,11 +1,13 @@
 # BUNDLED REPEAT CATALOGS - echoDB
 
 The ECHO pipeline includes multiple repeat catalogs specifically designed to capture the repetitive elements of interest, both tandem repeats (TRs) and transposable elements (TEs), 
-for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [sandbox zenodo repository](https://sandbox.zenodo.org/records/430049), are compiled from published resources and adapted to ensure compatibility with the pipeline. 
+for the selected reference genome (GRCh38 or T2T CHM13v2). These catalogs, which are hosted within this [zenodo repository](https://zenodo.org/records/18172438), are compiled from published resources and adapted to ensure compatibility with the pipeline. 
 They define the genomic loci where genotyping and/or methylation profiling is performed, enabling analysis of the human repeatome. 
 
 **Version:** echoDB v1  
-**Release date:** January 2026
+**Release date:** March 2026
+
+Please refer to the download instructions described in the main README. 
 
 ---
 
