@@ -186,7 +186,7 @@ For a detailed description of the repeat catalogs bundled with ECHO, or how to u
 
 ## OUTPUT FILES 
 
-In your project folder, numerous output files are provided, with the most important ones explained [here](docs/output.md)
+In your project folder, numerous output files are provided, with the most important ones explained [here](docs/output.md).
 For representative examples of the output structure and generated files, see the example datasets listed below.
 
 ---
