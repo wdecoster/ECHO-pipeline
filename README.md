@@ -43,7 +43,7 @@ Ensure the following are installed and available in your environment:
   
 To install the ECHO pipeline, use:
 ```bash
-git https://github.com/leenput/ECHO-pipeline.git # clone the repository
+git clone https://github.com/leenput/ECHO-pipeline.git # clone the repository
 cd ECHO-pipeline
 bash scripts/download_repeat_catalogs.sh # download the repeat catalogs in current directory
 ```
@@ -96,7 +96,7 @@ To quickly get started using the bundled ECHO repeat catalogs and sensible defau
 ```bash
 python scripts/make_config_tiny.py init \
   --output configs/<config-name>.yaml \
-  --samples SAMPLE1 SAMPLE2 \
+  --samples SAMPLE1 SAMPLE2
   --start-from ubam \
   --input-dir /path/to/project \
   --output-dir /path/to/project \
