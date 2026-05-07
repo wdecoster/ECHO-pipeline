@@ -96,7 +96,7 @@ To quickly get started using the bundled ECHO repeat catalogs and sensible defau
 ```bash
 python scripts/make_config_tiny.py init \
   --output configs/<config-name>.yaml \
-  --samples SAMPLE1 SAMPLE2
+  --samples SAMPLE1 SAMPLE2 \
   --start-from ubam \
   --input-dir /path/to/project \
   --output-dir /path/to/project \
